@@ -166,7 +166,7 @@ def load_slices(target_name):
         # if this is the first file we want to set up a 3D volume
         
     nJm = np.max(nJ_,0)
-    nJm = (np.quantile(nJ_,0.99,axis=0)*1.1).astype(int) 
+    nJm = (np.quantile(nJ_,0.99,axis=0)*1.01).astype(int) 
     # this will look for outliers when there are a small number, 
     # really there just shouldn't be outliers
     nJsave = np.copy(nJ_) 
@@ -566,7 +566,8 @@ def emlddmm(**kwargs):
             A2d = torch.eye(3,device=device,dtype=dtype)[None].repeat(J.shape[1],1,1)
             A2d.requires_grad = True
         else:
-            A2d = torch.as_tensor(A2d, device=device, dtype=dtype,requires_grad=True)
+            A2d = torch.as_tensor(A2d, device=device, dtype=dtype)
+            A2d.requires_grad = True
         # if slice matching is on we want to add xy translation in A to A2d
         with torch.no_grad():
             A2di = torch.inverse(A2d)

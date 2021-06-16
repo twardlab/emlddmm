@@ -1,5 +1,5 @@
 {
-    "n_iter":[1000,500],
+    "n_iter":[500,200],
     "downI":[[4,4,4],[2,2,2]],
     "downJ":[[1,16,16],[1,8,8]],
     "priors":[[0.9,0.05,0.05]],
@@ -16,6 +16,6 @@
     "order":[3],
     "n_draw":[50],
     "n_e_step":[10],
-    "slice_matching_start":[200,0],
-    "v_start":[500,0]
+    "slice_matching_start":[100,0],
+    "v_start":[200,0]
 }
