@@ -7,6 +7,8 @@ import os
 import nrrd
 import json
 import re
+import argparse
+import warnings
 
 
 # display
@@ -96,6 +98,8 @@ def load_slices(target_name):
     # expects data type to be in 0,1
     # assumes space directions are diagonal
     # todo: origin
+    # we will need more control over the size, and we will need to maintain the origin of each slice
+    # right now we have a heuristic for taking 99th percentile and expanding by 1%
     
     data = []
     # load the one tsv file
@@ -166,7 +170,7 @@ def load_slices(target_name):
         # if this is the first file we want to set up a 3D volume
         
     nJm = np.max(nJ_,0)
-    nJm = (np.quantile(nJ_,0.99,axis=0)*1.01).astype(int) 
+    nJm = (np.quantile(nJ_,0.95,axis=0)*1.01).astype(int) 
     # this will look for outliers when there are a small number, 
     # really there just shouldn't be outliers
     nJsave = np.copy(nJ_) 
@@ -268,8 +272,14 @@ def interp(x,I,phii,**kwargs):
     '''
     Interpolate the image I, with regular grid positions stored in x (1d arrays),
     at the positions stored in phii (3D arrays with first channel storing component)
+    convention
+    input x is a tuple storing grid points in I
+    I is an image with channels along the first axis
+    phii is a diffeo with components along the first axis
     '''
     # first we have to normalize phii to the range -1,1    
+    I = torch.as_tensor(I)
+    phii = torch.as_tensor(phii)
     phii = torch.clone(phii)
     for i in range(3):
         phii[i] -= x[i][0]
@@ -294,6 +304,13 @@ def interp(x,I,phii,**kwargs):
 # now we need to create a flow
 # timesteps will be along the first axis
 def v_to_phii(xv,v):
+    '''
+    Inputs: 
+        xv -> list of 1D tensors describing locations of sample points
+        v -> 5D (nt,3,v0,v1,v2) velocity field
+    Output:
+        phii (inverse map) computed by method of characteristics
+    '''
     XV = torch.stack(torch.meshgrid(xv))
     phii = torch.clone(XV)
     dt = 1.0/v.shape[0]
@@ -934,16 +951,16 @@ def emlddmm_multiscale(**kwargs):
     
     
     # how many levels?
+    # note I expect downI to be either a list, or a list of lists, not numpy array
     if 'downI' in kwargs:
-        downI = kwargs['downI']
+        downI = kwargs['downI']        
         if type(downI[0]) == list:
             nscales = len(downI)
         else:
             nscales = 1
+        print(f'Found {nscales} scales')
         
     
-
-
 
     for d in range(nscales):
         # now we have to convert the kwargs to a new dictionary with only one value
@@ -970,10 +987,12 @@ def emlddmm_multiscale(**kwargs):
 
         A = output['A']
         v = output['v']
-        A2d = output['A2d']
+        
         kwargs['A'] = A
         kwargs['v'] = v
-        kwargs['A2d'] = A2d
+        if 'slice_matching' in params and params['slice_matching']:
+            A2d = output['A2d']
+            kwargs['A2d'] = A2d
     return output
 
     
@@ -988,18 +1007,29 @@ def emlddmm_multiscale(**kwargs):
 dtypes = {    
         np.dtype('float32'):'float',
         np.dtype('float64'):'double',
+        np.dtype('uint8'):'unsigned_char',
+        np.dtype('uint16'):'unsigned_short',
+        np.dtype('uint32'):'unsigned_int',
+        np.dtype('uint64'):'unsigned_long',
+        np.dtype('int8'):'char',
+        np.dtype('int16'):'short',
+        np.dtype('int32'):'int',
+        np.dtype('int64'):'long',
     }
 
+
 def write_vtk_data(fname,x,out,title,names=None):
+    
     '''
     Write data as vtk file.
+    inputs should be numpy, but will check for tensor
     each channel is saved as a dataset (time for velocity field, or image channel for images)
     each channel is saved as a structured points with a vector or a scalar at each point        
     
     fname is filename to write
     x is voxel locations along last three axes
     if out is size nt x 3 x slices x height x width we assume vector
-    if out is size n x slices x height x width we assum scalar     
+    if out is size n x slices x height x width we assume scalar     
     title is the name of the dataset
     out needs to be numpy
     names can be a list of names for each dataset or None
@@ -1018,6 +1048,9 @@ def write_vtk_data(fname,x,out,title,names=None):
     if names is None:        
         names = [f'data_{t:03d}(b)' for t in range(out.shape[0])]
 
+    if type(out) == torch.Tensor:        
+        out = out.cpu().numpy()
+    
     with open(fname,'wt') as f:
         f.writelines([
             '# vtk DataFile Version 3.0\n',
@@ -1030,7 +1063,7 @@ def write_vtk_data(fname,x,out,title,names=None):
             f'POINT_DATA {out.shape[-1]*out.shape[-2]*out.shape[-3]}\n'                  
             ])
     
-
+    
     for i in range(out.shape[0]):
         with open(fname,'at') as f:
             f.writelines([
@@ -1041,6 +1074,7 @@ def write_vtk_data(fname,x,out,title,names=None):
             if type_ == 'VECTORS':
                 out_ = np.array(out[i].transpose(1,2,3,0))
             else:
+                f.write('LOOKUP_TABLE default\n'.encode())
                 out_ = np.array(out[i])
             outtype = np.dtype(out_.dtype).newbyteorder('>')
             out_.astype(outtype).tofile(f)
@@ -1049,6 +1083,149 @@ def write_vtk_data(fname,x,out,title,names=None):
                 '\n'
             ])
             
+dtypes_reverse = {
+    'float':np.dtype('float32'),
+    'double':np.dtype('float64'),
+    'unsigned_char':np.dtype('uint8'),
+    'unsigned_short':np.dtype('uint16'),
+    'unsigned_int':np.dtype('uint32'),
+    'unsigned_long':np.dtype('uint64'),
+    'char':np.dtype('int8'),
+    'short':np.dtype('int16'),
+    'int':np.dtype('int32'),
+    'long':np.dtype('int64'),
+}    
+def read_vtk_data(fname,endian='b'):
+    '''
+    Read data back in same format, I will check that I get identity
+    
+    Note endian should always be big, but we support little as well
+    
+    input is filename and optionally endian
+    
+    output is x,images,title,names
+    
+    only legacy format supported
+    '''
+    # TODO support skipping blank lines
+    big = not (endian=='l')
+    
+    verbose = True
+    verbose = False
+    with open(fname,'rb') as f:        
+        # first line should say vtk version
+        line = f.readline().decode().strip()
+        if verbose: print(line)
+        if 'vtk datafile' not in line.lower():
+            raise Exception('first line should include vtk DataFile Version X.X')
+        # second line says title    
+        line = f.readline().decode().strip()
+        if verbose: print(line)
+        title = line
+
+        # third line should say type of data
+        line = f.readline().decode().strip()
+        if verbose: print(line)
+        if not line.upper() == 'BINARY':
+            raise Exception(f'Only BINARY data type supported, but this file contains {line}')
+        data_format = line
+
+        # next line says type of data
+        line = f.readline().decode().strip()
+        if verbose: print(line)
+        if not line.upper() == 'DATASET STRUCTURED_POINTS':
+            raise Exception(f'Only STRUCTURED_POINTS dataset supported, but this file contains {line}')
+        geometry = line
+
+        # next line says dimensions    
+        # "ordered with x increasing fastest, theny,thenz"
+        # this is the same as nrrd (fastest to slowest)
+        # however our convention in python that we use channel z y x order
+        # i.e. the first is channel
+        line = f.readline().decode().strip()
+        if verbose: print(line)
+        dimensions = np.array([int(n) for n in line.split()[1:]])
+        if len(dimensions) not in [3,4]:
+            raise Exception(f'Only datasets with 3 or 4 axes supported, but this file contains {dimensions}')
+
+        # next says origin
+        line = f.readline().decode().strip()
+        if verbose: print(line)
+        origin = np.array([float(n) for n in line.split()[1:]])
+
+        # next says spacing
+        line = f.readline().decode().strip()
+        if verbose: print(line)
+        spacing = np.array([float(n) for n in line.split()[1:]])
+
+        # now I can build axes
+        # note I have to reverse the order for python
+        x = [np.arange(n)*d+o for n,d,o in zip(dimensions[::-1],spacing[::-1],origin[::-1])]
+
+        # next line must contain point_data
+        line = f.readline().decode().strip()
+        if verbose: print(line)
+        if 'POINT_DATA' not in line:
+            raise Exception(f'only POINT_DATA supported but this file contains {line}')                          
+        N = int(line.split()[-1])
+
+        # now we will loop over available datasets
+        names = []
+        images = []
+        count = 0
+        while True:
+            
+            # first line contains data type (scalar or vector), name, and format
+            # it could be a blank line
+            line = f.readline().decode()
+            if line == '\n':
+                line = f.readline().decode()        
+            line = line.strip()
+            
+            if line is None or not line: # check if we've reached the end of the file
+                break
+                
+            if verbose: print(f'starting to load dataset {count}')
+                
+            if verbose: print(line)            
+            S_V = line.split()[0]
+            name = line.split()[1]
+            dtype = line.split()[2]
+            names.append(name)
+
+            if S_V.upper() not in ['SCALARS','VECTORS']:
+                raise Exception(f'Only scalars or vectors supported but this file contains {S_V}')        
+            
+            if '(b)' not in name and big: 
+                warnings.warn(f'Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian="l" if you want little')
+                            
+            dtype_numpy = dtypes_reverse[dtype]
+            if big:
+                dtype_numpy_big = dtype_numpy.newbyteorder('>') # > means big endian
+            else:
+                dtype_numpy_big = dtype_numpy
+            #
+            # read the data
+            if S_V == 'SCALARS':
+                # there should be a line with lookup table
+                line = f.readline().decode()
+                if verbose: print(line)
+                data = np.fromfile(f,dtype_numpy_big,N).astype(dtype_numpy)
+                # shape it
+                data = data.reshape(dimensions[::-1])
+                # axis order is already correct because of slowest to fastest convention in numpy
+
+            elif S_V == 'VECTORS':            
+                data = np.fromfile(f,dtype_numpy_big,N*3).astype(dtype_numpy)
+                # shape it
+                data = data.reshape((dimensions[-1],dimensions[-2],dimensions[-3],3))
+                # move vector components first
+                data = data.transpose((3,0,1,2))
+            images.append(data)
+            count += 1
+        images = np.stack(images) # stack on axis 0
+    return x,images,title,names
+    
 def write_matrix_data(fname,A):
     with open(fname,'wt') as f:
         for i in range(A.shape[0]):
@@ -1057,11 +1234,13 @@ def write_matrix_data(fname,A):
             f.write('\n')
 
 # write outputs
-def write_transform_outputs(output_dir, outputs):
+def write_transform_outputs(output_dir, output):
     xv = output['xv']
     v = output['v']
     A = output['A']
-    A2d = output['A2d']
+    slice_outputs = 'A2d' in output
+    if slice_outputs:
+        A2d = output['A2d']
     
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
@@ -1074,21 +1253,43 @@ def write_transform_outputs(output_dir, outputs):
     write_vtk_data(output_name,xv,v.cpu().numpy(),title)  
     output_name = os.path.join(output_dir, 'A.txt')
     write_matrix_data(output_name,A)
-    for i in range(A2d.shape[0]):
-        output_name = os.path.join(output_dir,f'A2d_{i:04d}.txt')
-        write_matrix_data(output_name,A2d[i])
+    if slice_outputs:
+        for i in range(A2d.shape[0]):
+            output_name = os.path.join(output_dir,f'A2d_{i:04d}.txt')
+            write_matrix_data(output_name,A2d[i])
 
 def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     ''' 
     Write outputs
+    TODO figure out how to do this with or without A2d
+    I still want to output per slice
     '''
-    xv = output['xv']
-    v = output['v'].detach()
-    A = output['A'].detach()
     
+    xv = [x.to('cpu') for x in output['xv']]
+    v = output['v'].detach().to('cpu')
+    A = output['A'].detach().to('cpu')
+    print(A.device)
+    
+    
+    # 
+    device = A.device
+    dtype = A.dtype
+    
+    # to torch
+    J = torch.as_tensor(J,dtype=dtype,device=device)
+    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
+    I = torch.as_tensor(I,dtype=dtype,device=device)
+    xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
+    if S is not None: # segmentations go with atlas, they are integers
+        S = torch.as_tensor(S,device=device,dtype=dtype) 
+        # don't specify dtype here, you had better set it in numpy
+        # actually I need it as float in order to apply interp
+        if xS is not None:
+            xS = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
+            
     slice_matching = 'A2d' in output
     if slice_matching:
-        A2d = output['A2d'].detach()
+        A2d = output['A2d'].detach().to('cpu')
 
     Ai = torch.inverse(A)
     
@@ -1097,11 +1298,12 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     output_dir = os.path.join(output_dir,'qc/')
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
+    print(f'output dir is {output_dir}')
     
-    # first, lets see the transformed atlas and target
-    XJ = torch.stack(torch.meshgrid(xJ))
-    A2di = torch.inverse(A2d)
+    # first, lets see the transformed atlas and target    
+    XJ = torch.stack(torch.meshgrid(xJ))    
     if slice_matching:
+        A2di = torch.inverse(A2d)
         XJ_ = torch.clone(XJ)    
         XJ_[1:] = ((A2di[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)            
     else:
@@ -1131,6 +1333,8 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     
     
     # first we need to build the reconstructed space
+    # this is only done if there is 2D
+    # maybe I should have reorientation at least otherwise? Not yet
     # that is, only apply the 2D transforms
     # then I can
     # I'll have to build an intelligent sample space
@@ -1138,38 +1342,43 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     # to do this we'll apply A2di to the corners of each slice
     # and get the min and max
     XJ = torch.stack(torch.meshgrid(xJ),-1)
-    A2di = torch.inverse(A2d)
-    points = (A2di[:,None,None,:2,:2]@XJ[...,1:,None])[...,0]
-    m0 = torch.min(points[...,0])
-    M0 = torch.max(points[...,0])
-    m1 = torch.min(points[...,1])
-    M1 = torch.max(points[...,1])
-    # construct a recon domain
-    xr0 = torch.arange(float(m0),float(M0),dJ[1],device=m0.device,dtype=m0.dtype)
-    xr1 = torch.arange(float(m1),float(M1),dJ[2],device=m0.device,dtype=m0.dtype)
-    xr = xJ[0],xr0,xr1
-    XR = torch.stack(torch.meshgrid(xr),-1)
-    # now we have to sample J at A Xr
-    Xs = torch.clone(XR)
-    Xs[...,1:] = (A2d[:,None,None,:2,:2]@XR[...,1:,None])[...,0] + A2d[:,None,None,:2,-1]
-    Xs = Xs.permute(3,0,1,2)
-    Jr = interp(xJ,J,Xs)
-    fig = draw(Jr,xr)
-    fig[0].suptitle('J recon')
-    fig[0].savefig(output_dir + 'J_recon.jpg')
+    if slice_matching:
+        A2di = torch.inverse(A2d)
+        points = (A2di[:,None,None,:2,:2]@XJ[...,1:,None])[...,0]
+        m0 = torch.min(points[...,0])
+        M0 = torch.max(points[...,0])
+        m1 = torch.min(points[...,1])
+        M1 = torch.max(points[...,1])
+        # construct a recon domain
+        dJ = [x[1]-x[0] for x in xJ]
+        xr0 = torch.arange(float(m0),float(M0),dJ[1],device=m0.device,dtype=m0.dtype)
+        xr1 = torch.arange(float(m1),float(M1),dJ[2],device=m0.device,dtype=m0.dtype)
+        xr = xJ[0],xr0,xr1
+        XR = torch.stack(torch.meshgrid(xr),-1)
+        # now we have to sample J at A Xr
+        Xs = torch.clone(XR)
+        Xs[...,1:] = (A2d[:,None,None,:2,:2]@XR[...,1:,None])[...,0] + A2d[:,None,None,:2,-1]
+        Xs = Xs.permute(3,0,1,2)
+        Jr = interp(xJ,J,Xs)
+        fig = draw(Jr,xr)
+        fig[0].suptitle('J recon')
+        fig[0].savefig(output_dir + 'J_recon.jpg')
 
-    # and we need atlas recon
-    # sample points for affine
-    Xs = ((Ai[:3,:3]@XR[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
-    # for diffeomorphism
-    XV = torch.stack(torch.meshgrid(xv))
-    phiiAi = interp(xv,phii-XV,Xs) + Xs
+        # and we need atlas recon
+        # sample points for affine
+        Xs = ((Ai[:3,:3]@XR[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
+        # for diffeomorphism
+        XV = torch.stack(torch.meshgrid(xv))
+        phiiAi = interp(xv,phii-XV,Xs) + Xs
 
-    # transform image
-    AphiI = interp(xI,I,phiiAi)       
-    fig = draw(AphiI,xr)
-    fig[0].suptitle('I recon')
-    fig[0].savefig(output_dir + 'I_recon.jpg')
+        # transform image
+        AphiI = interp(xI,I,phiiAi)       
+        fig = draw(AphiI,xr)
+        fig[0].suptitle('I recon')
+        fig[0].savefig(output_dir + 'I_recon.jpg')
+    else:
+        Jr = J
+        xr = xJ
 
 
     #fig = draw(torch.cat((AphiI,Jr,AphiI),0),xr)
@@ -1199,13 +1408,14 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     output_slices = slice_matching and ( (xS is not None) and (S is not None))
     if output_slices:
         # transform S
-        AphiS = interp(xS,torch.tensor(S[None].astype(float),device=device,dtype=dtype),phiiAi,mode='nearest').cpu().numpy()[0]
+        # note here I had previously converted it to float
+        AphiS = interp(xS,torch.tensor(S,device=device,dtype=dtype),phiiAi,mode='nearest').cpu().numpy()[0]
 
         mods = (7,11,13)
         R = (AphiS%mods[0])/mods[0]
         G = (AphiS%mods[1])/mods[1]
         B = (AphiS%mods[2])/mods[2]
-        #fig = draw(np.stack((R,G,B)),xr)
+        fig = draw(np.stack((R,G,B)),xr)
 
         # also outlines
         M = np.zeros_like(AphiS)
@@ -1243,4 +1453,372 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
             f.savefig(os.path.join(output_dir,f'slice_{s:04d}.jpg'))
 
 
+class Transform():    
+    '''
+    A simple class for storing and applying transforms
+    TODO: add another type for series of 2D transforms
+    '''
+    def __init__(self,data,direction='f',domain=None,dtype=torch.float,device='cpu'):
+        if type(data) == str:
+            # instead we load it
+            prefix,extension = os.path.splitext(data)
+            if extension == '.txt':
+                data = np.genfromtxt(data,delimiter=',')                
+                # note that there are nans at the end if I have commas at the end
+                if np.isnan(data[0,-1]):
+                    data = data[:,:data.shape[1]-1]
+                    #print(data)
+            elif extension == '.vtk':
+                x,images,title,names = read_vtk_data(data)
+                domain = x
+                data = images
+            else:
+                raise Exception(f'Only txt and vtk files supported but your transform is {data}')
+            
+        self.data = torch.as_tensor(data,dtype=dtype,device=device)
+        if domain is not None:
+            domain = [torch.as_tensor(d,dtype=dtype,device=device) for d in domain]            
+        self.domain = domain
+        if not direction in ['f','b']:
+            raise Exception(f'Direction must be \'f\' or \'b\' but it was \'{direction}\'')
+        self.direction = direction
+        
+        # if it is a velocity field we need to integrate it
+        if self.data.ndim == 5:
+            if self.domain is None:
+                raise Exception('Domain is required when inputting veloctiy field')
+            if self.direction == 'b':
+                self.data = v_to_phii(self.domain,self.data)
+            else:
+                self.data = v_to_phii(self.domain,-torch.flip(self.data,(0,)))
+        elif self.data.ndim == 2:# if it is a matrix check size
+            if self.data.shape[0] == 3 and self.data.shape[1]==3:
+                tmp = torch.eye(4,device=device,dtype=dtype)
+                tmp[1:,1:] = self.data
+                self.data = tmp            
+            elif not (self.data.shape[0] == 4 and self.data.shape[1]==4):
+                raise Exception(f'Only 3x3 or 4x4 matrices supported now but this is {self.data.shape}')
+                
+            if self.direction == 'b':
+                self.data = torch.inverse(self.data)
+        elif self.data.ndim == 4: # if it is a mapping
+            if self.direction == 'b':
+                raise Exception(f'When specifying a mapping, backwards is not supported')
+        
+                
+                
+                
+    def apply(self,X):
+        X = torch.as_tensor(X,dtype=self.data.dtype,device=self.data.device)
+        if self.data.ndim == 2:
+            # then it is a matrix
+            A = self.data
+            return ((A[:3,:3]@X.permute(1,2,3,0)[...,None])[...,0] + A[:3,-1]).permute(3,0,1,2)
+        elif self.data.ndim == 4:
+            # then it is a mapping, we need interp
+            # recall all components are stored on the first axis,
+            # but for sampling they need to be on the last axis
+            ID = torch.stack(torch.meshgrid(self.domain))
+            #print(f'ID shape {ID.shape}')
+            #print(f'X shape {X.shape}')
+            #print(f'data shape {self.data.shape}')
+            return interp(self.domain,(self.data-ID),X) + X
+            
+        
+            
+    def __repr__(self):
+        return f'Transform with data size {self.data.shape}, direction {self.direction}, and domain {type(self.domain)}'
+    def __call__(self,X):
+        return self.apply(X)
+            
+# now wrap this into a function
+def compose_sequence(transforms,Xin,direction='f'):
+    '''
+    Input can be a list of transforms class.
+    Or a list of filenames (single direction in argument)
+    Or a list of a list of 2 tuples that specify direction (f,b)
+    Or an output directory
+    
+    Note f is default which maps points from atlas to target, 
+    or images from target to atlas.
+    
+    Xin are the points we want to transform (e.g. sample points in atlas)
+    
+    TODO use os path join
+    '''
+    if type(transforms) == str:
+        # assume output directory
+        #print('printing transforms input')
+        #print(transforms)
+        transforms = [Transform(os.path.join(transforms,'transforms','A.txt'),direction=direction),
+                      Transform(os.path.join(transforms,'transforms','velocity.vtk'),direction=direction)]
+        #print('printing modified transforms')
+        #print(transforms)
+    elif type(transforms) == list:
+        if type(transforms[0]) == Transform:
+            # don't do anything here
+            pass
+        elif type(transforms[0]) == str:
+            # list of strings
+            transforms = [Transform(t,direction=direction) for t in transforms]
+        elif type(transforms[0]) == tuple:
+            transforms = [Transform(t[0],direction=t[1]) for t in transforms]
+        else:
+            raise Exception('Transforms must be either output directory, \
+        or list of objects, or list of filenames, \
+        or list of tuples storing filename/direction')
+    else:
+        raise Exception('Transforms must be either output directory, \
+        or list of objects, or list of filenames, \
+        or list of tuples storing filename/direction')
+    Xin = torch.as_tensor(Xin,device=transforms[0].data.device,dtype=transforms[0].data.dtype)    
+    Xout = torch.clone(Xin)
+    for t in transforms:
+        Xout = t(Xout)
+    return Xout
+    
+def apply_transform_float(x,I,Xout):
+    '''Apply transform to image
+    Image points stored in x, data stored in I
+    transform stored in Xout
+    
+    There is an issue with numpy integer arrays, I'll have two functions
+    '''
+    if type(I) == np.array:
+        isnumpy = True
+    else:
+        isnumpy = False
+    
+    AphiI = interp(x,torch.as_tensor(I,dtype=Xout.dtype,device=Xout.device),Xout,mode='nearest').cpu()
+    if isnumpy:
+        AphiI = IphiI.numpy()
+    return AphiI
+def apply_transform_int(x,I,Xout):
+    '''Apply transform to image
+    Image points stored in x, data stored in I
+    transform stored in Xout
+    
+    There is an issue with numpy integer arrays, I'll have two functions
+    '''
+    if type(I) == np.array:
+        isnumpy = True
+    else:
+        isnumpy = False
+    Itype = I.dtype
+    # for int, I need to convert to float for interpolation
+    AphiI = interp(x,torch.as_tensor(I.astype(float),dtype=Xout.dtype,device=Xout.device),Xout,mode='nearest').cpu()
+    if isnumpy:
+        AphiI = AphiI.numpy().astype(Itype)
+    else:
+        AphiI = AphiI.int()
+    return AphiI
+    
+            
+        
+        
+        
+# now we'll start building an interface
+if __name__ == '__main__':
+    # set up command line args
+    # we will either calculate mappings or apply mappings
+    parser = argparse.ArgumentParser(description='Calculate or apply mappings, or run a specified pipeline.', epilog='Enjoy')
+    
+    
+    parser.add_argument('-m','--mode', help='Specify mode as one of register, transform, or a named pipeline', default='register',choices=['register','transform']) 
+    # add other choices
+    # maybe I don't need a mode
+    # if I supply a -x it will apply transforms
+    
+    parser.add_argument('-a','--atlas',
+                        help='Specify the filename of the image to be transformed (atlas)')
+    parser.add_argument('-l','--label', help='Specify the filename of the label image in atlas space for QC and outputs')
+    
+    parser.add_argument('-t','--target', help='Specify the filename of the image to be transformed to (target)')
+    parser.add_argument('-w','--weights', help='Specify the filename of the target image weights (defaults to ones)')
+    
+    
+    parser.add_argument('-c','--config', help='Specify the filename of json config file', required=True)
+    
+    parser.add_argument('-x','--xform', help='Specify a list of transform files to apply, or a previous output directory', nargs='*')
+    
+    parser.add_argument('-o','--output', help='A directory for outputs', required=True)
 
+    args = parser.parse_args()
+    
+    
+
+    
+    
+    # test if mode
+    if args.mode == 'register':   
+        print('Starting register pipeline')    
+        
+        print(f'Making output directory {args.output}')
+        if not os.path.isdir(args.output):
+            os.mkdir(args.output)
+        print('Finished making output directory')
+    
+    
+        # load config
+        print('Loading config')
+        with open(args.config) as f:
+            config = json.load(f)
+        # I'm getting this for initial downsampling for preprocessing
+        downJs = config['downJ']
+        downIs = config['downI']
+        for k in config:
+            print(k,config[k])
+        print('Finished loading config')
+        
+        # load atlas
+        #atlas_name = '/home/dtward/data/csh_data/marmoset/Woodward_2018/bma-1-mri-reorient.vtk'
+        #label_name = '/home/dtward/data/csh_data/marmoset/Woodward_2018/bma-1-region_seg-reorient.vtk'
+        #target_name = '/home/dtward/data/csh_data/marmoset/m1229/M1229MRI/MRI/exvivo/HR_T2/HR_T2_CM1229F-reorient.vtk'
+
+        atlas_name = args.atlas
+        if atlas_name is None:
+            raise Exception('You must specify an atlas name to run the registration pipeline')
+        print(f'Loading atlas {atlas_name}')
+        parts = os.path.splitext(atlas_name)
+        if parts[-1] != '.vtk':
+            raise Exception(f'Only vtk format atlas supported, but this file is {parts[-1]}')
+        xI,I,title,names = read_vtk_data(atlas_name)        
+        # hack for marmoset example, this is stored in little endian, which should be an error
+        if atlas_name == '/home/dtward/data/csh_data/marmoset/Woodward_2018/bma-1-mri-reorient.vtk':
+            xI,I,title,names = read_vtk_data(atlas_name,endian='l')
+        
+        I = I.astype(float)
+        # pad the first axis if necessary
+        if I.ndim == 3: 
+            I = I[None]
+        elif I.ndim < 3 or I.ndim > 4:
+            raise Exception(f'3D data required but atlas image has dimension {I.ndim}')            
+        output_dir = os.path.join(args.output,'inputs/')
+        if not os.path.isdir(output_dir): os.mkdir(output_dir)
+        
+        
+        print(f'Initial downsampling so not too much gpu memory')
+        # initial downsampling so there isn't so much on the gpu
+        mindownI = np.min(np.array(downIs),0)
+        xI,I = downsample_image_domain(xI,I,mindownI)
+        downIs = [ list((np.array(d)/mindownI).astype(int)) for d in downIs]
+        dI = [x[1]-x[0] for x in xI]
+        print(dI)
+        nI = np.array(I.shape,dtype=int)
+        # update our config variable
+        config['downI'] = downIs
+        
+        fig = draw(I,xI)
+        fig[0].suptitle('Atlas image')
+        fig[0].savefig(os.path.join(output_dir,'atlas.png'))
+        print('Finished loading atlas')
+        
+        # load target and possibly weights
+        target_name = args.target
+        if target_name is None:
+            raise Exception('You must specify a target name to run the registration pipeline')
+        print(f'Loading target {target_name}')
+        parts = os.path.splitext(target_name)
+        if not parts[-1]:
+            print('Loading slices from directory')
+            xJ,J,W0 = load_slices(target_name)
+        elif parts[-1] == '.vtk':
+            print('Loading volume from vtk')
+            xJ,J,title,names = read_vtk_data(target_name) # there's a problem here with marmoset, too many values t ounpack
+            if J.ndim == 3:
+                J = J[None]
+            elif J.ndim < 3 or J.ndim > 4:
+                raise Exception(f'3D data required but target image has dimension {J.ndim}')
+            if args.weights is not None:
+                print('Loading weights from vtk')
+            else:
+                W0 = np.ones_like(J[0])
+                
+        print(f'Initial downsampling so not too much gpu memory')
+        # initial downsampling so there isn't so much on the gpu
+        mindownJ = np.min(np.array(downJs),0)
+        xJ,J = downsample_image_domain(xJ,J,mindownJ)
+        W0 = downsample(W0,mindownJ)
+        downJs = [ list((np.array(d)/mindownJ).astype(int)) for d in downJs]        
+        # update our config variable
+        config['downJ'] = downJs
+        
+        # draw it
+        fig = draw(J,xJ)
+        fig[0].suptitle('Target image')
+        fig[0].savefig(os.path.join(output_dir,'target.png'))        
+        print('Finished loading target')
+        
+        # get one more qc file applying the initial affine
+        try:
+            A = np.array(config['A']).astype(float)
+        except:
+            A = np.eye(4)
+        # this affine matrix should be 4x4, but it may be 1x4x4
+        if A.ndim > 2:
+            A = A[0]
+        Ai = np.linalg.inv(A)
+        XJ = np.stack(np.meshgrid(*xJ,indexing='ij'),-1)
+        Xs = (Ai[:3,:3]@XJ[...,None])[...,0] + Ai[:3,-1]
+        out = interp(xI,I,Xs.transpose((3,0,1,2)))
+        fig = draw(out,xJ)
+        fig[0].suptitle('Initial transformed atlas')
+        fig[0].savefig(os.path.join(output_dir,'atlas_to_target_initial_affine.png'))
+        
+
+        # default pipeline
+        print('Starting registration pipeline')
+        output = emlddmm_multiscale(I=I/np.mean(np.abs(I)),xI=[xI],J=J/np.mean(np.abs(J)),xJ=[xJ],W0=W0,**config)
+        print('Finished registration pipeline')
+        
+        # write transforms
+        print('Starting to write transforms')
+        write_transform_outputs(args.output,output)
+        print('Finished writing transforms')
+        
+        # write qc outputs
+        # this requires a segmentation image
+        if args.label is not None:
+            print('Starting to read label image for qc')
+            xS,S,title,names = read_vtk_data(args.label)
+            if args.label == '/home/dtward/data/csh_data/marmoset/Woodward_2018/bma-1-region_seg-reorient.vtk':
+                xS,S,title,names = read_vtk_data(args.label,endian='l')
+            S = S.astype(np.int32) # with int32 should be supported by torch
+            print('Finished reading label image')
+            print('Starting to write qc outputs')
+            write_qc_outputs(args.output,output,xI,I,xJ,J,xS=xI,S=S)
+            print('Finished writing qc outputs')
+            
+            
+        # transform imaging data
+        # transform target back to atlas
+        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
+        Xout = compose_sequence(args.output,Xin)
+        Jt = apply_transform_float(xJ,J,Xout)
+        # transform atlas to target
+        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ]))
+        Xout = compose_sequence(args.output,Xin)
+        It = apply_transform_float(xI,I,Xout)
+        if args.label is not None:
+            St = apply_transform_int(xS,S,Xout)
+        # write
+        atlas_output_dir = os.path.join(args.output,'to_atlas')
+        if not os.path.isdir(atlas_output_dir): os.mkdir(atlas_output_dir)
+        target_output_dir = os.path.join(args.output,'to_target')
+        if not os.path.isdir(target_output_dir): os.mkdir(target_output_dir)
+        write_vtk_data(os.path.join(atlas_output_dir,'target_to_atlas.vtk'),xI,Jt,'target_to_atlas')
+
+        write_vtk_data(os.path.join(target_output_dir,'atlas_to_target.vtk'),xI,It,'atlas_to_target')
+        write_vtk_data(os.path.join(target_output_dir,'atlas_seg_to_target.vtk'),xI,St,'atlas_seg_to_target')
+
+
+        print('Finished registration pipeline')
+    elif mode == 'transform':
+        # load atlas
+        # load target (to get space info)
+        # compose sequence of transforms
+        # transform the data
+        # write it out
+        pass
+    
+    # also 
