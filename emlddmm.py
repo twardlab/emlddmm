@@ -1795,9 +1795,10 @@ if __name__ == '__main__':
         Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
         Xout = compose_sequence(args.output,Xin)
         Jt = apply_transform_float(xJ,J,Xout)
+        
         # transform atlas to target
         Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ]))
-        Xout = compose_sequence(args.output,Xin)
+        Xout = compose_sequence(args.output,Xin,direction='b')
         It = apply_transform_float(xI,I,Xout)
         if args.label is not None:
             St = apply_transform_int(xS,S,Xout)
