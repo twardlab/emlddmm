@@ -4,11 +4,13 @@ import torch
 from torch.nn.functional import grid_sample
 import glob
 import os
+import nibabel
 import nrrd
 import json
 import re
 import argparse
 import warnings
+
 
 
 # display
@@ -1065,6 +1067,11 @@ def write_vtk_data(fname,x,out,title,names=None):
         raise Exception('out is not the right size')
     if names is None:        
         names = [f'data_{t:03d}(b)' for t in range(out.shape[0])]
+    else:
+        # make sure we know it is big endian
+        names = [n if '(b)' in n else n+'(b)' for n in names]
+        
+        
 
     if type(out) == torch.Tensor:        
         out = out.cpu().numpy()
@@ -1245,12 +1252,48 @@ def read_vtk_data(fname,endian='b'):
     return x,images,title,names
     
     
-def read_data(fname):
+def read_data(fname,**kwargs):    
+    '''
+    This function will read array based data of several types
+    and output x,images,title,names.
+    Note we prefer vtk legacy format, but accept other formats.
+    '''
     # find the extension
     # if vtk use our reader
     # if nrrd use nrrd
     # otherwise try nibabel
-    pass
+    base,ext = os.path.splitext(fname)
+    if ext == '.gz':
+        base,ext_ = os.path.splitext(base)
+        ext = ext_+ext
+    print(f'Found extension {ext}')
+    
+    if ext == '.vtk':
+        x,images,title,names = read_vtk_data(fname,**kwargs)
+    elif ext == '.nrrd':
+        print('opening with nrrd')
+        raise Exception('NRRD not currently supported')
+    else:
+        print('Opening with nibabel, note only 3D images supported')
+        vol = nibabel.load(fname,**kwargs)
+        images = np.array(vol.get_fdata())
+        if images.ndim == 3:
+            images = images[None]
+        A = vol.header.get_base_affine()
+        if not np.allclose(np.diag(np.diag(A[:3,:3])),A[:3,:3]):
+            raise Exception('Only support diagonal affine matrix with nibabel')
+        x = [ A[i,-1] + np.arange(images.shape[i+1])*A[i,i] for i in range(3)]
+        for i in range(3):
+            if A[i,i] < 0:
+                x[i] = x[i][::-1]
+                images = np.array(np.flip(images,axis=i+1))
+            
+        title = ''
+        names = ['']
+        
+    return x,images,title,names
+        
+    
 def write_matrix_data(fname,A):
     with open(fname,'wt') as f:
         for i in range(A.shape[0]):
@@ -1788,8 +1831,7 @@ if __name__ == '__main__':
         out = interp(xI,I,Xs.transpose((3,0,1,2)))
         fig = draw(out,xJ)
         fig[0].suptitle('Initial transformed atlas')
-        fig[0].savefig(os.path.join(output_dir,'atlas_to_target_initial_affine.png'))
-        
+        fig[0].savefig(os.path.join(output_dir,'atlas_to_target_initial_affine.png'))        
 
         # default pipeline
         print('Starting registration pipeline')
