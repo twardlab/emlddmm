@@ -511,7 +511,8 @@ def emlddmm(**kwargs):
         for j in range(len(E)):
             EjX = (E[j][:3,:3]@XI_)[...,0] + E[j][:3,-1]
             # matrix multiplication            
-            g[i,j] = torch.sum(EiX*EjX) #* torch.prod(dI) # because gradient has a factor of N in it, I think its a good idea to do sum
+            g[i,j] = torch.sum(EiX*EjX) * torch.prod(dI) # because gradient has a factor of N in it, I think its a good idea to do sum
+    # note, on july 21 I add factor of voxel size, so it can cancel with factor in cost function
     gi = torch.inverse(g)           
 
     # TODO affine metric for 2D affine
@@ -638,6 +639,7 @@ def emlddmm(**kwargs):
     Esave = []
     Lsave = []
     Tsave = []
+    
     if slice_matching:
         T2dsave = []
         L2dsave = []
@@ -736,6 +738,7 @@ def emlddmm(**kwargs):
         # reg cost (note that with no complex, there are two elements on the last axis)
         vhat = torch.rfft(v,3,onesided=False)
         ER = torch.sum(torch.sum(vhat**2,(0,1,-1))*LL)/torch.prod(nv)*torch.prod(dv)/nt/2.0/sigmaR**2
+        
 
         # total cost 
         E = EM + ER
@@ -787,7 +790,7 @@ def emlddmm(**kwargs):
             # to do, check sign for a2d
 
 
-        if not it%n_draw:
+        if not it%n_draw or it==n_iter-1:
             axE[0].cla()
             axE[0].plot(np.array(Esave)[:,0])
             axE[0].plot(np.array(Esave)[:,1])
@@ -819,11 +822,13 @@ def emlddmm(**kwargs):
             axA[2].cla()
             axA[2].plot(np.array(maxvsave))
             axA[2].set_title('maxv')
+            
             axA[3].cla()
             axA[3].plot(sigmaMsave)
             axA[3].plot(sigmaAsave)
             axA[3].plot(sigmaBsave)
             axA[3].set_title('sigma')
+            
 
             if slice_matching:
                 axA2d[0].cla()
@@ -931,6 +936,15 @@ def emlddmm(**kwargs):
         out['sigmaB'] = sigmaB.detach().clone()
         out['sigmaA'] = sigmaA.detach().clone()
         out['sigmaM'] = sigmaM.detach().clone()
+        # return figures
+        out['figA'] = figA
+        out['figE'] = figE
+        out['figI'] = figI
+        out['figfI'] = figfI
+        out['figErr'] = figErr
+        out['figJ'] = figJ
+        out['figW'] = figW
+        out['figV'] = figV
         # others ...
     return out
 
@@ -960,8 +974,9 @@ def emlddmm_multiscale(**kwargs):
             nscales = 1
         print(f'Found {nscales} scales')
         
+        
     
-
+    outputs = []
     for d in range(nscales):
         # now we have to convert the kwargs to a new dictionary with only one value
         params = {}
@@ -977,13 +992,15 @@ def emlddmm_multiscale(**kwargs):
                     params[key] = test[0]
             else: # not a list, e.g. inputing v as a numpy array
                 params[key] = test            
-
+        
         output = emlddmm(v_res_factor=3.0,                         
                          sigmaM=np.ones(kwargs['J'].shape[0]),                         
                          sigmaB=np.ones(kwargs['J'].shape[0])*2.0,                         
                          sigmaA=np.ones(kwargs['J'].shape[0])*5.0,                         
                          full_outputs=True,
                         **params)
+        # I should save an output at each iteration
+        outputs.append(output)
 
         A = output['A']
         v = output['v']
@@ -993,7 +1010,8 @@ def emlddmm_multiscale(**kwargs):
         if 'slice_matching' in params and params['slice_matching']:
             A2d = output['A2d']
             kwargs['A2d'] = A2d
-    return output
+        
+    return outputs # should I return the whole list outputs?
 
     
 # we need to output the transformations as vtk, with their companion jsons (TODO)
@@ -1226,6 +1244,13 @@ def read_vtk_data(fname,endian='b'):
         images = np.stack(images) # stack on axis 0
     return x,images,title,names
     
+    
+def read_data(fname):
+    # find the extension
+    # if vtk use our reader
+    # if nrrd use nrrd
+    # otherwise try nibabel
+    pass
 def write_matrix_data(fname,A):
     with open(fname,'wt') as f:
         for i in range(A.shape[0]):
@@ -1589,7 +1614,7 @@ def apply_transform_float(x,I,Xout):
     else:
         isnumpy = False
     
-    AphiI = interp(x,torch.as_tensor(I,dtype=Xout.dtype,device=Xout.device),Xout,mode='nearest').cpu()
+    AphiI = interp(x,torch.as_tensor(I,dtype=Xout.dtype,device=Xout.device),Xout).cpu()
     if isnumpy:
         AphiI = IphiI.numpy()
     return AphiI
@@ -1769,6 +1794,8 @@ if __name__ == '__main__':
         # default pipeline
         print('Starting registration pipeline')
         output = emlddmm_multiscale(I=I/np.mean(np.abs(I)),xI=[xI],J=J/np.mean(np.abs(J)),xJ=[xJ],W0=W0,**config)
+        if type(output) == list:
+            output = output[-1]
         print('Finished registration pipeline')
         
         # write transforms
