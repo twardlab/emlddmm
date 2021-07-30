@@ -1025,9 +1025,9 @@ def emlddmm(**kwargs):
         out['figI'] = figI
         out['figI'].savefig(os.path.join(output_dir,'I'))        
         out['figfI'] = figfI
-        out['figI'].savefig(os.path.join(output_dir,'fI'))        
+        out['figfI'].savefig(os.path.join(output_dir,'fI'))        
         out['figErr'] = figErr
-        out['figI'].savefig(os.path.join(output_dir,'errors'))        
+        out['figE'].savefig(os.path.join(output_dir,'errors'))        
         out['figJ'] = figJ
         out['figJ'].savefig(os.path.join(output_dir,'J'))
         out['figW'] = figW
