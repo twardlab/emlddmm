@@ -14,7 +14,47 @@ import warnings
 
 
 # display
-def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None):    
+def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
+    """ Draw 3D imaging data.
+    
+    Images are shown by sampling slices along 3 orthogonal axes.
+    Color or grayscale data can be shown.
+    
+    Parameters
+    ----------
+    J 
+        A 3D image with C channels should be size (C x nslice x nrow x ncol)
+        Note grayscale images should have C=1, but still be a 4D array.
+    xJ : list
+        A list of 3 numpy arrays.  xJ[i] contains the positions of voxels
+        along axis i.  Note these are assumed to be uniformly spaced. The default
+        is voxels of size 1.0.
+    fig : matplotlib figure
+        A figure in which to draw pictures. Contents of hte figure will be cleared.
+        Default is None, which creates a new figure.
+    n_slices : int
+        An integer denoting how many slices to draw along each axis. Default 5.
+    vmin
+        A minimum value for windowing imaging data. Can also be a list of size C for
+        windowing each channel separately. Defaults to None, which corresponds 
+        to tha 0.001 quantile on each channel.
+    vmax
+        A maximum value for windowing imaging data. Can also be a list of size C for
+        windowing each channel separately. Defaults to None, which corresponds 
+        to tha 0.999 quantile on each channel.
+    kwargs : dict
+        Other keywords will be passed on to the matplotlib imshow function. For example
+        include cmap='gray' for a gray colormap
+
+    Returns
+    -------
+    fig : matplotlib figure
+        The matplotlib figure variable with data.
+    axs : array of matplotlib axes
+        An array of matplotlib subplut axes containing each image.
+
+
+    """
     if type(J) == torch.Tensor:
         J = J.detach().clone().cpu()
     J = np.array(J)
@@ -62,7 +102,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None):
     extent = (xJ[2][0],xJ[2][-1],xJ[1][-1],xJ[1][0])
     for i in range(n_slices):
         ax = fig.add_subplot(3,n_slices,i+1)
-        ax.imshow(J[:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent)
+        ax.imshow(J[:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
@@ -72,7 +112,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None):
     extent = (xJ[2][0],xJ[2][-1],xJ[0][-1],xJ[0][0])
     for i in range(n_slices):
         ax = fig.add_subplot(3,n_slices,i+1+n_slices)
-        ax.imshow(J[:,:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent)
+        ax.imshow(J[:,:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
@@ -82,7 +122,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None):
     extent = (xJ[1][0],xJ[1][-1],xJ[0][-1],xJ[0][0])
     for i in range(n_slices):        
         ax = fig.add_subplot(3,n_slices,i+1+n_slices*2)
-        ax.imshow(J[:,:,:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent)
+        ax.imshow(J[:,:,:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
@@ -91,6 +131,34 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None):
     
     
 def load_slices(target_name):
+    """ Load a slice dataset.
+    
+    Load a slice dataset for histology registration. Slice datasets include pairs
+    of images and json sidecar files, as well as one tsv file explaining the dataset.
+    Note this code creates a 3D array by padding.
+    
+    Parameters
+    ----------
+    target_name : string
+        Name of a directory containing slice dataset.
+        
+    Returns
+    -------
+    xJ : list of numpy arrays
+        Location of v
+    J : numpy array
+        Numpy array of size C x nslices x nrows x ncols where C is the number of channels
+        e.g. C=3 for RGB.
+    W0 : numpy array
+        A nslices x nrows x ncols numpy array containing weights.  Weights are 0 where there 
+        was padding
+    
+    References
+    ----------
+    Document describing dataset format here: TODO XXXXX
+    documented XXXX
+    
+    """
     print('loading target images')
     fig,ax = plt.subplots()
     ax = [ax]
@@ -1292,8 +1360,35 @@ def read_data(fname,**kwargs):
         names = ['']
         
     return x,images,title,names
+def write_data(fname,x,out,title,names=None):
+    base,ext = os.path.splitext(fname)
+    if ext == '.gz':
+        base,ext_ = os.path.splitext(base)
+        ext = ext_+ext
+    print(f'Found extension {ext}')
+    
+    if ext == '.vtk':
+        write_vtk_data(fname,x,out,title,names)
+    elif ext == '.nii' or ext == '.nii.gz':
+        if type(out) == torch.Tensor:
+            out = out.cpu().numpy()
+        if out.ndim == 4 and out.shape[0]==1:
+            out = out[0]
+        if out.ndim >= 4:
+            raise Exception('Only grayscale images supported in nii format')
+            
+        affine = np.diag((x[0][1]-x[0][0],x[1][1]-x[1][0],x[2][1]-x[2][0],1.0))
+        affine[:3,-1] = np.array((x[0][0],x[1][0],x[2][0]))
+        img = nibabel.Nifti1Image(out, affine)
+        nibabel.save(img, fname)  
+        warnings.warn('Writing image in nii fomat, no title or names saved')
+
+        
+    else:
+        raise Exception('Only vtk and .nii/.nii.gz outputs supported')
         
     
+
 def write_matrix_data(fname,A):
     with open(fname,'wt') as f:
         for i in range(A.shape[0]):
@@ -1613,15 +1708,47 @@ def compose_sequence(transforms,Xin,direction='f'):
     Xin are the points we want to transform (e.g. sample points in atlas)
     
     TODO use os path join
+    TODO support direction as a list, right now direction only is used for a single direction
+    
+    Note, if the input is a string, we assume it is an output directory and get A and V. In this case we use the direction argument.
+    If the input is a tuple of length 2, we assume it is an output directory and a direction
+    
+    Otherwise, the input must be a list.  It can be a list of strings, or transforms, or string-direction tuples.
+    
+    What if it is a list of length 1?
+    
     '''
-    if type(transforms) == str:
+    
+    print(f'starting to compose sequence with transforms {transforms}')    
+    
+    
+    # check special case for a list of length 1 but the input is a directory
+    if (type(transforms) == list and len(transforms)==1 
+        and type(transforms[0]) == str and os.path.splitext(transforms[0])[1]==''):
+        transforms = transforms[0]
+    # check special case for a list of length one but the input is a tuple
+    if (type(transforms) == list and len(transforms)==1 
+        and type(transforms[0]) == tuple and type(transforms[0][0]) == str 
+        and os.path.splitext(transforms[0][0])[1]=='' and transforms[0][1].lower() in ['b','f']):
+        direction = transforms[0][1]
+        transforms = transforms[0][0] # note variable is redefined                
+    
+    
+    if type(transforms) == str or ( type(transforms) == list and length(transforms)==1 and type(transforms[0]) == str ):
+        if type(transforms) == list: transforms = transforms[0]            
         # assume output directory
-        #print('printing transforms input')
-        #print(transforms)
-        transforms = [Transform(os.path.join(transforms,'transforms','A.txt'),direction=direction),
-                      Transform(os.path.join(transforms,'transforms','velocity.vtk'),direction=direction)]
+        # print('printing transforms input')
+        # print(transforms)
+        if direction == 'b':
+            # backward, first affine then deform
+            transforms = [Transform(os.path.join(transforms,'transforms','A.txt'),direction=direction),
+                          Transform(os.path.join(transforms,'transforms','velocity.vtk'),direction=direction)]
+        elif direction == 'f':
+            # forward, first deform then affine
+            transforms = [Transform(os.path.join(transforms,'transforms','velocity.vtk'),direction=direction),
+                          Transform(os.path.join(transforms,'transforms','A.txt'),direction=direction)]    
         #print('printing modified transforms')
-        #print(transforms)
+        #print(transforms)    
     elif type(transforms) == list:
         if type(transforms[0]) == Transform:
             # don't do anything here
@@ -1705,21 +1832,27 @@ if __name__ == '__main__':
     parser.add_argument('-w','--weights', help='Specify the filename of the target image weights (defaults to ones)')
     
     
-    parser.add_argument('-c','--config', help='Specify the filename of json config file', required=True)
+    parser.add_argument('-c','--config', help='Specify the filename of json config file') # only required for reg
     
-    parser.add_argument('-x','--xform', help='Specify a list of transform files to apply, or a previous output directory', nargs='*')
+    parser.add_argument('-x','--xform', help='Specify a list of transform files to apply, or a previous output directory',action='append')
+    parser.add_argument('-d','--direction', help='Specify the direction of transforms to apply, either f for forward or b for backward',action='append')
     
     parser.add_argument('-o','--output', help='A directory for outputs', required=True)
+    
+    parser.add_argument('--output_image_format', help='File format for outputs (vtk legacy and nibabel supported)', default='.vtk')
 
     args = parser.parse_args()
     
+    print(args)
     
 
     
     
-    # test if mode
+    # if mode is register
     if args.mode == 'register':   
         print('Starting register pipeline')    
+        if args.config is None:
+            raise Exception('Config file option be set to run registration')
         
         print(f'Making output directory {args.output}')
         if not os.path.isdir(args.output):
@@ -1743,17 +1876,16 @@ if __name__ == '__main__':
         #label_name = '/home/dtward/data/csh_data/marmoset/Woodward_2018/bma-1-region_seg-reorient.vtk'
         #target_name = '/home/dtward/data/csh_data/marmoset/m1229/M1229MRI/MRI/exvivo/HR_T2/HR_T2_CM1229F-reorient.vtk'
 
+        # TODO check works with nifti
         atlas_name = args.atlas
         if atlas_name is None:
             raise Exception('You must specify an atlas name to run the registration pipeline')
         print(f'Loading atlas {atlas_name}')
         parts = os.path.splitext(atlas_name)
-        if parts[-1] != '.vtk':
-            raise Exception(f'Only vtk format atlas supported, but this file is {parts[-1]}')
-        xI,I,title,names = read_vtk_data(atlas_name)        
-        # hack for marmoset example, this is stored in little endian, which should be an error
-        if atlas_name == '/home/dtward/data/csh_data/marmoset/Woodward_2018/bma-1-mri-reorient.vtk':
-            xI,I,title,names = read_vtk_data(atlas_name,endian='l')
+        #if parts[-1] != '.vtk':
+        #    raise Exception(f'Only vtk format atlas supported, but this file is {parts[-1]}')
+        xI,I,title,names = read_data(atlas_name)        
+        
         
         I = I.astype(float)
         # pad the first axis if necessary
@@ -1849,9 +1981,7 @@ if __name__ == '__main__':
         # this requires a segmentation image
         if args.label is not None:
             print('Starting to read label image for qc')
-            xS,S,title,names = read_vtk_data(args.label)
-            if args.label == '/home/dtward/data/csh_data/marmoset/Woodward_2018/bma-1-region_seg-reorient.vtk':
-                xS,S,title,names = read_vtk_data(args.label,endian='l')
+            xS,S,title,names = read_data(args.label)            
             S = S.astype(np.int32) # with int32 should be supported by torch
             print('Finished reading label image')
             print('Starting to write qc outputs')
@@ -1872,23 +2002,81 @@ if __name__ == '__main__':
         if args.label is not None:
             St = apply_transform_int(xS,S,Xout)
         # write
+        ext = args.output_image_format
+        if ext[0] != '.': ext = '.' + ext
+            
         atlas_output_dir = os.path.join(args.output,'to_atlas')
         if not os.path.isdir(atlas_output_dir): os.mkdir(atlas_output_dir)
         target_output_dir = os.path.join(args.output,'to_target')
-        if not os.path.isdir(target_output_dir): os.mkdir(target_output_dir)
-        write_vtk_data(os.path.join(atlas_output_dir,'target_to_atlas.vtk'),xI,Jt,'target_to_atlas')
+        if not os.path.isdir(target_output_dir): os.mkdir(target_output_dir)                
+        # output data in atlas space, use xI for voxel spacing
+        write_data(os.path.join(atlas_output_dir,'target_to_atlas'+ext),xI,Jt,'target_to_atlas')
 
-        write_vtk_data(os.path.join(target_output_dir,'atlas_to_target.vtk'),xI,It,'atlas_to_target')
-        write_vtk_data(os.path.join(target_output_dir,'atlas_seg_to_target.vtk'),xI,St,'atlas_seg_to_target')
+        # output data in target space, use xJ for voxel spacing
+        write_data(os.path.join(target_output_dir,'atlas_to_target'+ext),xJ,It,'atlas_to_target')
+        write_data(os.path.join(target_output_dir,'atlas_seg_to_target'+ext),xJ,St,'atlas_seg_to_target')
 
 
         print('Finished registration pipeline')
-    elif mode == 'transform':
+    elif args.mode == 'transform':
+        
+        # now to apply transforms, every one needs a f or a b
+        # some preprocessing
+        if args.direction is None:
+            args.direction = ['f']
+        if len(args.direction) == 1:
+            args.direction = args.direction * len(args.xform)        
+        if len(args.xform) != len(args.direction):
+            raise Exception(f'You must input a direction for each transform, but you input {len(args.xform)} transforms and {len(args.direction)} directions')
+        for tform,direction in zip(args.xform,args.direction):
+            if direction.lower() not in ['f','b']:
+                raise Exception(f'Transform directions must be f or b, but you input {direction}')
+            
+            
+            
         # load atlas
         # load target (to get space info)
         # compose sequence of transforms
         # transform the data
         # write it out
-        pass
+        if args.atlas is not None:
+            atlas_name = args.atlas
+        elif args.label is not None:
+            atlas_name = args.label
+        else:
+            raise Exception('You must specify an atlas name or label name to run the transformation pipeline')
+        print(f'Loading atlas {atlas_name}')
+        parts = os.path.splitext(atlas_name)        
+        xI,I,title,names = read_data(atlas_name)        
+        
+        # load target and possibly weights
+        target_name = args.target
+        if target_name is None:
+            raise Exception('You must specify a target name to run the transformation pipeline (TODO, support specifying a domain rather than an image)')
+        print(f'Loading target {target_name}')
+        parts = os.path.splitext(target_name)
+        xJ,J,title,names = read_data(target_name)
+        
+        # to transform an image we start with Xin, and compute Xout
+        # Xin will be the grid of points in target
+        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ]))
+        Xout = compose_sequence([(x,d) for x,d  in zip(args.xform,args.direction) ], Xin)
+        if args.atlas is not None:
+            It = apply_transform_float(xI,I,Xout)
+        else:
+            It = apply_transform_int(xI,I,Xout)
+        
+        # write out the outputs        
+        ext = args.output_image_format
+        if ext[0] != '.': ext = '.' + ext                    
+        if not os.path.isdir(args.output): os.mkdir(args.output)
+        # name should be atlas name to target name, but without the path
+        name = os.path.splitext(os.path.split(atlas_name)[1])[0] + '_to_' + os.path.splitext(os.path.split(target_name)[1])[0]
+        write_data(os.path.join(args.output,name+ext),xJ,It,'transformed data')
+        # write a text file that summarizes this
+        name = os.path.join(args.output,name+'.txt')
+        with open(name,'wt') as f:
+            f.write(str(args))
+         
     
     # also 
