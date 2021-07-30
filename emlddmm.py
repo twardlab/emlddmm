@@ -1019,13 +1019,21 @@ def emlddmm(**kwargs):
         out['sigmaM'] = sigmaM.detach().clone()
         # return figures
         out['figA'] = figA
+        out['figA'].savefig(os.path.join(output_dir,'A'))
         out['figE'] = figE
+        out['figE'].savefig(os.path.join(output_dir,'costminimization'))        
         out['figI'] = figI
+        out['figI'].savefig(os.path.join(output_dir,'I'))        
         out['figfI'] = figfI
+        out['figI'].savefig(os.path.join(output_dir,'fI'))        
         out['figErr'] = figErr
+        out['figI'].savefig(os.path.join(output_dir,'errors'))        
         out['figJ'] = figJ
+        out['figJ'].savefig(os.path.join(output_dir,'J'))
         out['figW'] = figW
+        out['figW'].savefig(os.path.join(output_dir,'W'))
         out['figV'] = figV
+        out['figV'].savefig(os.path.join(output_dir,'V'))
         # others ...
     return out
 
