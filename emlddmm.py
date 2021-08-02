@@ -1859,10 +1859,15 @@ if __name__ == '__main__':
     parser.add_argument('-o','--output', help='A directory for outputs', required=True)
     
     parser.add_argument('--output_image_format', help='File format for outputs (vtk legacy and nibabel supported)', default='.vtk')
+    parser.add_argument('--num_threads', help='Optionally specify number of threads in torch', type=int)
 
     args = parser.parse_args()
     
     print(args)
+    
+    if args.num_threads is not None:
+        print(f'Setting numer of torch threads to {args.num_threads}')
+        torch.set_num_threads(args.num_threads)
     
 
     
