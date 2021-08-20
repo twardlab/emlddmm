@@ -22,7 +22,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     
     Parameters
     ----------
-    J 
+    J : array like (torch tensor or numpy array)
         A 3D image with C channels should be size (C x nslice x nrow x ncol)
         Note grayscale images should have C=1, but still be a 4D array.
     xJ : list
@@ -279,10 +279,25 @@ def load_slices(target_name):
             
 # resampling
 def sinc_resample_numpy(I,n):
-    ''' This function does sinc resampling using numpy rfft
+    ''' Perform sinc resampling of an image in numpy.
+    
+    This function does sinc resampling using numpy rfft
     torch does not let us control behavior of fft well enough
     This is intended to be used to resample velocity fields if necessary
-    I am realy only intending it to be used for upsampling
+    Only intending it to be used for upsampling.
+    
+    Parameters
+    ----------
+    I : numpy array
+        An image to be resampled. Can be an arbitrary number of dimensions.
+    n : list of ints
+        Desired dimension of output data.
+    
+    
+    Returns
+    -------
+    Id : numpy array
+        A resampled image of size n.
     '''
     Id = np.array(I)
     for i in range(len(n)):        
@@ -290,10 +305,33 @@ def sinc_resample_numpy(I,n):
             continue
         Id = np.fft.irfft(np.fft.rfft(Id,axis=i),axis=i,n=n[i])
     # output with correct normalization
-    return Id*np.prod(Id.shape)/np.prod(I.shape) 
+    Id = Id*np.prod(Id.shape)/np.prod(I.shape) 
+    return Id
     
 
 def downsample_ax(I,down,ax):
+    '''
+    Downsample imaging data along one of the first 5 axes.
+    
+    Imaging data is downsampled by averaging nearest pixels.
+    Note that data will be lost from the end of images instead of padding.
+    This function is generally called repeatedly on each axis.
+    
+    Parameters
+    ----------
+    I : array like (numpy or torch)
+        Image to be downsampled on one axis.
+    down : int
+        Downsampling factor.  2 means average pairs of nearest pixels 
+        into one new downsampled pixel
+    ax : int
+        Which axis to downsample along.
+    
+    Returns
+    -------
+    Id : array like
+        The downsampled image.
+    '''
     nd = list(I.shape)        
     nd[ax] = nd[ax]//down
     if type(I) == torch.Tensor:
@@ -314,7 +352,8 @@ def downsample_ax(I,down,ax):
         elif ax==5:
             Id += I[:,:,:,:,:,d:down*nd[ax]:down]
         # ... should be enough but there really has to be a better way to do this        
-    return Id/down
+    Id = Id/down
+    return Id
 def downsample(I,down):
     down = list(down)
     while len(down) < len(I.shape):
@@ -329,6 +368,26 @@ def downsample(I,down):
         Id = downsample_ax(Id,d,i)
     return Id
 def downsample_image_domain(xI,I,down): 
+    '''
+    Downsample an image as well as pixel locations
+    
+    Parameters
+    ----------
+    xI : list of numpy arrays
+        xI[i] is a numpy array storing the locations of each voxel
+        along the i-th axis.
+    I : array like
+        Image to be downsampled
+    down : list of ints
+        Factor by which to downsample along each dimension
+        
+    Returns
+    -------
+    xId : list of numpy arrays
+        New voxel locations in the same format as xI
+    Id : numpy array
+        Downsampled image.
+    '''
     if len(xI) != len(down):
         raise Exception('Length of down and xI must be equal')
     Id = downsample(I,down)    
@@ -340,12 +399,34 @@ def downsample_image_domain(xI,I,down):
 # build an interp function from grid sample
 def interp(x,I,phii,**kwargs):
     '''
-    Interpolate the image I, with regular grid positions stored in x (1d arrays),
+    Interpolate a 3D image with specified regular voxel locations at specified sample points.
+    
+    Interpolate the 3D image I, with regular grid positions stored in x (1d arrays),
     at the positions stored in phii (3D arrays with first channel storing component)
-    convention
-    input x is a tuple storing grid points in I
-    I is an image with channels along the first axis
-    phii is a diffeo with components along the first axis
+    
+    Parameters
+    ----------
+    x : list of numpy arrays
+        x[i] is a numpy array storing the pixel locations of imaging data along the i-th axis.
+        Note that this MUST be regularly spaced, only the first and last values are queried.
+    I : array
+        Numpy array or torch tensor storing 3D imaging data.  I is a 4D array with 
+        channels along the first axis and spatial dimensions along the last 3 
+    phii : array
+        Numpy array or torch tensor storing positions of the sample points. phii is a 4D array
+        with components along the first axis (e.g. x0,x1,x1) and spatial dimensions 
+        along the last 3.
+    kwargs : dict
+        keword arguments to be passed to the grid sample function. For example
+        to specify interpolation type like nearest.  See pytorch grid_sample documentation.
+    
+    Returns
+    -------
+    out : torch tensor
+        4D array storing a 3D image with channels stored along the first axis. 
+        This is the input image resampled at the points stored in phii.
+    
+    
     '''
     # first we have to normalize phii to the range -1,1    
     I = torch.as_tensor(I)
@@ -368,18 +449,35 @@ def interp(x,I,phii,**kwargs):
     out = grid_sample(I[None],phii.flip(0).permute((1,2,3,0))[None],align_corners=True,**kwargs)
     # note align corners true means square voxels with points at their centers
     # post processing, get rid of batch dimension
-    
-    return out[0]
+    out = out[0]
+    return out
     
 # now we need to create a flow
 # timesteps will be along the first axis
 def v_to_phii(xv,v):
     '''
-    Inputs: 
-        xv -> list of 1D tensors describing locations of sample points
-        v -> 5D (nt,3,v0,v1,v2) velocity field
-    Output:
-        phii (inverse map) computed by method of characteristics
+    Use Euler's method to construct a position field from a velocity field
+    by integrating over time.
+    
+    This method uses interpolation and subtracts and adds identity for better
+    behavior outside boundaries. This method is sometimes refered to as the
+    method of characteristics.
+    
+    Parameters
+    ----------
+    xv : list of 1D tensors
+        xv[i] is a tensor storing the location of the sample points along
+        the i-th dimension of v
+    v : 5D tensor
+        5D tensor where first axis corresponds to time, second corresponds to 
+        component, and 3rd to 5th correspond to spatial dimensions.
+    
+    Returns
+    -------    
+    phii : 4D tensor
+        Inverse transformation is output with component on the first dimension
+        and space on the last 3. Note that the whole timeseries is not output.
+    
     '''
     XV = torch.stack(torch.meshgrid(xv))
     phii = torch.clone(XV)
@@ -390,6 +488,49 @@ def v_to_phii(xv,v):
     return phii
         
 def emlddmm(**kwargs):
+    '''
+    Run the EMLDDMM algorithm for deformable registration between two
+    different imaging modalities with possible missing data in one of them
+    
+    Details of this algorithm can be found in
+    [1] Tward, Daniel, et al. "Diffeomorphic registration with intensity 
+    transformation and missing data: Application to 3D digital pathology 
+    of Alzheimer's disease." Frontiers in neuroscience 14 (2020): 52.
+    [2] Tward, Daniel, et al. "3d mapping of serial histology sections 
+    with anomalies using a novel robust deformable registration algorithm." 
+    Multimodal Brain Image Analysis and Mathematical Foundations of 
+    Computational Anatomy. Springer, Cham, 2019. 162-173.
+    [3] Tward, Daniel, et al. "Solving the where problem in neuroanatomy: 
+    a generative framework with learned mappings to register multimodal, 
+    incomplete data into a reference brain." bioRxiv (2020).
+    
+    Parameters
+    ----------
+    Note all parameters are keyword arguments, but the first four are required.    
+    xI : list of arrays
+        xI[i] stores the location of voxels on the i-th axis of the atlas image I (REQUIRED)
+    I : 4D array (numpy or torch)
+        4D array storing atlas imaging data.  Channels (e.g. RGB are stored on the 
+        first axis, and the last three are spatial dimensions. (REQUIRED)
+    xJ : list of arrays
+        xJ[i] stores the location of voxels on the i-th axis of the target image J (REQUIRED)
+    J : 4D array (numpy or torch)
+        4D array storing target imaging data.  Channels (e.g. RGB are stored on the 
+        first axis, and the last three are spatial dimensions. (REQUIRED)
+    nt : int
+        Number of timesteps for integrating a velocity field to yeild a position field (default 5).
+    eA : float
+        Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
+        that you test this value and not rely on defaults. Note linear and translation components
+        are combined following [ref] so only one stepsize is required.
+    ev : float
+        Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
+        that you test this value and not rely on defaults.
+    
+        
+    
+    
+    '''
     # required arguments are
     # I - atlas image, size C x slice x row x column
     # xI - list of pixels locations in I, corresponding to each axis other than channels
@@ -1019,21 +1160,21 @@ def emlddmm(**kwargs):
         out['sigmaM'] = sigmaM.detach().clone()
         # return figures
         out['figA'] = figA
-        out['figA'].savefig(os.path.join(output_dir,'A'))
+        #out['figA'].savefig(os.path.join(output_dir,'A'))
         out['figE'] = figE
-        out['figE'].savefig(os.path.join(output_dir,'costminimization'))        
+        #out['figE'].savefig(os.path.join(output_dir,'costminimization'))        
         out['figI'] = figI
-        out['figI'].savefig(os.path.join(output_dir,'I'))        
+        #out['figI'].savefig(os.path.join(output_dir,'I'))        
         out['figfI'] = figfI
-        out['figfI'].savefig(os.path.join(output_dir,'fI'))        
+        #out['figfI'].savefig(os.path.join(output_dir,'fI'))        
         out['figErr'] = figErr
-        out['figErr'].savefig(os.path.join(output_dir,'errors'))        
+        #out['figErr'].savefig(os.path.join(output_dir,'errors'))        
         out['figJ'] = figJ
-        out['figJ'].savefig(os.path.join(output_dir,'J'))
+        #out['figJ'].savefig(os.path.join(output_dir,'J'))
         out['figW'] = figW
-        out['figW'].savefig(os.path.join(output_dir,'W'))
+        #out['figW'].savefig(os.path.join(output_dir,'W'))
         out['figV'] = figV
-        out['figV'].savefig(os.path.join(output_dir,'V'))
+        #out['figV'].savefig(os.path.join(output_dir,'V'))
         # others ...
     return out
 
@@ -1341,11 +1482,38 @@ def read_vtk_data(fname,endian='b'):
     
 def read_data(fname,**kwargs):    
     '''
+    Read array data from several file types.
+    
     This function will read array based data of several types
-    and output x,images,title,names.
-    Note we prefer vtk legacy format, but accept other formats.
+    and output x,images,title,names. Note we prefer vtk legacy format, 
+    but accept some other formats as read by nibabel.
+    
+    Parameters
+    ----------
+    fname : str
+        Filename (full path or relative) of array data to load. Can be .vtk or 
+        nibabel supported formats (e.g. .nii)
+        
+    **kwargs : dict
+        Keword parameters that are passed on to the loader function
+    
+    Returns
+    -------
+    
+    x : list of numpy arrays
+        Pixel locations where each element of the list identifies pixel
+        locations in corresponding axis.
+    images : numpy array
+        Imaging data of size channels x slices x rows x cols, or of size
+        time x 3 x slices x rows x cols for velocity fields
+    title : str
+        Title of the dataset (read from vtk files)        
+    names : list of str
+        Names of each dataset (channel or time point)
+    
     '''
     # find the extension
+    # if no extension use slice reader
     # if vtk use our reader
     # if nrrd use nrrd
     # otherwise try nibabel
@@ -1355,7 +1523,14 @@ def read_data(fname,**kwargs):
         ext = ext_+ext
     print(f'Found extension {ext}')
     
-    if ext == '.vtk':
+    if ext == '':
+        xJ,J,W0 = load_slices(fname)
+        x = xJ
+        images = np.concatenate(J,W0)
+        # set the names, I will separate out mask later
+        names = ['red','green','blue','mask']
+        title = 'slice_dataset'
+    elif ext == '.vtk':
         x,images,title,names = read_vtk_data(fname,**kwargs)
     elif ext == '.nrrd':
         print('opening with nrrd')
@@ -1828,7 +2003,15 @@ def apply_transform_int(x,I,Xout):
     return AphiI
     
             
+
         
+def rigid2D(xI,I,xJ,J,**kwargs):
+    ''' 
+    Rigid transformation between 2D slices.
+    
+    
+    '''
+    pass
         
         
 # now we'll start building an interface
@@ -1945,7 +2128,8 @@ if __name__ == '__main__':
         parts = os.path.splitext(target_name)
         if not parts[-1]:
             print('Loading slices from directory')
-            xJ,J,W0 = load_slices(target_name)
+            xJ,J,W0 = load_slices(target_name)            
+            
         elif parts[-1] == '.vtk':
             print('Loading volume from vtk')
             xJ,J,title,names = read_vtk_data(target_name) # there's a problem here with marmoset, too many values t ounpack
