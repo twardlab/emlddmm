@@ -358,6 +358,24 @@ def downsample_ax(I,down,ax):
     Id = Id/down
     return Id
 def downsample(I,down):
+    '''
+    Downsample an image by an integer factor along each axis. Note extra data at 
+    the end will be truncated if necessary.
+    
+    If the first axis is for image channels, downsampling factor should be 1 on this.
+    
+    Parameters
+    ----------
+    I : array (numpy or torch)
+        Imaging data to downsample
+    down : list of int
+        List of downsampling factors for each axis.
+    
+    Returns
+    -------
+    Id : array (numpy or torch as input)
+        Downsampled imaging data.
+    '''
     down = list(down)
     while len(down) < len(I.shape):
         down.insert(0,1)    
@@ -530,7 +548,11 @@ def emlddmm(**kwargs):
         Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
         that you test this value and not rely on defaults.
     
-        
+    Returns
+    -------
+    out : dict
+        Returns a dictionary of outputs storing computing transforms. if full_outputs==True, 
+        then more data is output including figures.
     
     
     '''
@@ -1098,17 +1120,12 @@ def emlddmm(**kwargs):
             if slice_matching:
                 
                 # project A to isotropic and normal up
-                #
-                # TODO normal
-                # todo figure out why this is not working
-                # what I really should do is parameterize this group and work out a metric
-                # I think its not working because of the origin for some reason
-                u,s,v_ = torch.svd(A[:3,:3])
-                #s = torch.diag(s)
+                # isotropic (done)
+                # TODO normal                
+                # what I really should do is parameterize this group and work out a metric                
+                u,s,v_ = torch.svd(A[:3,:3])                
                 s = torch.exp(torch.mean(torch.log(s)))*torch.eye(3,device=device,dtype=dtype)
-                A[:3,:3] = u@s@v_.T
-                
-
+                A[:3,:3] = u@s@v_.T                
                 
                 if it > slice_matching_start:
                     A2d[:,:2,:3] -= A2dgrad*eA2d # already scaled
@@ -1142,10 +1159,8 @@ def emlddmm(**kwargs):
             sigmaBsave.append(sigmaB.detach().clone().cpu().numpy())
 
         if not it%10:
-            # todo print othefr info
+            # todo print other info
             print(f'Finished iteration {it}')
-
-
             
     # outputs
     out = {'A':A.detach().clone(),
@@ -1154,6 +1169,7 @@ def emlddmm(**kwargs):
     if slice_matching:
         out['A2d'] = A2d
     if full_outputs:
+        # other data I may need
         out['WM'] = WM.detach().clone()
         out['WA'] = WA.detach().clone()
         out['WB'] = WB.detach().clone()
@@ -1165,21 +1181,13 @@ def emlddmm(**kwargs):
         out['sigmaM'] = sigmaM.detach().clone()
         # return figures
         out['figA'] = figA
-        #out['figA'].savefig(os.path.join(output_dir,'A'))
         out['figE'] = figE
-        #out['figE'].savefig(os.path.join(output_dir,'costminimization'))        
-        out['figI'] = figI
-        #out['figI'].savefig(os.path.join(output_dir,'I'))        
-        out['figfI'] = figfI
-        #out['figfI'].savefig(os.path.join(output_dir,'fI'))        
-        out['figErr'] = figErr
-        #out['figErr'].savefig(os.path.join(output_dir,'errors'))        
-        out['figJ'] = figJ
-        #out['figJ'].savefig(os.path.join(output_dir,'J'))
-        out['figW'] = figW
-        #out['figW'].savefig(os.path.join(output_dir,'W'))
-        out['figV'] = figV
-        #out['figV'].savefig(os.path.join(output_dir,'V'))
+        out['figI'] = figI        
+        out['figfI'] = figfI        
+        out['figErr'] = figErr        
+        out['figJ'] = figJ        
+        out['figW'] = figW        
+        out['figV'] = figV        
         # others ...
     return out
 
@@ -1189,16 +1197,26 @@ def emlddmm(**kwargs):
     
     
     
-# this cell needs to get wrapped into a function
-# todo this should output step sizes so I can restart with them
-
-# 
 # everything in the config will be either a list of the same length as downI
 # or a list of length 1
 # or a scalar 
 def emlddmm_multiscale(**kwargs):
+    '''
+    Run the emlddmm algorithm multiple times, restarting 
+    with the results of the previous iteration. This is intended
+    to be used to register data from coarse to fine resolution.
     
+    Parameters
+    ----------
+    emlddmm parameters either as a list of length 1 (to use the same value
+    at each iteration) or a list of length N (to use different values at 
+    each of the N iterations).
     
+    Returns
+    -------
+    A list of emlddmm outputs (see documentation for emlddmm)
+    
+    '''
     # how many levels?
     # note I expect downI to be either a list, or a list of lists, not numpy array
     if 'downI' in kwargs:
@@ -1276,23 +1294,32 @@ dtypes = {
 
 def write_vtk_data(fname,x,out,title,names=None):
     
-    '''
-    Write data as vtk file.
+    '''    
+    Write data as vtk file legacy format file. Note data is written in big endian.
+    
     inputs should be numpy, but will check for tensor
+    only structured points supported, scalars or vectors data type
     each channel is saved as a dataset (time for velocity field, or image channel for images)
     each channel is saved as a structured points with a vector or a scalar at each point        
     
-    fname is filename to write
-    x is voxel locations along last three axes
-    if out is size nt x 3 x slices x height x width we assume vector
-    if out is size n x slices x height x width we assume scalar     
-    title is the name of the dataset
-    out needs to be numpy
-    names can be a list of names for each dataset or None
+    Parameters
+    ----------
+    fname : str
+        filename to write to
+    x : list of arrays
+        Voxel locations along last three axes
+    out : numpy array
+        Imaging data to write out. If out is size nt x 3 x slices x height x width we assume vector
+        if out is size n x slices x height x width we assume scalar     
+    title : str
+        Name of the dataset
+    names : list of str or None
+        List of names for each dataset or None to use a default.        
     
-    note must be BIG endian
+    Returns
+    -------
+    None
     
-    only structured points supported, scalars or vectors data type
     '''
     
     if len(out.shape) == 5 and out.shape[1] == 3:
@@ -1358,15 +1385,26 @@ dtypes_reverse = {
 }    
 def read_vtk_data(fname,endian='b'):
     '''
-    Read data back in same format, I will check that I get identity
+    Read vtk structured points legacy format data.
     
-    Note endian should always be big, but we support little as well
+    Note endian should always be big, but we support little as well.
     
-    input is filename and optionally endian
-    
-    output is x,images,title,names
-    
-    only legacy format supported
+    Parameters
+    ----------
+    fname : str
+        Name of .vtk file to read.
+    endian : str
+        Endian of data, with 'b' for big (default and only officially supported format)
+        or 'l' for little (for compatibility if necessary).
+        
+    Returns
+    -------
+    x : list of numpy arrays
+        Location of voxels along each spatial axis (last 3 axes)
+    images : numpy array
+        Image with last three axes corresponding to spatial dimensions.  If 4D,
+        first axis is channel.  If 5D, first axis is time, and second is xyz 
+        component of vector field.    
     '''
     # TODO support skipping blank lines
     big = not (endian=='l')
@@ -1592,6 +1630,20 @@ def write_data(fname,x,out,title,names=None):
     
 
 def write_matrix_data(fname,A):
+    '''
+    Write linear transforms as matrix text file.
+    
+    Parameter
+    ---------
+    fname : str
+        Filename to write
+    A : 2D array
+        Matrix data to write.
+        
+    Returns
+    -------
+    None
+    '''
     with open(fname,'wt') as f:
         for i in range(A.shape[0]):
             for j in range(A.shape[1]):                
@@ -1600,6 +1652,22 @@ def write_matrix_data(fname,A):
 
 # write outputs
 def write_transform_outputs(output_dir, output):
+    '''
+    Write transforms output from emlddmm.  Velocity field, 3D affine transform,
+    and 2D affine transforms for each slice if applicable.
+    
+    Parameters
+    ----------
+    output_dir : str
+        Directory to place output data (will be created of it does not exist)
+    output : dict
+        Output dictionary from emlddmm algorithm
+    
+    Returns
+    -------
+    None
+    
+    '''
     xv = output['xv']
     v = output['v']
     A = output['A']
