@@ -876,7 +876,7 @@ def emlddmm(**kwargs):
             # leave z component the same (x0) and transform others                   
             XJ_[1:] = ((A2di[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)            
         else:
-            XJ_ = XJ
+            XJ_ = XJ 
 
         # sample points for affine
         Xs = ((Ai[:3,:3]@XJ_.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
