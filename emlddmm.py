@@ -195,8 +195,9 @@ def load_slices(target_name):
     nJ_ = np.zeros((data.shape[0],3),dtype=int)
     J_ = []
     for i in range(data.shape[0]):
-        namekey = data[i,0]
-        jsonfile = glob.glob(os.path.join(target_name,'*'+namekey+'*.json'))
+        namekey = data[i,0]        
+        searchstring = os.path.join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')        
+        jsonfile = glob.glob(searchstring)
         present = data[i,3] == 'present'
         if not present:
             if i == 0:
@@ -213,8 +214,10 @@ def load_slices(target_name):
             image_name = jsondata['DataFile']
         elif 'DataFIle' in jsondata:
             image_name = jsondata['DataFIle']
-        
-        J__ = plt.imread(os.path.join(target_name,image_name))
+        try:
+            J__ = plt.imread(os.path.join(target_name,image_name))
+        except:
+            J__ = plt.imread(image_name)
         if J__.dtype == np.uint8:
             J__ = J__.astype(float)/255.0
         
@@ -742,7 +745,7 @@ def emlddmm(**kwargs):
         EiX = (E[i][:2,:2]@XI_[0,...,1:,:])[...,0] + E[i][:2,-1]
         for j in range(len(E)):
             EjX = (E[j][:2,:2]@XI_[0,...,1:,:])[...,0] + E[j][:2,-1]
-            g2d[i,j] = torch.sum(EiX*EjX)
+            g2d[i,j] = torch.sum(EiX*EjX) * torch.prod(dI[1:])
     g2di = torch.inverse(g2d)
             
     # build energy operator for velocity
@@ -895,6 +898,8 @@ def emlddmm(**kwargs):
                 coeffs = torch.inverse(B__.T@B_) @ (B__.T@(J.reshape(J.shape[0],-1).T))                                    
             fAphiI = ((B_@coeffs).T).reshape(J.shape) # there are unnecessary transposes here, probably slowing down, to fix later
         else: # with slice matching I need to solve these equation for every slice
+            # so far it looks like it is exactly the same as the above
+            # I need to update
             with torch.no_grad():
                 # multiply by weight
                 B__ = B_*(WM*W0).reshape(-1)[...,None]
@@ -1223,10 +1228,13 @@ def emlddmm_multiscale(**kwargs):
             else: # not a list, e.g. inputing v as a numpy array
                 params[key] = test            
         
-        output = emlddmm(v_res_factor=3.0,                         
-                         sigmaM=np.ones(kwargs['J'].shape[0]),                         
-                         sigmaB=np.ones(kwargs['J'].shape[0])*2.0,                         
-                         sigmaA=np.ones(kwargs['J'].shape[0])*5.0,                         
+        if 'sigmaM' not in params:
+            params['sigmaM'] = np.ones(kwargs['J'].shape[0])
+        if 'sigmaB' not in params:
+            params['sigmaB'] = np.ones(kwargs['J'].shape[0])*2.0
+        if 'sigmaA' not in params:
+            params['sigmaA'] = np.ones(kwargs['J'].shape[0])*5.0
+        output = emlddmm(v_res_factor=3.0,      
                          full_outputs=True,
                         **params)
         # I should save an output at each iteration
@@ -1526,7 +1534,7 @@ def read_data(fname,**kwargs):
     if ext == '':
         xJ,J,W0 = load_slices(fname)
         x = xJ
-        images = np.concatenate(J,W0)
+        images = np.concatenate((J,W0[None]))
         # set the names, I will separate out mask later
         names = ['red','green','blue','mask']
         title = 'slice_dataset'
