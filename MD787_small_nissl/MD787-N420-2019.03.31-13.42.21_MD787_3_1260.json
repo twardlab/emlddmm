@@ -1,0 +1,43 @@
+{
+  "DataFile": "MD787_small_nissl/MD787-N420-2019.03.31-13.42.21_MD787_3_1260.png",
+  "Type": "Float32",
+  "Dimension": 3,
+  "Endian": "big",
+  "Sizes": [
+    3,
+    736,
+    720,
+    1
+  ],
+  "Space": "inferior-right-posterior",
+  "SpaceDimension": 3,
+  "SpaceUnits": [
+    "um",
+    "um",
+    "um"
+  ],
+  "SpaceDirections": [
+    "none",
+    [
+      44.160000000000004,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      44.160000000000004,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      200
+    ]
+  ],
+  "SliceThickness": 10.0,
+  "SpaceOrigin": [
+    -16228.800000000001,
+    -15875.52,
+    115900.0
+  ]
+}

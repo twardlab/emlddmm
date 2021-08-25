@@ -614,6 +614,7 @@ def emlddmm(**kwargs):
                 'eA2d':1e-3, # removed eL and eT using metric, need to double check 2d case works well
                 'slice_matching':False, # if true include rigid motions and contrast on each slice
                 'slice_matching_start':0,
+                'slice_matching_isotropic':True, # if true 3D affine is isotropic scale
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -690,6 +691,7 @@ def emlddmm(**kwargs):
     if slice_matching:
         A2d = kwargs['A2d']
     slice_matching_start = kwargs['slice_matching_start']
+    slice_matching_isotropic = kwargs['slice_matching_isotropic']
     
     
     
@@ -889,7 +891,7 @@ def emlddmm(**kwargs):
     # end of setup, start optimization loop
     for it in range(n_iter):
         # get the transforms        
-        phii = v_to_phii(xv,v) # on the second iteration I'm getting an error here 
+        phii = v_to_phii(xv,v) # on the second iteration I was getting an error here 
         Ai = torch.inverse(A)
         # 2D transforms
         if slice_matching:
@@ -1122,10 +1124,11 @@ def emlddmm(**kwargs):
                 # project A to isotropic and normal up
                 # isotropic (done)
                 # TODO normal                
-                # what I really should do is parameterize this group and work out a metric                
-                u,s,v_ = torch.svd(A[:3,:3])                
-                s = torch.exp(torch.mean(torch.log(s)))*torch.eye(3,device=device,dtype=dtype)
-                A[:3,:3] = u@s@v_.T                
+                # what I really should do is parameterize this group and work out a metric                                
+                u,s,v_ = torch.svd(A[:3,:3])
+                if slice_matching_isotropic:
+                    s = torch.exp(torch.mean(torch.log(s)))*torch.eye(3,device=device,dtype=dtype)
+                    A[:3,:3] = u@s@v_.T               
                 
                 if it > slice_matching_start:
                     A2d[:,:2,:3] -= A2dgrad*eA2d # already scaled
@@ -1736,8 +1739,8 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     # first, lets see the transformed atlas and target    
     XJ = torch.stack(torch.meshgrid(xJ))    
     if slice_matching:
-        A2di = torch.inverse(A2d)
-        XJ_ = torch.clone(XJ)    
+        A2di = torch.inverse(A2d)        
+        XJ_ = torch.clone(XJ)            
         XJ_[1:] = ((A2di[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)            
     else:
         XJ_ = XJ
