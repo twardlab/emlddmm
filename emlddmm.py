@@ -388,6 +388,7 @@ def downsample(I,down):
             continue
         Id = downsample_ax(Id,d,i)
     return Id
+
 def downsample_image_domain(xI,I,down): 
     '''
     Downsample an image as well as pixel locations
@@ -1587,6 +1588,7 @@ def read_data(fname,**kwargs):
     else:
         print('Opening with nibabel, note only 3D images supported')
         vol = nibabel.load(fname,**kwargs)
+        print(vol.header)
         images = np.array(vol.get_fdata())
         if images.ndim == 3:
             images = images[None]
