@@ -2124,6 +2124,8 @@ if __name__ == '__main__':
     
     parser.add_argument('--output_image_format', help='File format for outputs (vtk legacy and nibabel supported)', default='.vtk')
     parser.add_argument('--num_threads', help='Optionally specify number of threads in torch', type=int)
+    parser.add_argument('--atlas_voxel_scale', help='Optionally specify a scale factor for atlas voxel size (e.g. 1000 to convert mm to microns)', type=float)
+    parser.add_argument('--target_voxel_scale', help='Optionally specify a scale factor for target voxel size (e.g. 1000 to convert mm to microns)', type=float)
 
     args = parser.parse_args()
     
@@ -2172,7 +2174,9 @@ if __name__ == '__main__':
         parts = os.path.splitext(atlas_name)
         #if parts[-1] != '.vtk':
         #    raise Exception(f'Only vtk format atlas supported, but this file is {parts[-1]}')
-        xI,I,title,names = read_data(atlas_name)        
+        xI,I,title,names = read_data(atlas_name)
+        if args.atlas_voxel_scale is not None:
+            xI = [x*args.atlas_voxel_scale]
         
         
         I = I.astype(float)
@@ -2222,6 +2226,8 @@ if __name__ == '__main__':
                 print('Loading weights from vtk')
             else:
                 W0 = np.ones_like(J[0])
+        if args.target_voxel_scale is not None:
+            xJ = [x*args.target_voxel_scale]
                 
         print(f'Initial downsampling so not too much gpu memory')
         # initial downsampling so there isn't so much on the gpu
