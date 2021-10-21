@@ -10,7 +10,9 @@ import json
 import re
 import argparse
 import warnings
-
+from skimage import measure
+from scipy.spatial.distance import directed_hausdorff
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
 # display
@@ -51,7 +53,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     fig : matplotlib figure
         The matplotlib figure variable with data.
     axs : array of matplotlib axes
-        An array of matplotlib subplut axes containing each image.
+        An array of matplotlib subplot axes containing each image.
 
 
     """
@@ -130,7 +132,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     return fig,axs
     
     
-def load_slices(target_name):
+def load_slices(target_name, down=None):
     """ Load a slice dataset.
     
     Load a slice dataset for histology registration. Slice datasets include pairs
@@ -141,6 +143,8 @@ def load_slices(target_name):
     ----------
     target_name : string
         Name of a directory containing slice dataset.
+    down : list of int
+        List of downsampling factors for each axis.
         
     Returns
     -------
@@ -195,8 +199,8 @@ def load_slices(target_name):
     nJ_ = np.zeros((data.shape[0],3),dtype=int)
     J_ = []
     for i in range(data.shape[0]):
-        namekey = data[i,0]        
-        searchstring = os.path.join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')        
+        namekey = data[i,0]
+        searchstring = os.path.join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')
         jsonfile = glob.glob(searchstring)
         present = data[i,3] == 'present'
         if not present:
@@ -207,8 +211,8 @@ def load_slices(target_name):
         with open(jsonfile[0]) as f:
             jsondata = json.load(f)
         #nJ_[i] = np.array(jsondata['Sizes'])
-        
-        
+
+
         # this should contain an image and a json    
         if 'DataFile' in jsondata:
             image_name = jsondata['DataFile']
@@ -220,29 +224,35 @@ def load_slices(target_name):
             J__ = plt.imread(image_name)
         if J__.dtype == np.uint8:
             J__ = J__.astype(float)/255.0
-        
-        J__ = J__[...,:3] # no alpha        
+
+        J__ = J__[...,:3] # no alpha
+
+        # the domain
+        if i == 0:
+            dJ = np.diag(np.array(jsondata['SpaceDirections'][1:]))[::-1]
+            if down:
+                dJ = dJ*down
+        # note the order needs to be reversed
+
+        # downsample
+        if down:
+                J__ = downsample(np.transpose(J__,(2,0,1)), down)
+                J__ = np.transpose(J__,(1,2,0))
         nJ_[i] = np.array(J__.shape)
-        
+
         J_.append(J__)
-        
+
         if not i%20:
             ax[0].cla()
             ax[0].imshow(J__)
 
-                  
+
             fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
             fig.canvas.draw()
-                
-        # the domain
-        if i == 0:
-            dJ = np.diag(np.array(jsondata['SpaceDirections'][1:]))[::-1]
-            
-        # note the order needs to be reversed
-        
+
         # if this is the first file we want to set up a 3D volume
         
-    nJm = np.max(nJ_,0)
+    # nJm = np.max(nJ_,0)
     nJm = (np.quantile(nJ_,0.95,axis=0)*1.01).astype(int) 
     # this will look for outliers when there are a small number, 
     # really there just shouldn't be outliers
@@ -733,7 +743,7 @@ def emlddmm(**kwargs):
     XJ = torch.stack(torch.meshgrid(xJ))
     
     
-    # build an affine metric for 3D affinee
+    # build an affine metric for 3D affine
     # this one is based on pullback metric from action on voxel locations (not image)
     # build a basis in lexicographic order and push forward using the voxel locations
     XI_ = XI.permute((1,2,3,0))[...,None]    
@@ -1529,7 +1539,7 @@ def read_vtk_data(fname,endian='b'):
     return x,images,title,names
     
     
-def read_data(fname,**kwargs):    
+def read_data(fname,down=None,**kwargs):
     '''
     Read array data from several file types.
     
@@ -1542,9 +1552,10 @@ def read_data(fname,**kwargs):
     fname : str
         Filename (full path or relative) of array data to load. Can be .vtk or 
         nibabel supported formats (e.g. .nii)
-        
+    down : list of int
+        Optional list of downsampling factors for each axis passed to slice reader.
     **kwargs : dict
-        Keword parameters that are passed on to the loader function
+        Keyword parameters that are passed on to the loader function
     
     Returns
     -------
@@ -1573,7 +1584,7 @@ def read_data(fname,**kwargs):
     print(f'Found extension {ext}')
     
     if ext == '':
-        xJ,J,W0 = load_slices(fname)
+        xJ,J,W0 = load_slices(fname,down=down)
         x = xJ
         images = np.concatenate((J,W0[None]))
         # set the names, I will separate out mask later
@@ -1753,7 +1764,10 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     phiiAi = interp(xv,phii-XV,Xs) + Xs
 
     # transform image
-    AphiI = interp(xI,I,phiiAi)       
+    AphiI = interp(xI,I,phiiAi)
+
+    print('J shape: ', J.shape)
+    print('AphiI shape: ', AphiI.shape)       
 
 
     fig = draw(AphiI,xJ)
@@ -1763,6 +1777,38 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     fig = draw(J,xJ)
     fig[0].suptitle('J input')
     fig[0].savefig(output_dir+'J_input.jpg')
+
+    # find Hausdorff distance between transformed atlas and target
+    thresh = 0.5
+    AphiI_surface_verts, AphiI_surface_faces, AphiI_surface_normals, AphiI_surface_values  = measure.marching_cubes(np.squeeze(np.array(AphiI)), thresh, spacing=(50.0,50.0,50.0))
+    J_surface_verts, J_surface_faces, J_surface_normals, J_surface_values = measure.marching_cubes(np.squeeze(np.array(J)), thresh, spacing=(50.0,50.0,50.0))
+    
+    hausdorff_AphiItoJ = directed_hausdorff(J_surface_verts, AphiI_surface_verts)
+
+ # TODO: fix 3d visualization. Try using either vtk, mayavi, or napari.
+    fig = plt.figure(figsize=(20,10))
+    ax = fig.add_subplot(211, projection='3d')
+    AphiI_mesh = Poly3DCollection(AphiI_surface_verts[AphiI_surface_faces])
+    AphiI_mesh.set_edgecolor('k')
+    ax.add_collection3d(AphiI_mesh)
+    ax.title.set_text('Transformed atlas (AphiI)')
+    ax.set_xlim(5000,25000)
+    ax.set_ylim(0,10000)
+    ax.set_zlim(0,10000)
+
+    ax = fig.add_subplot(212, projection='3d')
+    J_mesh = Poly3DCollection(J_surface_verts[J_surface_faces])
+    J_mesh.set_edgecolor('k')
+    ax.add_collection3d(J_mesh)
+    ax.title.set_text('Target (J)')
+    ax.set_xlim(5000,25000)
+    ax.set_ylim(0,10000)
+    ax.set_zlim(0,10000)
+
+    with open(output_dir+'hausdorff_distance.txt', 'w') as f:
+        f.write(str(hausdorff_AphiItoJ[0]))
+    print('Hausdorff distance: ', hausdorff_AphiItoJ)
+
 
     #fig = draw(torch.cat((AphiI,J,AphiI),0),xJ)
     #fig[0].suptitle('Input Space')
