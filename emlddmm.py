@@ -13,7 +13,7 @@ import warnings
 from skimage import measure
 from scipy.spatial.distance import directed_hausdorff
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
+from mayavi import mlab
 
 # display
 def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
@@ -1780,30 +1780,17 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
 
     # find Hausdorff distance between transformed atlas and target
     thresh = 0.5
-    AphiI_surface_verts, AphiI_surface_faces, AphiI_surface_normals, AphiI_surface_values  = measure.marching_cubes(np.squeeze(np.array(AphiI)), thresh, spacing=(50.0,50.0,50.0))
-    J_surface_verts, J_surface_faces, J_surface_normals, J_surface_values = measure.marching_cubes(np.squeeze(np.array(J)), thresh, spacing=(50.0,50.0,50.0))
+    AphiI_verts, AphiI_faces, AphiI_normals, AphiI_values  = measure.marching_cubes(np.squeeze(np.array(AphiI)), thresh, spacing=(50.0,50.0,50.0))
+    J_verts, J_faces, J_normals, J_values = measure.marching_cubes(np.squeeze(np.array(J)), thresh, spacing=(50.0,50.0,50.0))
     
-    hausdorff_AphiItoJ = directed_hausdorff(J_surface_verts, AphiI_surface_verts)
+    hausdorff_AphiItoJ = directed_hausdorff(J_verts, AphiI_verts)
 
  # TODO: fix 3d visualization. Try using either vtk, mayavi, or napari.
-    fig = plt.figure(figsize=(20,10))
-    ax = fig.add_subplot(211, projection='3d')
-    AphiI_mesh = Poly3DCollection(AphiI_surface_verts[AphiI_surface_faces])
-    AphiI_mesh.set_edgecolor('k')
-    ax.add_collection3d(AphiI_mesh)
-    ax.title.set_text('Transformed atlas (AphiI)')
-    ax.set_xlim(5000,25000)
-    ax.set_ylim(0,10000)
-    ax.set_zlim(0,10000)
+    surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
+    mlab.triangular_mesh(AphiI_verts[:,0], AphiI_verts[:,1], AphiI_verts[:,2], AphiI_faces, colormap='hot', opacity=0.5, figure=surface_fig)
+    mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
+    mlab.savefig(output_dir+'surfaces.obj')
 
-    ax = fig.add_subplot(212, projection='3d')
-    J_mesh = Poly3DCollection(J_surface_verts[J_surface_faces])
-    J_mesh.set_edgecolor('k')
-    ax.add_collection3d(J_mesh)
-    ax.title.set_text('Target (J)')
-    ax.set_xlim(5000,25000)
-    ax.set_ylim(0,10000)
-    ax.set_zlim(0,10000)
 
     with open(output_dir+'hausdorff_distance.txt', 'w') as f:
         f.write(str(hausdorff_AphiItoJ[0]))
