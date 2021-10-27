@@ -1785,12 +1785,12 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     
     hausdorff_AphiItoJ = directed_hausdorff(J_verts, AphiI_verts)
 
- # TODO: fix 3d visualization. Try using either vtk, mayavi, or napari.
+    # Visualize surfaces in 3d and save in OBJ file
     surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
     mlab.triangular_mesh(AphiI_verts[:,0], AphiI_verts[:,1], AphiI_verts[:,2], AphiI_faces, colormap='hot', opacity=0.5, figure=surface_fig)
     mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
     mlab.savefig(output_dir+'surfaces.obj')
-
+    mlab.close()
 
     with open(output_dir+'hausdorff_distance.txt', 'w') as f:
         f.write(str(hausdorff_AphiItoJ[0]))
