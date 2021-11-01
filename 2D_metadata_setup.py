@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
-subject_dir = 'C:/Users/BGAdmin/data/MD816/MD816_STIF'
-
 
 def make_samples_tsv(subject_dir):
     # create list of files from source directory (subject_dir) in order of slice number
@@ -31,7 +29,11 @@ def generate_sidecars(subject_dir, dtype='uint8', geometry_csv=None):
     except FileNotFoundError:
         print('No samples.tsv file was found in your subject directory.')
         sys.exit(1)
-    fnames = [x.split('    ')[0] for x in samples.splitlines()][1:]
+    samples = samples.splitlines()
+    if '\t' in samples[0]:
+        fnames = [x.split('\t')[0] for x in samples][1:]
+    else:
+        fnames = [x.split('    ')[0] for x in samples][1:]
     sample_ids = [os.path.splitext(x)[0] for x in fnames]
     sizes = []
     space_directions = []
@@ -80,5 +82,8 @@ def generate_sidecars(subject_dir, dtype='uint8', geometry_csv=None):
 
 
 if __name__ == '__main__':
+
+    subject_dir = 'C:/Users/BGAdmin/data/MD787_small_nissl'
+
     make_samples_tsv(subject_dir)
     generate_sidecars(subject_dir)

@@ -1,5 +1,7 @@
+from mayavi.tools.show import show
 import numpy as np
 import matplotlib.pyplot as plt
+from skimage.filters.thresholding import try_all_threshold
 import torch
 from torch.nn.functional import grid_sample
 import glob
@@ -10,10 +12,11 @@ import json
 import re
 import argparse
 import warnings
-from skimage import measure
-from scipy.spatial.distance import directed_hausdorff
+from skimage import measure, color, filters
+from scipy.spatial.distance import directed_hausdorff, dice
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mayavi import mlab
+from medpy.metric import binary
 
 # display
 def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
@@ -132,7 +135,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     return fig,axs
     
     
-def load_slices(target_name, down=None):
+def load_slices(target_name):
     """ Load a slice dataset.
     
     Load a slice dataset for histology registration. Slice datasets include pairs
@@ -143,9 +146,7 @@ def load_slices(target_name, down=None):
     ----------
     target_name : string
         Name of a directory containing slice dataset.
-    down : list of int
-        List of downsampling factors for each axis.
-        
+     
     Returns
     -------
     xJ : list of numpy arrays
@@ -227,17 +228,6 @@ def load_slices(target_name, down=None):
 
         J__ = J__[...,:3] # no alpha
 
-        # the domain
-        if i == 0:
-            dJ = np.diag(np.array(jsondata['SpaceDirections'][1:]))[::-1]
-            if down:
-                dJ = dJ*down
-        # note the order needs to be reversed
-
-        # downsample
-        if down:
-                J__ = downsample(np.transpose(J__,(2,0,1)), down)
-                J__ = np.transpose(J__,(1,2,0))
         nJ_[i] = np.array(J__.shape)
 
         J_.append(J__)
@@ -250,9 +240,16 @@ def load_slices(target_name, down=None):
             fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
             fig.canvas.draw()
 
+        # the domain
+        if i == 0:
+            dJ = np.diag(np.array(jsondata['SpaceDirections'][1:]))[::-1]
+            if down:
+                dJ = dJ*down
+        # note the order needs to be reversed
+
         # if this is the first file we want to set up a 3D volume
         
-    # nJm = np.max(nJ_,0)
+    nJm = np.max(nJ_,0)
     nJm = (np.quantile(nJ_,0.95,axis=0)*1.01).astype(int) 
     # this will look for outliers when there are a small number, 
     # really there just shouldn't be outliers
@@ -398,6 +395,8 @@ def downsample(I,down):
             continue
         Id = downsample_ax(Id,d,i)
     return Id
+
+
 def downsample_image_domain(xI,I,down): 
     '''
     Downsample an image as well as pixel locations
@@ -986,7 +985,7 @@ def emlddmm(**kwargs):
         
         
         # reg cost (note that with no complex, there are two elements on the last axis)
-        version_num = int(torch.__version__[2])
+        version_num = int(torch.__version__[2:].split('.')[0])
         if version_num < 7:
             vhat = torch.rfft(v,3,onesided=False)
         else:
@@ -1539,7 +1538,7 @@ def read_vtk_data(fname,endian='b'):
     return x,images,title,names
     
     
-def read_data(fname,down=None,**kwargs):
+def read_data(fname,**kwargs):
     '''
     Read array data from several file types.
     
@@ -1552,8 +1551,6 @@ def read_data(fname,down=None,**kwargs):
     fname : str
         Filename (full path or relative) of array data to load. Can be .vtk or 
         nibabel supported formats (e.g. .nii)
-    down : list of int
-        Optional list of downsampling factors for each axis passed to slice reader.
     **kwargs : dict
         Keyword parameters that are passed on to the loader function
     
@@ -1584,7 +1581,7 @@ def read_data(fname,down=None,**kwargs):
     print(f'Found extension {ext}')
     
     if ext == '':
-        xJ,J,W0 = load_slices(fname,down=down)
+        xJ,J,W0 = load_slices(fname)
         x = xJ
         images = np.concatenate((J,W0[None]))
         # set the names, I will separate out mask later
@@ -1598,6 +1595,7 @@ def read_data(fname,down=None,**kwargs):
     else:
         print('Opening with nibabel, note only 3D images supported')
         vol = nibabel.load(fname,**kwargs)
+        print(vol.header)
         images = np.array(vol.get_fdata())
         if images.ndim == 3:
             images = images[None]
@@ -1778,24 +1776,45 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     fig[0].suptitle('J input')
     fig[0].savefig(output_dir+'J_input.jpg')
 
-    # find Hausdorff distance between transformed atlas and target
-    thresh = 0.5
-    AphiI_verts, AphiI_faces, AphiI_normals, AphiI_values  = measure.marching_cubes(np.squeeze(np.array(AphiI)), thresh, spacing=(50.0,50.0,50.0))
-    J_verts, J_faces, J_normals, J_values = measure.marching_cubes(np.squeeze(np.array(J)), thresh, spacing=(50.0,50.0,50.0))
+    #TODO: deal with slice data
+    if slice_matching:
+        print()
+
+    elif J.shape[0] == 1:   # find Hausdorff distance between transformed atlas and target
+
+        dJ = [x[1]-x[0] for x in xJ]
+        thresh = filters.threshold_otsu(np.array(J)[0,int(J.shape[1]/2),:,:])
+        AphiI_verts, AphiI_faces, AphiI_normals, AphiI_values  = measure.marching_cubes(np.squeeze(np.array(AphiI)), thresh, spacing=dJ)
+        J_verts, J_faces, J_normals, J_values = measure.marching_cubes(np.squeeze(np.array(J)), thresh, spacing=dJ)
+        
+        # hausdorff_AphiItoJ = directed_hausdorff(J_verts, AphiI_verts)
+        # hausdorff_JtoAphiI = directed_hausdorff(AphiI_verts, J_verts)
+        # hd = max(hausdorff_AphiItoJ[0], hausdorff_JtoAphiI[0])
+        
+        J_bool = np.squeeze(np.array(J > thresh)*1.0)
+        J_bool_flat = J_bool.flatten()
+
+        AphiI_bool = np.squeeze(np.array(AphiI > thresh)*1.0)
+        AphiI_bool_flat = AphiI_bool.flatten()
+
+        dice_coeff = dice(J_bool_flat, AphiI_bool_flat)
+        hausdorff = binary.hd(J_bool, AphiI_bool, voxelspacing=dJ)
+        hausdorff95 = binary.hd95(J_bool, AphiI_bool, voxelspacing=dJ)
+
+        # Visualize surfaces in 3d and save in OBJ file
+        surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
+        mlab.triangular_mesh(AphiI_verts[:,0], AphiI_verts[:,1], AphiI_verts[:,2], AphiI_faces, colormap='hot', opacity=0.5, figure=surface_fig)
+        mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
+        mlab.show()
+        mlab.savefig(output_dir+'surfaces.obj')
+        mlab.close()
+
+        with open(output_dir+'qc.txt', 'w') as f:
+            f.write('Symmetric Hausdorff Distance: '+str(hausdorff)+'\n95th Percentile Hausdorff Distance: '+str(hausdorff95)+'\nDice Coefficient: '+str(dice_coeff))
+        print('Hausdorff distance: ', hausdorff, '\nhd95: ', hausdorff95, '\ndice: ', dice_coeff)
     
-    hausdorff_AphiItoJ = directed_hausdorff(J_verts, AphiI_verts)
-
-    # Visualize surfaces in 3d and save in OBJ file
-    surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
-    mlab.triangular_mesh(AphiI_verts[:,0], AphiI_verts[:,1], AphiI_verts[:,2], AphiI_faces, colormap='hot', opacity=0.5, figure=surface_fig)
-    mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
-    mlab.savefig(output_dir+'surfaces.obj')
-    mlab.close()
-
-    with open(output_dir+'hausdorff_distance.txt', 'w') as f:
-        f.write(str(hausdorff_AphiItoJ[0]))
-    print('Hausdorff distance: ', hausdorff_AphiItoJ)
-
+    else:
+        print('image format not recognized')
 
     #fig = draw(torch.cat((AphiI,J,AphiI),0),xJ)
     #fig[0].suptitle('Input Space')

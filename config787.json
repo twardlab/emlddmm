@@ -16,7 +16,7 @@
     "order":[3],
     "n_draw":[50],
     "n_e_step":[10],
-    "slice_matching_start":[100,0],
+    "slice_matching_start":[100,0,0],
     "v_start":[1000,200,0],
     "A":[[[-1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]]]
 }
