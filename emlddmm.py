@@ -243,7 +243,7 @@ def load_slices(target_name):
         # the domain
         if i == 0:
             dJ = np.diag(np.array(jsondata['SpaceDirections'][1:]))[::-1]
-            
+
         # note the order needs to be reversed
 
         # if this is the first file we want to set up a 3D volume
