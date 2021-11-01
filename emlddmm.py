@@ -146,7 +146,7 @@ def load_slices(target_name):
     ----------
     target_name : string
         Name of a directory containing slice dataset.
-     
+
     Returns
     -------
     xJ : list of numpy arrays
@@ -243,8 +243,7 @@ def load_slices(target_name):
         # the domain
         if i == 0:
             dJ = np.diag(np.array(jsondata['SpaceDirections'][1:]))[::-1]
-            if down:
-                dJ = dJ*down
+            
         # note the order needs to be reversed
 
         # if this is the first file we want to set up a 3D volume
