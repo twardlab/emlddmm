@@ -14,7 +14,7 @@ import argparse
 import warnings
 from skimage import measure, color, filters
 from scipy.spatial.distance import directed_hausdorff, dice
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+# from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mayavi import mlab
 from medpy.metric import binary
 
@@ -1775,9 +1775,32 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     fig[0].suptitle('J input')
     fig[0].savefig(output_dir+'J_input.jpg')
 
-    #TODO: deal with slice data
     if slice_matching:
-        print()
+        dJ = [x[1]-x[0] for x in xJ[1:]]
+        # initialize lists for hd, hd95 and dice for each slice
+        hausdorff = []
+        hausdorff95 = []
+        dice_coeff = []
+        for i in len(J.shape[1]): # for each slice in the volume, J
+            # get J slice  and convert to grayscale
+            J_slice = color.rgb2gray(np.transpose(J[:,0,...], (1,2,0)))
+            # find thresh value using otsu's algorithm
+            thresh = filters.threshold_otsu(J_slice)
+            # binarize each image
+            J_slice_bool = (J_slice > thresh)*1
+            # get hd, hd95, and dice coeff
+            hausdorff.append(binary.hd(J_slice_bool, AphiI[0, i, ...], voxelspacing=dJ))
+            hausdorff95.append(binary.hd95(J_slice_bool, AphiI[0, i, ...], voxelspacing=dJ))
+            dice_coeff.append(dice(np.array(J_slice_bool).flatten(), np.array(AphiI_slice_bool).flatten()))
+
+        hd_mean = np.mean(hausdorff)
+        hd95_mean = np.mean(hausdorff95)
+        dice_mean = np.mean(dice_coeff)
+        print('Mean hausdorff distance: ', hd_mean, '\nMean hd95: ', hd95_mean, '\nMean dice: ', dice_mean)
+
+        with open(output_dir+'qc.txt', 'w') as f:
+            f.write('Mean Hausdorff Distance: '+str(hd_mean)+'\nMean 95th Percentile Hausdorff Distance: '+str(hd95_mean)+'\nMean Dice Coefficient: '+str(dice_mean))
+
 
     elif J.shape[0] == 1:   # find Hausdorff distance between transformed atlas and target
 
@@ -1789,11 +1812,23 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
         # hausdorff_AphiItoJ = directed_hausdorff(J_verts, AphiI_verts)
         # hausdorff_JtoAphiI = directed_hausdorff(AphiI_verts, J_verts)
         # hd = max(hausdorff_AphiItoJ[0], hausdorff_JtoAphiI[0])
-        
-        J_bool = np.squeeze(np.array(J > thresh)*1.0)
+        # do sqrt on distances
+        distances = np.sum((J_verts[::2][None] - AphiI_verts[::2][:,None])**2, axis=-1)
+        distances = np.min(distances, axis=1)
+        count, bins_count = np.histogram(distances, bins=1000)
+        pdf = count / sum(count)
+        cdf = np.cumsum(pdf)
+
+        # plot cdf
+        fig = plt.figure()
+        plt.plot(bins_count[1:], cdf)
+        plt.title('CDF')
+        plt.savefig(output_dir+'cdf.png')
+
+        J_bool = np.squeeze(np.array(J > thresh)*1)
         J_bool_flat = J_bool.flatten()
 
-        AphiI_bool = np.squeeze(np.array(AphiI > thresh)*1.0)
+        AphiI_bool = np.squeeze(np.array(AphiI > thresh)*1)
         AphiI_bool_flat = AphiI_bool.flatten()
 
         dice_coeff = dice(J_bool_flat, AphiI_bool_flat)
