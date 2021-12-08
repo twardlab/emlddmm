@@ -1,22 +1,19 @@
-# from mayavi.tools.show import show
 import numpy as np
 import matplotlib.pyplot as plt
-# from skimage.filters.thresholding import try_all_threshold
 import torch
 from torch.nn.functional import grid_sample
 import glob
 import os
 import nibabel
-# import nrrd
 import json
 import re
 import argparse
 import warnings
-from skimage import measure, color, filters
-from scipy.spatial.distance import directed_hausdorff, dice
-# from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from skimage import measure, filters
 from mayavi import mlab
-from medpy.metric import binary
+# import nrrd
+# from scipy.spatial.distance import directed_hausdorff, dice
+# from medpy.metric import binary
 
 # display
 def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
@@ -989,7 +986,6 @@ def emlddmm(**kwargs):
             vhat = torch.rfft(v,3,onesided=False)
         else:
             vhat = torch.view_as_real(torch.fft.fftn(v,dim=3,norm="backward"))
-            # vhat = torch.view_as_real(torch.fft.fftn(v, norm="backward"))
         
         ER = torch.sum(torch.sum(vhat**2,(0,1,-1))*LL)/torch.prod(nv)*torch.prod(dv)/nt/2.0/sigmaR**2
         
@@ -1007,7 +1003,6 @@ def emlddmm(**kwargs):
         else:
             vgrad = torch.view_as_real(torch.fft.ifftn(torch.fft.fftn(v.grad,dim=3,norm="backward")*(KK),
                 dim=3,norm="backward"))
-            # vgrad = torch.view_as_real(torch.fft.ifftn(torch.fft.fftn(v.grad, norm="backward")*(KK), norm="backward"))
             vgrad = vgrad[...,0]
         
         Agrad = (gi@(A.grad[:3,:4].reshape(-1))).reshape(3,4)
@@ -1776,86 +1771,9 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     fig = draw(J,xJ)
     fig[0].suptitle('J input')
     fig[0].savefig(output_dir+'J_input.jpg')
-    
-    #TODO: get slice_matching qc working
-    if slice_matching:
-        print()
-    #     dJ = [x[1]-x[0] for x in xJ[1:]]
-    #     # initialize lists for hd, hd95 and dice for each slice
-    #     hausdorff = []
-    #     hausdorff95 = []
-    #     dice_coeff = []
-    #     for i in len(J.shape[1]): # for each slice in the volume, J
-    #         # get J slice  and convert to grayscale
-    #         J_slice = color.rgb2gray(np.transpose(J[:,0,...], (1,2,0)))
-    #         # find thresh value using otsu's algorithm
-    #         thresh = filters.threshold_otsu(J_slice)
-    #         # binarize each image
-    #         J_slice_bool = (J_slice > thresh)*1
-    #         # get hd, hd95, and dice coeff
-    #         hausdorff.append(binary.hd(J_slice_bool, AphiI[0, i, ...], voxelspacing=dJ))
-    #         hausdorff95.append(binary.hd95(J_slice_bool, AphiI[0, i, ...], voxelspacing=dJ))
-    #         dice_coeff.append(dice(np.array(J_slice_bool).flatten(), np.array(AphiI_slice_bool).flatten()))
-    
-    #     hd_mean = np.mean(hausdorff)
-    #     hd95_mean = np.mean(hausdorff95)
-    #     dice_mean = np.mean(dice_coeff)
-    #     print('Mean hausdorff distance: ', hd_mean, '\nMean hd95: ', hd95_mean, '\nMean dice: ', dice_mean)
-    
-    #     with open(output_dir+'qc.txt', 'w') as f:
-    #         f.write('Mean Hausdorff Distance: '+str(hd_mean)+'\nMean 95th Percentile Hausdorff Distance: '+str(hd95_mean)+'\nMean Dice Coefficient: '+str(dice_mean))
-    
-    #TODO: fix mlab bug
-    elif J.shape[0] == 1:   # find Hausdorff distance between transformed atlas and target
-    
-        dJ = [x[1]-x[0] for x in xJ]
-        thresh = filters.threshold_otsu(np.array(J)[0,int(J.shape[1]/2),:,:])
-        AphiI_verts, AphiI_faces, AphiI_normals, AphiI_values  = measure.marching_cubes(np.squeeze(np.array(AphiI)), thresh, spacing=dJ)
-        J_verts, J_faces, J_normals, J_values = measure.marching_cubes(np.squeeze(np.array(J)), thresh, spacing=dJ)
-    
-        # hausdorff_AphiItoJ = directed_hausdorff(J_verts, AphiI_verts)
-        # hausdorff_JtoAphiI = directed_hausdorff(AphiI_verts, J_verts)
-        # hd = max(hausdorff_AphiItoJ[0], hausdorff_JtoAphiI[0])
-        distances = np.sum((J_verts[::2][None] - AphiI_verts[::2][:,None])**2, axis=-1)
-        distances = np.sqrt(np.min(distances, axis=1))
-        count, bins_count = np.histogram(distances, bins=1000)
-        pdf = count / sum(count)
-        cdf = np.cumsum(pdf)
-    
-        # plot cdf
-        fig = plt.figure()
-        plt.plot(bins_count[1:], cdf)
-        plt.title('CDF')
-        plt.savefig(output_dir+'cdf.png')
-    
-        J_bool = np.squeeze(np.array(J > thresh)*1)
-        J_bool_flat = J_bool.flatten()
-    
-        AphiI_bool = np.squeeze(np.array(AphiI > thresh)*1)
-        AphiI_bool_flat = AphiI_bool.flatten()
-    
-        dice_coeff = dice(J_bool_flat, AphiI_bool_flat)
-        hausdorff = binary.hd(J_bool, AphiI_bool, voxelspacing=dJ)
-        hausdorff95 = binary.hd95(J_bool, AphiI_bool, voxelspacing=dJ)
-    
-        # Visualize surfaces in 3d and save in OBJ file
-        surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
-        mlab.triangular_mesh(AphiI_verts[:,0], AphiI_verts[:,1], AphiI_verts[:,2], AphiI_faces, colormap='hot', opacity=0.5, figure=surface_fig)
-        mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
-        mlab.show()
-        # TODO: savefig not working
-        # mlab.savefig(output_dir+'surfaces.obj')
-        mlab.close()
-    
-        with open(output_dir+'qc.txt', 'w') as f:
-            f.write('Symmetric Hausdorff Distance: '+str(hausdorff)+'\n95th Percentile Hausdorff Distance: '+str(hausdorff95)+'\nDice Coefficient: '+str(dice_coeff))
-        print('Hausdorff distance: ', hausdorff, '\nhd95: ', hausdorff95, '\ndice: ', dice_coeff)
-    
-    else:
-        print('image format not recognized')
 
-    # fig = draw(torch.cat((AphiI,J,AphiI),0),xJ)
-    # fig[0].suptitle('Input Space')
+    #fig = draw(torch.cat((AphiI,J,AphiI),0),xJ)
+    #fig[0].suptitle('Input Space')
     
     
     # first we need to build the reconstructed space
@@ -1927,6 +1845,98 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     fig = draw(I,xI)
     fig[0].suptitle('I atlas')
     fig[0].savefig(output_dir+'I_atlas.jpg')
+
+    # TODO: surfaces currently include many that are not the outer surface of the brain. do we want just the outer surface? does it matter?
+    if not slice_matching:
+        Jr_ = Jr.cpu().numpy()[0]
+        AphiI = AphiI.cpu().numpy()
+        # find Hausdorff distance between transformed atlas and target
+        dJ = [x[1]-x[0] for x in xr]
+        thresh = filters.threshold_otsu(Jr_[int(Jr_.shape[0]/2), :, :])
+        AphiI_verts, AphiI_faces, AphiI_normals, AphiI_values  = measure.marching_cubes(np.squeeze(AphiI), thresh, spacing=dJ)
+        J_verts, J_faces, J_normals, J_values = measure.marching_cubes(np.squeeze(np.array(Jr_)), thresh, spacing=dJ)
+
+        distances = np.sum((J_verts[::4][None] - AphiI_verts[::4][:,None])**2, axis=-1)
+        distances = np.sqrt(np.min(distances, axis=1))
+        count, bins_count = np.histogram(distances, bins=1000)
+        pdf = count / sum(count)
+        cdf = np.cumsum(pdf)
+        hausdorff = np.max(distances)
+        hausdorff95 = np.percentile(distances, 95)
+
+        # plot cdf
+        fig = plt.figure()
+        plt.plot(bins_count[1:], cdf)
+        plt.title('CDF')
+        plt.savefig(output_dir+'cdf.png')
+        plt.close()
+
+        # TODO: I think we don't want these measures
+        # J_bool = np.squeeze(np.array(Jr_ > thresh)*1)
+        # fig = draw(J_bool,xr)
+        # fig[0].suptitle('J bool')
+        # plt.close()
+        # J_bool_flat = J_bool.flatten()
+
+        # AphiI_bool = np.squeeze(np.array(AphiI > thresh)*1)
+        # fig = draw(AphiI_bool,xr)
+        # fig[0].suptitle('AphiI bool')
+        # plt.close()
+        # AphiI_bool_flat = AphiI_bool.flatten()
+
+        # dice_coeff = dice(J_bool_flat, AphiI_bool_flat)
+        # hausdorff_ = binary.hd(J_bool, AphiI_bool, voxelspacing=dJ)
+        # hausdorff95_ = binary.hd95(J_bool, AphiI_bool, voxelspacing=dJ)
+        # print('manual hd & hd95: ', hausdorff, hausdorff95)
+        # print('\n medpy metric hd & hd95: ', hausdorff_, hausdorff95_)
+
+        # Visualize surfaces in 3d and save in OBJ file
+        surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
+        mlab.triangular_mesh(AphiI_verts[:,0], AphiI_verts[:,1], AphiI_verts[:,2], AphiI_faces, colormap='hot', opacity=0.5, figure=surface_fig)
+        mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
+        mlab.savefig(output_dir+'surfaces.obj')
+
+        with open(output_dir+'qc.txt', 'w') as f:
+            f.write('Symmetric Hausdorff Distance: '+str(hausdorff)+'\n95th Percentile Hausdorff Distance: '+str(hausdorff95)+'\nDice Coefficient: '+str(dice_coeff))
+        print('Hausdorff distance: ', hausdorff, '\nhd95: ', hausdorff95, '\ndice: ', dice_coeff)
+
+    # TODO: current method of binarizing images isn't good for hausdorff measure
+    # else:
+    #     # compute per-slice hausdorff and dice
+    #     dJ = [x[1] - x[0] for x in xr[1:]]
+
+    #     # initialize lists for hd, hd95 and dice for each slice
+    #     hausdorff = []
+    #     hausdorff95 = []
+    #     dice_coeff = []
+    #     n = 0
+    #     for i in range(Jr_.shape[0]): # for each slice in the volume, Jr
+    #         # get J slice (Jr is already in grayscale)
+    #         J_slice = Jr_[i]
+    #         # find thresh value using otsu's algorithm
+    #         thresh = filters.threshold_otsu(J_slice)
+    #         # binarize each image
+    #         J_slice_bool = (J_slice > thresh) * 1
+    #         AphiI_slice_bool = (AphiI[0, i, ...] > thresh) * 1
+    #         if np.max(AphiI_slice_bool) == 0:  # if the array contains all zeros it will not work
+    #             continue
+    #         # get hd, hd95, and dice coeff
+    #         hausdorff.append(binary.hd(J_slice_bool, AphiI_slice_bool, voxelspacing=dJ))
+    #         hausdorff95.append(binary.hd95(J_slice_bool, AphiI_slice_bool, voxelspacing=dJ))
+    #         dice_coeff.append(dice(J_slice_bool.flatten(), AphiI_slice_bool.flatten()))
+    #         with open(os.path.join(output_dir, f'slice_{i:04d}.txt'), 'w') as f:
+    #             f.write('Symmetric Hausdorff Distance: '+str(hausdorff[n])+'\n95th Percentile Hausdorff Distance: '
+    #                     + str(hausdorff95[n])+'\nDice Coefficient: '+str(dice_coeff[n]))
+    #         n += 1  
+
+    #     hd_mean = np.mean(hausdorff)
+    #     hd95_mean = np.mean(hausdorff95)
+    #     dice_mean = np.mean(dice_coeff)
+    #     print('Mean hausdorff distance: ', hd_mean, '\nMean hd95: ', hd95_mean, '\nMean dice: ', dice_mean)
+
+    #     with open(output_dir + 'qc.txt', 'a') as f:
+    #         f.write('\nMean Hausdorff Distance: ' + str(hd_mean) + '\nMean 95th Percentile Hausdorff Distance: ' + str(
+    #             hd95_mean) + '\nMean Dice Coefficient: ' + str(dice_mean))
 
     #fig = draw(torch.cat((I,phiiAiJ,I),0),xI)
     #fig[0].suptitle('atlas space')
@@ -2149,7 +2159,7 @@ def apply_transform_float(x,I,Xout):
     
     AphiI = interp(x,torch.as_tensor(I,dtype=Xout.dtype,device=Xout.device),Xout).cpu()
     if isnumpy:
-        AphiI = IphiI.numpy()
+        AphiI = AphiI.numpy()
     return AphiI
 def apply_transform_int(x,I,Xout):
     '''Apply transform to image
