@@ -977,11 +977,14 @@ def emlddmm(**kwargs):
         
         
         # reg cost (note that with no complex, there are two elements on the last axis)
-        version_num = int(torch.__version__[2])
+        version_num = int(torch.__version__.split('.')[1])
         if version_num < 7:
             vhat = torch.rfft(v,3,onesided=False)
         else:
-            vhat = torch.view_as_real(torch.fft.fftn(v,dim=3,norm="backward"))
+            #vhat = torch.view_as_real(torch.fft.fftn(v,dim=3,norm="backward"))
+            # dec 14, I don't think the above is correct, need to tform over dim 2,3,4 (zyx)
+            # note that "as real" gives real and imaginary as a last index
+            vhat = torch.view_as_real(torch.fft.fftn(v,dim=(2,3,4)))
         
         ER = torch.sum(torch.sum(vhat**2,(0,1,-1))*LL)/torch.prod(nv)*torch.prod(dv)/nt/2.0/sigmaR**2
         
@@ -997,9 +1000,12 @@ def emlddmm(**kwargs):
         if version_num < 7:
             vgrad = torch.irfft(torch.rfft(v.grad,3,onesided=False)*(KK)[None,None,...,None],3,onesided=False)
         else:
-            vgrad = torch.view_as_real(torch.fft.ifftn(torch.fft.fftn(v.grad,dim=3,norm="backward")*(KK),
-                dim=3,norm="backward"))
-            vgrad = vgrad[...,0]
+            #vgrad = torch.view_as_real(torch.fft.ifftn(torch.fft.fftn(v.grad,dim=3,norm="backward")*(KK),
+            #    dim=3,norm="backward"))
+            #vgrad = vgrad[...,0]
+            # dec 14, 2021 I don't think the above is correct, re dim
+            vgrad = torch.fft.ifftn(torch.fft.fftn(v.grad,dim=(2,3,4))*(KK),dim=(2,3,4)).real
+            
         
         Agrad = (gi@(A.grad[:3,:4].reshape(-1))).reshape(3,4)
         if slice_matching:
@@ -1171,7 +1177,7 @@ def emlddmm(**kwargs):
            'v':v.detach().clone(),
            'xv':[x.detach().clone() for x in xv]}
     if slice_matching:
-        out['A2d'] = A2d
+        out['A2d'] = A2d.detach().clone()
     if full_outputs:
         # other data I may need
         out['WM'] = WM.detach().clone()
