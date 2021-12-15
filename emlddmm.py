@@ -705,7 +705,7 @@ def emlddmm(**kwargs):
     
     # set up a domain for xv    
     # I'll put it a bit bigger than xi
-    dv = dI*v_res_factor # we want this to be independent of the I downsampling sampling
+    dv = dI*v_res_factor # we want this to be independent of the I downsampling 
     print(f'dv {dv}')
     if a is None:
         a = dv[0]*2.0 # so this is also independent of the I downsampling amount
@@ -815,7 +815,7 @@ def emlddmm(**kwargs):
     if A is None:
         A = torch.eye(4,requires_grad=True, device=device, dtype=dtype)
     else:
-        A = torch.as_tensor(A,device=device,dtype=dtype)
+        A = torch.as_tensor(A,device=device,dtype=dtype).detach().clone()
         A.requires_grad = True
         
     if slice_matching:
@@ -823,7 +823,7 @@ def emlddmm(**kwargs):
             A2d = torch.eye(3,device=device,dtype=dtype)[None].repeat(J.shape[1],1,1)
             A2d.requires_grad = True
         else:
-            A2d = torch.as_tensor(A2d, device=device, dtype=dtype)
+            A2d = torch.as_tensor(A2d, device=device, dtype=dtype).detach().clone()
             A2d.requires_grad = True
         # if slice matching is on we want to add xy translation in A to A2d
         with torch.no_grad():
@@ -909,13 +909,22 @@ def emlddmm(**kwargs):
         phiiAi = interp(xv,phii-XV,Xs) + Xs
         
         # transform image
-        AphiI = interp(xI,I,phiiAi)                
+        AphiI = interp(xI,I,phiiAi)        
 
         # transform contrast (here assume atlas is dim 1)
-        Nvoxels = AphiI.shape[0]*AphiI.shape[1]*AphiI.shape[2]*AphiI.shape[3] # why did I write 0, well its equal to 1 here
-        B_ = torch.ones((Nvoxels,order+1),dtype=dtype,device=device)
-        for i in range(order):
-            B_[:,i+1] = AphiI.reshape(-1)**(i+1) # this assumes atlas is only dim 1, okay for now
+        # I'd like to support two cases, order 1 and arbitrary dim
+        # or order > 1 and 1 dim
+        Nvoxels = AphiI.shape[1]*AphiI.shape[2]*AphiI.shape[3] # why did I write 0, well its equal to 1 here
+        if I.shape[0] == 1:
+            B_ = torch.ones((Nvoxels,order+1),dtype=dtype,device=device)
+            for i in range(order):
+                B_[:,i+1] = AphiI.reshape(-1)**(i+1) # this assumes atlas is only dim 1, okay for now
+        elif I.shape[0] > 1 and order == 1:
+            B_ = torch.ones((Nvoxels,AphiI.shape[0]+1),dtype=dtype,device=device)
+            B_[:,1:] = AphiI.reshape(AphiI.shape[0]+1,-1).T
+        else:
+            raise Exception('Require either order = 1 or order>1 and 1D atlas')
+        
         if not slice_matching:
             with torch.no_grad():
                 # multiply by weight
@@ -927,7 +936,7 @@ def emlddmm(**kwargs):
             # I need to update
             with torch.no_grad():
                 # multiply by weight
-                B__ = B_*(WM*W0).reshape(-1)[...,None]
+                B__ = B_*(WM*W0).reshape(-1)[...,None]                
                 coeffs = torch.inverse(B__.T@B_) @ (B__.T@(J.reshape(J.shape[0],-1).T))                                    
             fAphiI = ((B_@coeffs).T).reshape(J.shape) 
         
