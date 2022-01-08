@@ -981,11 +981,11 @@ def emlddmm(**kwargs):
         
         
         # reg cost (note that with no complex, there are two elements on the last axis)
-        version_num = int(torch.__version__[2:].split('.')[0])
+        version_num = int(torch.__version__.split('.')[1])
         if version_num < 7:
             vhat = torch.rfft(v,3,onesided=False)
         else:
-            vhat = torch.view_as_real(torch.fft.fftn(v,dim=3,norm="backward"))
+            vhat = torch.view_as_real(torch.fft.fftn(v,dim=(2,3,4)))
         
         ER = torch.sum(torch.sum(vhat**2,(0,1,-1))*LL)/torch.prod(nv)*torch.prod(dv)/nt/2.0/sigmaR**2
         
@@ -1001,9 +1001,7 @@ def emlddmm(**kwargs):
         if version_num < 7:
             vgrad = torch.irfft(torch.rfft(v.grad,3,onesided=False)*(KK)[None,None,...,None],3,onesided=False)
         else:
-            vgrad = torch.view_as_real(torch.fft.ifftn(torch.fft.fftn(v.grad,dim=3,norm="backward")*(KK),
-                dim=3,norm="backward"))
-            vgrad = vgrad[...,0]
+            vgrad = torch.fft.ifftn(torch.fft.fftn(v.grad,dim=(2,3,4))*(KK),dim=(2,3,4)).real
         
         Agrad = (gi@(A.grad[:3,:4].reshape(-1))).reshape(3,4)
         if slice_matching:

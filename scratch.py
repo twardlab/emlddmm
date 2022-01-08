@@ -231,5 +231,18 @@ print('max values: ', np.max(J_values), 'min values: ', np.min(J_values))
 surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
 mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
 mlab.show()
+# %%
+import numpy as np
 
 
+fnames = ['a','b','c','d','e','f','g','h','i','j','k']
+idxs = np.arange(0,len(fnames),2)
+print('fnames: ', fnames)
+print('indices: ', idxs)
+print('new fnames: ', list(map(fnames.__getitem__, idxs)))
+
+
+
+
+
+# %%

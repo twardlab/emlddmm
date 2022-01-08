@@ -160,10 +160,10 @@ def reg(dest, source, config, out, labels=None):
         A = np.eye(4)
     print(A)
 
-    if 'slice_matching' not in config:
-        # for simplicity I will add a translation manually
-        A[:3, -1] = [-4000, 100, 4000]
-        config['A'] = A
+    # if 'slice_matching' not in config:
+    #     # for simplicity I will add a translation manually
+    #     A[:3, -1] = [-4000, 100, 4000]
+    #     config['A'] = A
 
     device = 'cuda:0'
     #device = 'cpu'
