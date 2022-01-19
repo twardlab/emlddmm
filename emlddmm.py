@@ -1893,7 +1893,8 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
         mlab.triangular_mesh(AphiI_verts[:,0], AphiI_verts[:,1], AphiI_verts[:,2], AphiI_faces, colormap='hot', opacity=0.5, figure=surface_fig)
         mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
         mlab.savefig(output_dir+'surfaces.obj')
-
+        mlab.close()
+        
         with open(output_dir+'qc.txt', 'w') as f:
             f.write('Symmetric Hausdorff Distance: '+str(hausdorff)+'\n95th Percentile Hausdorff Distance: '+str(hausdorff95)+'\nDice Coefficient: '+str(dice_coeff))
         print('Hausdorff distance: ', hausdorff, '\nhd95: ', hausdorff95, '\ndice: ', dice_coeff)

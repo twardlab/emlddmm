@@ -245,16 +245,16 @@ def do_transformation(adj, spaces, src, dest, src_img='', dest_img=''):
     # if slice_matching then construct the reconstructed space XR
     if slice_matching:
         if I_title=='slice_dataset': # then the last transform in transformation_seq should contain A2d files
-            transforms = os.path.join(transformation_seq[0][0], 'transforms')
-            transforms_ls = os.listdir(transforms)
-        else: # otherwise the first transform in transformation_seq should contain A2d files
             transforms = os.path.join(transformation_seq[-1][0], 'transforms')
-            transforms_ls = os.listdir(transforms)
+            transforms_ls = [f for f in os.listdir(transforms) if 'velocity.vtk' not in f and 'A.txt' not in f]
+            transforms_ls = sorted(transforms_ls, key=lambda x: x[4:8])
+        else: # otherwise the first transform in transformation_seq should contain A2d files
+            transforms = os.path.join(transformation_seq[0][0], 'transforms')
+            transforms_ls = [f for f in os.listdir(transforms) if 'velocity.vtk' not in f and 'A.txt' not in f]
+            transforms_ls = sorted(transforms_ls, key=lambda x: x[4:8])
         # determine which image is constructed from a 2d series, I or J.
         x_series = xI if I_title=='slice_dataset' else xJ
         X_series = torch.stack(torch.meshgrid(x_series),-1)
-        transforms_ls.pop(0)
-        transforms_ls.pop(-1)
 
         A2d = []
         for t in transforms_ls:
@@ -311,20 +311,26 @@ def do_transformation(adj, spaces, src, dest, src_img='', dest_img=''):
     return AphiI
 # %%
 # note: the forward transformation samples the source image in the destination coordinates (i.e. makes the source to look like the dest)
-reg_list = [{'spacenames': ['NISSL', 'ATLAS'], # first element of spacenames is the source space and second is destination
-             'source': 'C:\\Users\\BGAdmin\\emlddmm\\MD787_small_nissl',
-             'dest': 'Allen_Atlas_vtk/ara_nissl_50.vtk',
+reg_list = [{'spacenames': ['MRI', 'CT'],
+             'source': '/home/brysongraylocal/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+             'target': '/home/brysongraylocal/data/MD816_mini/ct_mask.vtk',
+             'config': 'configMD816_MR_to_CT.json',
+             'output_dir': 'transformation_graph_outputs/MR_to_CT_output'},
+             {'spacenames': ['MRI', 'NISSL'],
+             'source': '/home/brysongraylocal/data/MD816/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+             'target': '/home/brysongraylocal/data/MD816_mini/MD816_STIF_mini_v2',
              'config': 'config787small.json',
-             'output_dir': 'test_output5',
-             'label_name': 'Allen_Atlas_vtk/annotation_50.vtk'}]
+             'output_dir': 'transformation_graph_outputs_v2/MR_to_NISSL_output'}]
 
 adj, spaces = run_registrations(reg_list)
 
 # %%
 from skimage import color
-src = 'ATLAS'
+src = 'CT'
 dest = 'NISSL'
 
-nissl_img = 'C:\\Users\\BGAdmin\\emlddmm\\MD787_small_nissl'
-atlas_img = 'Allen_Atlas_vtk/ara_nissl_50.vtk'
-AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, src_img=atlas_img, dest_img=nissl_img)
+CT_img = '/home/brysongraylocal/data/MD816_mini/ct_mask.vtk'
+MR_img = '/home/brysongraylocal/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
+NISSL_dir = '/home/brysongraylocal/data/MD816_mini/MD816_STIF_mini_v2'
+AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, src_img=CT_img, dest_img=NISSL_dir)
+# %%
