@@ -127,6 +127,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         axsi.append(ax)
     axs.append(axsi)
     
+    fig.subplots_adjust(wspace=0,hspace=0)  
     return fig,axs
     
     
@@ -663,7 +664,7 @@ def emlddmm(**kwargs):
     downJ = kwargs['downJ']
     W0 = kwargs['W0']
     if W0 is None:
-        W0 = torch.ones_like(J)
+        W0 = torch.ones_like(J[0]) # this has only one channel and should not have extra dimension in front
     else:
         W0 = torch.as_tensor(W0,device=device,dtype=dtype)
     N = torch.sum(W0) 
@@ -723,6 +724,12 @@ def emlddmm(**kwargs):
     xJ,J = downsample_image_domain(xJ,J,downJ)
     dI *= torch.prod(torch.tensor(downI,device=device,dtype=dtype))
     dJ *= torch.prod(torch.tensor(downJ,device=device,dtype=dtype))
+    # I think the above two lines are wrong, let's just repeat
+    dI = torch.tensor([xi[1]-xi[0] for xi in xI],device=device,dtype=dtype)
+    dJ = torch.tensor([xi[1]-xi[0] for xi in xJ],device=device,dtype=dtype)    
+    nI = torch.tensor(I.shape,dtype=dtype,device=device)
+    nJ = torch.tensor(J.shape,dtype=dtype,device=device)
+    
     vminI = [np.quantile(J_.cpu().numpy(),0.001) for J_ in I]
     vmaxI = [np.quantile(J_.cpu().numpy(),0.999) for J_ in I]
     vminJ = [np.quantile(J_.cpu().numpy(),0.001) for J_ in J]
@@ -920,8 +927,9 @@ def emlddmm(**kwargs):
             for i in range(order):
                 B_[:,i+1] = AphiI.reshape(-1)**(i+1) # this assumes atlas is only dim 1, okay for now
         elif I.shape[0] > 1 and order == 1:
+            # in this case, I still need a column of ones
             B_ = torch.ones((Nvoxels,AphiI.shape[0]+1),dtype=dtype,device=device)
-            B_[:,1:] = AphiI.reshape(AphiI.shape[0]+1,-1).T
+            B_[:,1:] = AphiI.reshape(AphiI.shape[0],-1).T
         else:
             raise Exception('Require either order = 1 or order>1 and 1D atlas')
         
@@ -1198,6 +1206,7 @@ def emlddmm(**kwargs):
         out['sigmaB'] = sigmaB.detach().clone()
         out['sigmaA'] = sigmaA.detach().clone()
         out['sigmaM'] = sigmaM.detach().clone()
+        out['coeffs'] = coeffs.detach().clone()
         # return figures
         out['figA'] = figA
         out['figE'] = figE
@@ -2024,7 +2033,7 @@ def compose_sequence(transforms,Xin,direction='f'):
         transforms = transforms[0][0] # note variable is redefined                
     
     
-    if type(transforms) == str or ( type(transforms) == list and length(transforms)==1 and type(transforms[0]) == str ):
+    if type(transforms) == str or ( type(transforms) == list and len(transforms)==1 and type(transforms[0]) == str ):
         if type(transforms) == list: transforms = transforms[0]            
         # assume output directory
         # print('printing transforms input')
@@ -2078,12 +2087,15 @@ def apply_transform_float(x,I,Xout):
     if isnumpy:
         AphiI = IphiI.numpy()
     return AphiI
-def apply_transform_int(x,I,Xout):
+
+def apply_transform_int(x,I,Xout,double=True):
     '''Apply transform to image
     Image points stored in x, data stored in I
     transform stored in Xout
     
     There is an issue with numpy integer arrays, I'll have two functions
+    
+    Note that we often require double precision when converting to floats and back
     '''
     if type(I) == np.array:
         isnumpy = True
@@ -2091,7 +2103,11 @@ def apply_transform_int(x,I,Xout):
         isnumpy = False
     Itype = I.dtype
     # for int, I need to convert to float for interpolation
-    AphiI = interp(x,torch.as_tensor(I.astype(float),dtype=Xout.dtype,device=Xout.device),Xout,mode='nearest').cpu()
+    if not double:
+        AphiI = interp(x,torch.as_tensor(I.astype(float),dtype=Xout.dtype,device=Xout.device),Xout,mode='nearest').cpu()
+    else:
+        AphiI = interp(x,torch.as_tensor(I.astype(np.float64),dtype=torch.float64,device=Xout.device),torch.as_tensor(Xout,dtype=torch.float64),mode='nearest').cpu()
+        
     if isnumpy:
         AphiI = AphiI.numpy().astype(Itype)
     else:
