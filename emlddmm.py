@@ -469,6 +469,9 @@ def interp(x,I,phii,**kwargs):
     # is this the right order?
     # I need to put batch (none) along first axis
     # what order do the other 3 need to be in?    
+    # feb 2022
+    if 'padding_mode' not in kwargs:
+        kwargs['padding_mode'] = 'border' # note that default is zero
     out = grid_sample(I[None],phii.flip(0).permute((1,2,3,0))[None],align_corners=True,**kwargs)
     # note align corners true means square voxels with points at their centers
     # post processing, get rid of batch dimension
@@ -510,6 +513,46 @@ def v_to_phii(xv,v):
         phii = interp(xv,phii-XV,Xs)+Xs
     return phii
         
+    
+def reshape_for_local(J,local_contrast):
+    '''
+    Reshapes an image into blocks for simple local contrast estimation.
+    
+    Parameters
+    ----------
+    J : tensor
+        3D image data where first index stores the channel information (i.e. 4D array)
+    local_contrast : tensor
+        1D tensor storing the block size on each dimension
+    
+    Returns
+    -------
+    Jv : tensor
+        Reshaped imaging data to be used for contrast estimation
+    
+    '''
+    # get shapes and pad
+    Jshape = torch.as_tensor(J.shape[1:],device=J.device)
+    topad = Jshape%local_contrast
+    topad = (local_contrast-topad)%local_contrast    
+    Jpad = torch.nn.functional.pad(J,(0,topad[2].item(),0,topad[1].item(),0,topad[0].item()))              
+    
+    # now reshape it
+    Jpad_ = Jpad.reshape( (Jpad.shape[0],
+                           Jpad.shape[1]//local_contrast[0].item(),local_contrast[0].item(),
+                           Jpad.shape[2]//local_contrast[1].item(),local_contrast[1].item(),
+                           Jpad.shape[3]//local_contrast[2].item(),local_contrast[2].item()))
+    Jpad__ = Jpad_.permute(1,3,5,2,4,6,0)
+    Jpadv = Jpad__.reshape(Jpad__.shape[0],Jpad__.shape[1],Jpad__.shape[2],
+                           torch.prod(local_contrast).item(),Jpad__.shape[-1])
+
+    return Jpadv
+                           
+def reshape_from_local(Jv,local_contrast=None):
+    '''
+    After changing contrast, transform back
+    '''
+    
 def emlddmm(**kwargs):
     '''
     Run the EMLDDMM algorithm for deformable registration between two
@@ -617,6 +660,7 @@ def emlddmm(**kwargs):
                 'slice_matching':False, # if true include rigid motions and contrast on each slice
                 'slice_matching_start':0,
                 'slice_matching_isotropic':True, # if true 3D affine is isotropic scale
+                'local_contrast':[], # simple local contrast estimation mode, should be a list of ints
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -685,7 +729,7 @@ def emlddmm(**kwargs):
     update_sigmaM = kwargs['update_sigmaM']
     
     
-    A = kwargs['A']    
+    A = kwargs['A'] 
     v = kwargs['v']
     slice_matching = kwargs['slice_matching']
     if slice_matching is None:
@@ -694,6 +738,13 @@ def emlddmm(**kwargs):
         A2d = kwargs['A2d']
     slice_matching_start = kwargs['slice_matching_start']
     slice_matching_isotropic = kwargs['slice_matching_isotropic']
+    
+    # local contrast, a list of ints, if empty don't do it
+    local_contrast = kwargs['local_contrast']
+    if local_contrast is None:
+        local_contrast = []
+    if local_contrast:
+        local_contrast = torch.as_tensor(local_contrast, device=device)
     
     
     
@@ -759,7 +810,9 @@ def emlddmm(**kwargs):
             # matrix multiplication            
             g[i,j] = torch.sum(EiX*EjX) * torch.prod(dI) # because gradient has a factor of N in it, I think its a good idea to do sum
     # note, on july 21 I add factor of voxel size, so it can cancel with factor in cost function
-    gi = torch.inverse(g)           
+    # feb 2, 2022, use double precision.  TODO: implement this as a solve when it is applied instead of inverse
+    gi = torch.inverse(g.double()).float()
+    
 
     # TODO affine metric for 2D affine
     # I'll use a quick hack for now
@@ -778,7 +831,8 @@ def emlddmm(**kwargs):
         for j in range(len(E)):
             EjX = (E[j][:2,:2]@XI_[0,...,1:,:])[...,0] + E[j][:2,-1]
             g2d[i,j] = torch.sum(EiX*EjX) * torch.prod(dI[1:])
-    g2di = torch.inverse(g2d)
+    # feb 2, 2022, use double precision.  TODO: implement this as a solve when it is applied instead of inverse
+    g2di = torch.inverse(g2d.double()).float()
             
     # build energy operator for velocity
     fv = [torch.arange(n,device=device,dtype=dtype)/d/n for n,d in zip(nv,dv)]
@@ -808,7 +862,9 @@ def emlddmm(**kwargs):
     else:
         # check the size
         if torch.all(torch.as_tensor(v.shape,device=device,dtype=dtype)==torch.as_tensor(vsize,device=device,dtype=dtype)):
-            v = torch.as_tensor(v,device=device,dtype=dtype) 
+            # note as_tensor will not do a copy if it is the same dtype and device
+            # torch.tensor will always copy
+            v = torch.tensor(v,device=device,dtype=dtype) 
             v.requires_grad = True
         else:
             if v[1] != vsize[1]:
@@ -822,7 +878,8 @@ def emlddmm(**kwargs):
     if A is None:
         A = torch.eye(4,requires_grad=True, device=device, dtype=dtype)
     else:
-        A = torch.as_tensor(A,device=device,dtype=dtype).detach().clone()
+        # use tensor, not as_tensor, to make a copy
+        A = torch.tensor(A,device=device,dtype=dtype).detach().clone()
         A.requires_grad = True
         
     if slice_matching:
@@ -830,7 +887,8 @@ def emlddmm(**kwargs):
             A2d = torch.eye(3,device=device,dtype=dtype)[None].repeat(J.shape[1],1,1)
             A2d.requires_grad = True
         else:
-            A2d = torch.as_tensor(A2d, device=device, dtype=dtype).detach().clone()
+            # use tensor not as tensor to make a copy
+            A2d = torch.tensor(A2d, device=device, dtype=dtype).detach().clone()
             A2d.requires_grad = True
         # if slice matching is on we want to add xy translation in A to A2d
         with torch.no_grad():
@@ -921,24 +979,72 @@ def emlddmm(**kwargs):
         # transform contrast (here assume atlas is dim 1)
         # I'd like to support two cases, order 1 and arbitrary dim
         # or order > 1 and 1 dim
-        Nvoxels = AphiI.shape[1]*AphiI.shape[2]*AphiI.shape[3] # why did I write 0, well its equal to 1 here
-        if I.shape[0] == 1:
-            B_ = torch.ones((Nvoxels,order+1),dtype=dtype,device=device)
-            for i in range(order):
-                B_[:,i+1] = AphiI.reshape(-1)**(i+1) # this assumes atlas is only dim 1, okay for now
-        elif I.shape[0] > 1 and order == 1:
-            # in this case, I still need a column of ones
-            B_ = torch.ones((Nvoxels,AphiI.shape[0]+1),dtype=dtype,device=device)
-            B_[:,1:] = AphiI.reshape(AphiI.shape[0],-1).T
+        # first step is to set up the basis functions
+        Nvoxels = AphiI.shape[1]*AphiI.shape[2]*AphiI.shape[3] # why did I write 0, well its equal to 1 here        
+        if type(local_contrast) == list:
+            if I.shape[0] == 1:
+                B_ = torch.ones((Nvoxels,order+1),dtype=dtype,device=device)
+                for i in range(order):
+                    B_[:,i+1] = AphiI.reshape(-1)**(i+1) # this assumes atlas is only dim 1, okay for now
+            elif I.shape[0] > 1 and order == 1:
+                # in this case, I still need a column of ones
+                B_ = torch.ones((Nvoxels,AphiI.shape[0]+1),dtype=dtype,device=device)
+                B_[:,1:] = AphiI.reshape(AphiI.shape[0],-1).T
+            else:
+                raise Exception('Require either order = 1 or order>1 and 1D atlas')
         else:
-            raise Exception('Require either order = 1 or order>1 and 1D atlas')
+            # simple approach to local contrast
+            # we will pad and refactor
+            # pad AphiI
+            # permute
+            # reshape
+            # find out how much to pad
+            # this weight variable will have zeros at the end
+            Wlocal = (WM*W0)[None]           
+            
+            # test
+            Jpadv = reshape_for_local(J,local_contrast)
+            Wlocalpadv = reshape_for_local(Wlocal,local_contrast)
+            AphiIpadv = reshape_for_local(AphiI,local_contrast)
+            
+            # now basis function
+            if I.shape[0] == 1:                
+                raise Exception('local not implemented yet except for linear')
+            elif I.shape[0] > 1 and order == 1:
+                B_ = torch.cat((torch.ones_like(AphiIpadv[...,0])[...,None],AphiIpadv),-1)
+            else:
+                raise Exception('Require either order = 1 or order>1 and 1D atlas')
+            
         
         if not slice_matching:
-            with torch.no_grad():
-                # multiply by weight
-                B__ = B_*(WM*W0).reshape(-1)[...,None]
-                coeffs = torch.inverse(B__.T@B_) @ (B__.T@(J.reshape(J.shape[0],-1).T))                                    
-            fAphiI = ((B_@coeffs).T).reshape(J.shape) # there are unnecessary transposes here, probably slowing down, to fix later
+            if type(local_contrast)==list:
+                # global contrast mapping
+                with torch.no_grad():                
+                    # multiply by weight
+                    B__ = B_*(WM*W0).reshape(-1)[...,None]
+                    # feb 2, 2022 converted from inv to solve and used double
+                    coeffs = torch.linalg.solve((B__.T@B_).double(), (B__.T@(J.reshape(J.shape[0],-1).T)).double() ).float()
+                fAphiI = ((B_@coeffs).T).reshape(J.shape) # there are unnecessary transposes here, probably slowing down, to fix later
+            else:
+                # local contrast estimation using refactoring
+                with torch.no_grad():
+                    BB = B_.transpose(-1,-2)@(B_*Wlocalpadv)
+                    BJ = B_.transpose(-1,-2)@(Jpadv*Wlocalpadv)
+                    small = 1e-2
+                    # convert to double here
+                    coeffs = torch.linalg.solve( BB.double() + torch.eye(BB.shape[-1],device=BB.device,dtype=torch.float64)*small,BJ.double()).float()
+                fAphiIpadv = (B_@coeffs).reshape(Jpadv.shape[0],Jpadv.shape[1],Jpadv.shape[2],
+                                                 local_contrast[0].item(),local_contrast[1].item(),local_contrast[2].item(), 
+                                                 Jpadv.shape[-1])
+                # reverse this permutation (1,3,5,2,4,6,0)
+                fAphiIpad_ = fAphiIpadv.permute(6,0,3,1,4,2,5)        
+                fAphiIpad = fAphiIpad_.reshape(Jpadv.shape[-1], 
+                                              Jpadv.shape[0]*local_contrast[0].item(), 
+                                              Jpadv.shape[1]*local_contrast[1].item(), 
+                                              Jpadv.shape[2]*local_contrast[2].item())
+                fAphiI = fAphiIpad[:,:J.shape[1],:J.shape[2],:J.shape[3]]
+
+                
         else: # with slice matching I need to solve these equation for every slice
             # so far it looks like it is exactly the same as the above
             # I need to update
@@ -2049,7 +2155,12 @@ def compose_sequence(transforms,Xin,direction='f'):
         #print('printing modified transforms')
         #print(transforms)    
     elif type(transforms) == list:
-        if type(transforms[0]) == Transform:
+        # there is an issue here:
+        # when I call this from outside, the type is emlddmm.Transform, not Transform. The test fails
+        # print(type(transforms[0]))
+        # print(isinstance(transforms[0],Transform))
+        #if type(transforms[0]) == Transform:
+        if 'Transform' in str(type(transforms[0])): # this approach may fix the issue but I don't like it
             # don't do anything here
             pass
         elif type(transforms[0]) == str:
@@ -2071,7 +2182,7 @@ def compose_sequence(transforms,Xin,direction='f'):
         Xout = t(Xout)
     return Xout
     
-def apply_transform_float(x,I,Xout):
+def apply_transform_float(x,I,Xout,**kwargs):
     '''Apply transform to image
     Image points stored in x, data stored in I
     transform stored in Xout
@@ -2083,12 +2194,12 @@ def apply_transform_float(x,I,Xout):
     else:
         isnumpy = False
     
-    AphiI = interp(x,torch.as_tensor(I,dtype=Xout.dtype,device=Xout.device),Xout).cpu()
+    AphiI = interp(x,torch.as_tensor(I,dtype=Xout.dtype,device=Xout.device),Xout,**kwargs).cpu()
     if isnumpy:
         AphiI = IphiI.numpy()
     return AphiI
 
-def apply_transform_int(x,I,Xout,double=True):
+def apply_transform_int(x,I,Xout,double=True,**kwargs):
     '''Apply transform to image
     Image points stored in x, data stored in I
     transform stored in Xout
@@ -2102,11 +2213,21 @@ def apply_transform_int(x,I,Xout,double=True):
     else:
         isnumpy = False
     Itype = I.dtype
-    # for int, I need to convert to float for interpolation
-    if not double:
-        AphiI = interp(x,torch.as_tensor(I.astype(float),dtype=Xout.dtype,device=Xout.device),Xout,mode='nearest').cpu()
+    if 'mode' not in kwargs:
+        kwargs['mode'] = 'nearest'
     else:
-        AphiI = interp(x,torch.as_tensor(I.astype(np.float64),dtype=torch.float64,device=Xout.device),torch.as_tensor(Xout,dtype=torch.float64),mode='nearest').cpu()
+        if kwargs['mode'] != 'nearest':
+            raise Exception('mode must be nearest for ints')
+    try:
+        device = Xout.device
+    except:
+        device = 'cpu'
+    
+    # for int, I need to convert to float for interpolation    
+    if not double:
+        AphiI = interp(x,torch.as_tensor(I.astype(float),dtype=Xout.dtype,device=device),Xout,**kwargs).cpu()
+    else:
+        AphiI = interp(x,torch.as_tensor(I.astype(np.float64),dtype=torch.float64,device=device),torch.as_tensor(Xout,dtype=torch.float64),**kwargs).cpu()
         
     if isnumpy:
         AphiI = AphiI.numpy().astype(Itype)
