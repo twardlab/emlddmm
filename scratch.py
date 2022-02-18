@@ -215,28 +215,142 @@
 # plt.imshow(J_cropped[center[0]],cmap='gray')
 # plt.show()
 
-# # %%
-# img_dir = '/home/brysongray/data/MD816/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
-# xJ, J, _, _ = emlddmm.read_data(img_dir)
-# J = J[0]
-# print('max J: ', np.max(J), 'min J: ', np.min(J))
-# dJ = [x[1]-x[0] for x in xJ]
-# thresh = filters.threshold_otsu(J[int(J.shape[0]/2), :, :])
-# J_verts, J_faces, J_normals, J_values = measure.marching_cubes(np.squeeze(np.array(J)), thresh, spacing=dJ)
-# print('thresh: ', thresh)
-# print('max values: ', np.max(J_values), 'min values: ', np.min(J_values))
+#%%
+
+# import torch, torchvision
+
+# device = 'cuda'
+
+# model = torchvision.models.resnet18(pretrained=True).to(device)
+# data = torch.rand(1, 3, 64, 64, device=device, requires_grad=True)
+# labels = torch.rand(1, 1000, device=device, requires_grad=True)
+
+# prediction = model(data) # forward pass
+
+# loss = (prediction - labels).sum().requires_grad_(True)
+# loss.backward() # backward pass
 
 # # %%
-# # visualize surface
-# surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
-# mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
-# mlab.show()
+# print(loss.grad)
 # # %%
-# import numpy as np
+# x = torch.ones(5)  # input tensor
+# y = torch.zeros(3)  # expected output
+# w = torch.randn(5, 3, requires_grad=True)
+# b = torch.randn(3, requires_grad=True)
+# z = torch.matmul(x, w)+b
+# loss = torch.nn.functional.binary_cross_entropy_with_logits(z, y)
+
+# loss.backward()
+# print(w.grad)
+# print(b.grad)
+# # %%
+# device = 'cpu'
+# torch.manual_seed(0)
+# x = torch.ones(5, device=device)  # input tensor
+# y = torch.zeros(3, device=device)  # expected output
+# w = torch.randn(5, 3, requires_grad=True, device=device)
+# b = torch.randn(3, requires_grad=True, device=device)
+# z = torch.matmul(x, w)+b
+# loss = torch.nn.functional.binary_cross_entropy_with_logits(z, y)
+
+# loss.backward()
+# print(w.grad)
+# print(b.grad)
+# # %%
+# import torch
+
+# device = 'cpu'
+# torch.manual_seed(0)
+
+# x = torch.ones(5, device=device)  # input tensor
+# y = torch.zeros(3, device=device)  # expected output
+# w = torch.tensor([[0.1,0.2,0.3],
+#                   [0.4,0.5,0.6],
+#                   [0.7,0.8,0.9],
+#                   [0.25,0.75,1.25],
+#                   [0.5,1,1.5]], requires_grad=True, device=device)
+# b = torch.tensor([0.2,0.3,0.1], requires_grad=True, device=device)
+# z = torch.matmul(x, w)+b
+# loss = torch.nn.functional.binary_cross_entropy_with_logits(z, y)
+
+# loss.backward()
+# print(w.grad)
+# print(b.grad)
+# %%
+import emlddmm
+import torch
 
 
-# fnames = ['a','b','c','d','e','f','g','h','i','j','k']
-# idxs = np.arange(0,len(fnames),2)
-# print('fnames: ', fnames)
-# print('indices: ', idxs)
-# print('new fnames: ', list(map(fnames.__getitem__, idxs)))
+MR_img = '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
+CCF_img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
+
+xJ,J,title,names = emlddmm.read_data(MR_img)
+xI, I, title, names = emlddmm.read_data(CCF_img)
+
+transformation_seq = [('MR_to_CCF_output', 'b')]
+
+Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
+# Xout = emlddmm.compose_sequence([transformation_seq[0]], Xin)
+
+# %%
+print('shape Xin: ', Xin.shape)
+print('shape Xout: ', Xout.shape)
+print('xJ: ', [x.shape for x in xJ])
+print('xI: ', [x.shape for x in xI])
+# %%
+import os
+
+dir = 'test'
+
+if not os.path.exists(dir):
+    os.makedirs(dir)
+    print('1 path made')
+if not os.path.isdir(dir):
+    os.mkdir(dir)
+    print('2 path made')
+# %%
+import numpy as np
+import emlddmm
+import torch
+import matplotlib.pyplot as plt
+
+MR_img = '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
+CCF_img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
+CCFtoMRI_disp = '/home/brysongray/emlddmm/transformation_graph_outputs/ATLAS/MRItoATLAS/transforms/ATLAS_to_MRI_displacement.vtk'
+# velocity = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRItoCCF/transforms/velocity.vtk'
+
+xJ,J,title,names = emlddmm.read_data(MR_img)
+xI, I, title, names = emlddmm.read_data(CCF_img)
+
+x, disp, title, names = emlddmm.read_vtk_data(CCFtoMRI_disp)
+disp = torch.as_tensor(disp)
+
+down = [a//b for a, b in zip(I.shape[1:], disp.shape[1:])]
+
+xI,I = emlddmm.downsample_image_domain(xI,I,down)
+XI = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
+
+X = disp + XI
+
+AphiI = emlddmm.apply_transform_float(xJ, J, X)
+# %%
+src='MRI'
+dest='CCF'
+fig = emlddmm.draw(AphiI, xI)
+fig[0].suptitle('transformed {src} to {dest}'.format(src=src, dest=dest))
+fig[0].canvas.draw()
+plt.show()
+
+# %%
+import emlddmm
+
+MRItoATLAS = '/home/brysongray/emlddmm/transformation_graph_outputs/ATLAS/MRItoATLAS/images/MRI_to_ATLAS.vtk'
+ATLAStoMRI = '/home/brysongray/emlddmm/transformation_graph_outputs/MRI/ATLAStoMRI/images/ATLAS_to_MRI.vtk'
+
+xI, I, _,_ = emlddmm.read_data(MRItoATLAS)
+xJ, J, _,_ = emlddmm.read_data(ATLAStoMRI)
+emlddmm.draw(I,xI)
+emlddmm.draw(J,xJ)
+plt.show()
+
+# %%

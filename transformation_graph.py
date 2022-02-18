@@ -5,6 +5,10 @@ import numpy as np
 import json
 import os
 import matplotlib.pyplot as plt
+import sys
+# import getopt
+import argparse
+import glob
 
 if torch.cuda.is_available():
     device = 'cuda:0'
@@ -15,10 +19,10 @@ dtype = torch.float
 # %%
 # utility function to form edge between two vertices
 # source and dest
-def add_edge(adj, src, dest, transform):
+def add_edge(adj, spaces, src_space, src_img, dest_space, out):
  
-    adj[src][dest] = (transform, 'f')
-    adj[dest][src] = (transform, 'b')
+    adj[spaces[src_space]][spaces[dest_space]] = (os.path.join(out,f'{dest_space}/{src_space}_to_{dest_space}/'), 'f')
+    adj[spaces[dest_space]][spaces[src_space]] = (os.path.join(out,f'{dest_space}/{src_space}_to_{dest_space}/'), 'b')
 
 
 # a modified version of BFS that stores predecessor
@@ -109,11 +113,17 @@ def getTransformation(adj, path):
     return transformation
 
 
-def reg(dest, source, config, out, labels=None):
-    dest_name = dest
-    src_name = source
+def reg(dest, source, registration, config, out, labels=None):
+    src_path = source
+    src_space = registration[0][0]
+    src_img = registration[0][1]
+    dest_path = dest
+    dest_img = registration[1][1]
+    dest_space = registration[1][0]
     config_file = config
-    output_dir = out
+    output_dir = out #os.path.join(out, '{dest}'.format(dest_space))
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     label_name = labels
     with open(config_file) as f:
         config = json.load(f)
@@ -123,10 +133,11 @@ def reg(dest, source, config, out, labels=None):
     downJs = config['downJ']
 
     # atlas
-    xI,I,title,names = emlddmm.read_data(dest_name)
+    xI,I,title,names = emlddmm.read_data(dest_path)
     I = I.astype(float)
     # normalize
     I /= np.mean(np.abs(I))
+    I /= np.quantile(I, 0.99)
 
     # initial downsampling so there isn't so much on the gpu
     mindownI = np.min(np.array(downIs),0)
@@ -136,7 +147,7 @@ def reg(dest, source, config, out, labels=None):
     config['downI'] = downIs
 
     # target
-    xJ,J,title,names = emlddmm.read_data(src_name)
+    xJ,J,title,names = emlddmm.read_data(src_path)
     if 'mask' in names:
         maskind = names.index('mask')
         W0 = J[maskind]
@@ -144,7 +155,10 @@ def reg(dest, source, config, out, labels=None):
     else:
         W0 = np.ones_like(J[0])
     J = J.astype(float)
+    # normalize
     J /= np.mean(np.abs(J))
+    normJ = np.quantile(J, 0.99)
+    J /= normJ
 
     # initial downsampling so there isn't so much on the gpu
     mindownJ = np.min(np.array(downJs),0)
@@ -165,17 +179,29 @@ def reg(dest, source, config, out, labels=None):
     #     A[:3, -1] = [-4000, 100, 4000]
     #     config['A'] = A
 
+    # update sigma factors based on normalization
+    if 'sigmaR' in config:
+        config['sigmaR'][0] /= normJ
+    if 'sigmaA' in config:
+        config['sigmaA'][0] /= normJ
+    if 'sigmaB' in config:
+        config['sigmaB'][0] /= normJ
+    if 'sigmaM' in config:
+        config['sigmaM'][0] /= normJ
+
     device = 'cuda:0'
-    #device = 'cpu'
-    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,device=device,**config)
+    # device = 'cpu'
+    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,device=device,full_outputs=False,**config)
     #write outputs
-    emlddmm.write_transform_outputs(output_dir,output[-1])
+    print('saving transformations to ' + output_dir + '...')
+    emlddmm.write_transform_outputs(output_dir, src_space, dest_space, xJ, xI, output[-1], src_path=src_path)
+    print('saving qc to ' + output_dir + '...')
     if label_name:
         # get labels
         xS,S,title,names = emlddmm.read_data(label_name,endian='l')
-        emlddmm.write_qc_outputs(output_dir,output[-1],xI,I,xJ,J,xS=xS,S=S.astype(float))
+        emlddmm.write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output[-1],xI,I,xJ,J,xS=xS,S=S.astype(float))
     else:
-        emlddmm.write_qc_outputs(output_dir,output[-1],xI,I,xJ,J)
+        emlddmm.write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output[-1],xI,I,xJ,J)
 
     return
 
@@ -188,19 +214,20 @@ def run_registrations(reg_list):
     for r in reg_list:
         dest = r['dest']
         source = r['source']
+        registration = r['registration']
         config = r['config']
-        out = r['output_dir']
+        out = r['output']
         if 'label_name' in r:
             label_name = r['label_name']
-            reg(dest, source, config, out, labels=label_name)
+            reg(dest, source, registration, config, out, labels=label_name)
         else:
-            reg(dest, source, config, out)
+            reg(dest, source, registration, config, out)
          
     # construct spaces dict
     spaces = {}
     v = 0
     for i in reg_list:
-        for j in i['spacenames']:
+        for j in [i['registration'][0][0], i['registration'][1][0]]: # for space names in registration
             if j not in spaces:
                 spaces[j] = v
                 v += 1
@@ -208,22 +235,27 @@ def run_registrations(reg_list):
     adj = [{} for i in range(len(spaces))]
 
     for i in range(len(reg_list)):
-        src = reg_list[i]['spacenames'][0]
-        dest = reg_list[i]['spacenames'][1]
-        out = reg_list[i]['output_dir']
-        add_edge(adj, spaces[src], spaces[dest], out)
+        src_space = reg_list[i]['registration'][0][0]
+        src_img = reg_list[i]['registration'][0][1]
+        dest_space = reg_list[i]['registration'][1][0]
+        out = reg_list[i]['output']
+        add_edge(adj, spaces, src_space, src_img, dest_space, out)
 
     return adj, spaces
 
 
 # Do new transform using composition of calculated transformations
-def do_transformation(adj, spaces, src, dest, src_img='', dest_img=''):
-    # input: image to be transformed (src_img or I), img space to to which the source image will be matched (dest_img, J), adjacency list and spaces dict from run_registration, source and destination space names
+def do_transformation(adj, spaces, src_space, src_img, dest_space, dest_img, out, src_path='', dest_path=''):
+    # input: image to be transformed (src_path or I), img space to to which the source image will be matched (dest_path, J), adjacency list and spaces dict from run_registration, source and destination space names
     # return: transfromed image
+    # TODO: there may be an error if both src and dest images are histology series.
 
-    path = findShortestPath(adj, spaces[src], spaces[dest], len(spaces))
+    path = findShortestPath(adj, spaces[src_space], spaces[dest_space], len(spaces))
+    if len(path) < 2:
+        return
     print("\nPath is:")
 
+    # printing path as sequence of space names
     for i in path:
         for key, value in spaces.items():
             if i == value:
@@ -232,11 +264,11 @@ def do_transformation(adj, spaces, src, dest, src_img='', dest_img=''):
     transformation_seq = getTransformation(adj, path)
     print('\nTransformation sequence: ', transformation_seq)
 
-    xI, I, I_title, _ = emlddmm.read_data(dest_img) # the space to transform into
+    xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
     I = I.astype(float)
     I = torch.as_tensor(I, dtype=dtype, device=device)
     xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
-    xJ, J, J_title, _ = emlddmm.read_data(src_img) # the image to be transformed
+    xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
     J = J.astype(float)
     J = torch.as_tensor(J,dtype=dtype,device=device)
     xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
@@ -245,13 +277,13 @@ def do_transformation(adj, spaces, src, dest, src_img='', dest_img=''):
     # if slice_matching then construct the reconstructed space XR
     if slice_matching:
         if I_title=='slice_dataset': # then the last transform in transformation_seq should contain A2d files
-            transforms = os.path.join(transformation_seq[-1][0], 'transforms')
-            transforms_ls = [f for f in os.listdir(transforms) if 'velocity.vtk' not in f and 'A.txt' not in f]
-            transforms_ls = sorted(transforms_ls, key=lambda x: x[4:8])
-        else: # otherwise the first transform in transformation_seq should contain A2d files
-            transforms = os.path.join(transformation_seq[0][0], 'transforms')
-            transforms_ls = [f for f in os.listdir(transforms) if 'velocity.vtk' not in f and 'A.txt' not in f]
-            transforms_ls = sorted(transforms_ls, key=lambda x: x[4:8])
+            # transforms = os.path.join(transformation_seq[-1][0], 'transforms')
+            transforms = os.path.join(out, f'{dest_space}_INPUT/{dest_space}_INPUT_to_{dest_space}_REGISTERED/') 
+        else: # otherwise the first transform in transformation_seq should contain A2d filess
+            # transforms = os.path.join(transformation_seq[0][0], 'transforms')
+            transforms = os.path.join(out, f'{src_space}_INPUT/{src_space}_INPUT_to_{src_space}_REGISTERED/') 
+        transforms_ls = [f for f in os.listdir(transforms) if 'vtk' not in f and 'A.txt' not in f]
+        transforms_ls = sorted(transforms_ls, key=lambda x: x.split('_matrix.txt')[0][-4:])
         # determine which image is constructed from a 2d series, I or J.
         x_series = xI if I_title=='slice_dataset' else xJ
         X_series = torch.stack(torch.meshgrid(x_series),-1)
@@ -264,16 +296,18 @@ def do_transformation(adj, spaces, src, dest, src_img='', dest_img=''):
                 A2d_ = A2d_[:, :A2d_.shape[1] - 1]
             A2d.append(A2d_)
 
-        A2d = torch.as_tensor(A2d,dtype=dtype,device=device)
+        A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
         A2di = torch.inverse(A2d)
         points = (A2di[:, None, None, :2, :2] @ X_series[..., 1:, None])[..., 0] # reconstructed space needs to be created from the 2d series coordinates
         m0 = torch.min(points[..., 0])
         M0 = torch.max(points[..., 0])
         m1 = torch.min(points[..., 1])
         M1 = torch.max(points[..., 1])
-
+        # print('m1', m1)
+        # print('M1', M1)
         # construct a recon domain
         dJ = [x[1] - x[0] for x in x_series]
+        # print('dJ shape: ', [x.shape for x in dJ])
         xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
         xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
         xr = x_series[0], xr0, xr1
@@ -288,11 +322,64 @@ def do_transformation(adj, spaces, src, dest, src_img='', dest_img=''):
     # if slice_matching and the destination is 2d series, then X = XR
     if slice_matching and I_title == 'slice_dataset':
         X = torch.clone(XR.permute(3,0,1,2))
+        # print('X shape before compose sequence: ', X.shape)
     else:
         X = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
-    for i in range(len(transformation_seq)):
+    for i in reversed(range(len(transformation_seq))):
         X = emlddmm.compose_sequence([transformation_seq[i]], X)
+        # print('X shape after compose sequence: ', X.shape)
 
+    # get displacement
+    if slice_matching and I_title == 'slice_dataset':
+        input_disp = (X - X_series.permute(3,0,1,2).cpu())[None]
+        registered_disp = (X - Xs.cpu())[None]
+        
+        # save out displacement from input and from registered space
+        input_dir = os.path.join(out, f'{dest_space}_INPUT/{src_space}_to_{dest_space}_INPUT/trasforms/')
+        if not os.path.isdir(input_dir):
+            os.makedirs(input_dir)
+        
+        registered_dir = os.path.join(out, f'{dest_space}_REGISTERED/{src_space}_to_{dest_space}_REGISTERED/transforms/')
+        if not os.path.isdir(registered_dir):
+            os.makedirs(registered_dir)
+
+        for i in range(input_disp.shape[2]):
+            x_series_ = [x_series[0][i], x_series[1], x_series[2]]
+            x_series_[0] = torch.tensor([x_series_[0], x_series_[0] + 10])
+            xr_ = [xr[0][i], xr[1], xr[2]]
+            xr_[0] = torch.tensor([xr_[0], xr_[0] + 10])
+            # write out input to dest displacement
+            output_name = os.path.join(input_dir, f'{dest_space}_INPUT_{i:04d}_to_{src_space}_displacement.vtk')
+            title = f'{dest_space}_INPUT_{i:04d}_to_{src_space}_displacement'
+            emlddmm.write_vtk_data(output_name, x_series_, input_disp[:,:, i, None, ...], title)
+            # write out registered to dest displacement
+            output_name = os.path.join(registered_dir, f'{dest_space}_REGISTERED_{i:04d}_to_{src_space}_displacement.vtk')
+            title = f'{dest_space}_REGISTERED_{i:04d}_to_{src_space}_displacement'
+            emlddmm.write_vtk_data(output_name, xr_, registered_disp[:,:, i, None, ...], title)
+
+            # TODO: write out detjac for 2d displacements
+
+    else:
+        disp = (X - torch.stack(torch.meshgrid(xI)).to('cpu'))[None]
+        
+        # save out 3d displacement
+        transform_dir = os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/transforms/')
+        if not os.path.isdir(transform_dir):
+            os.makedirs(transform_dir)  
+        output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_displacement.vtk')
+        title = f'{dest_space}_to_{src_space}_displacement'
+        emlddmm.write_vtk_data(output_name, xI, disp, title)
+
+        # write out determinant of jacobian (detjac) of displacement
+        dv = [(x[1]-x[0]).to('cpu') for x in xI]
+        grad = np.stack(np.gradient(disp[0], 1, dv[0], dv[1], dv[2]), axis=-1)
+        grad = np.reshape(grad, grad.shape[:-1]+(2,2))
+        detjac = np.linalg.det(grad)
+        output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_detjac.vtk')
+        title = f'{dest_space} to {src_space} detjac'
+        emlddmm.write_vtk_data(output_name, xI, detjac, title)
+
+    # now apply transformation to image
     # if slice_matching and the source is 2d series, then use xr and Jr
     if slice_matching and J_title == 'slice_dataset':
         AphiI = emlddmm.apply_transform_float(xr, Jr, X.to(device))
@@ -301,36 +388,325 @@ def do_transformation(adj, spaces, src, dest, src_img='', dest_img=''):
     
     # visualize
     if slice_matching and I_title == 'slice_dataset': # if the destination is 2d series
-        fig = emlddmm.draw(AphiI,xr)
+        x = xr
     else:
-        fig = emlddmm.draw(AphiI, xI)
-    fig[0].suptitle('transformed {src} to {dest}'.format(src=src, dest=dest))
+        x = xI
+    fig = emlddmm.draw(AphiI, x)
+    fig[0].suptitle(f'transformed {src_space} {src_img} to {dest_space}')
     fig[0].canvas.draw()
-    plt.show()
+    # plt.show()
+    # save transformed 3d image
+    if not slice_matching:    
+        img_out = os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/images/')
+        if not os.path.exists(img_out):
+            os.makedirs(img_out)
+        emlddmm.write_vtk_data(os.path.join(img_out, f'{src_space}_{src_img}_to_{dest_space}.vtk'), x, AphiI, f'{src_space}_{src_img}_to_{dest_space}')
 
-    return AphiI
+    # save text file of transformation order
+    if I_title == "slice_dataset":
+        # save transformation sequence to INPUT directory
+        with open(os.path.join(out, f'{dest_space}_INPUT/{src_space}_to_{dest_space}_INPUT/{src_space}_to_{dest_space}_transform_seq.txt'), 'w') as f:
+            for transform in reversed(transformation_seq[1:]):
+                f.write(str(transform) + ', ')
+            f.write(str(transformation_seq[0]))
+        # save transformation sequence to RECONSTRUCTED directory
+            with open(os.path.join(out, f'{dest_space}_REGISTERED/{src_space}_to_{dest_space}_REGISTERED/{src_space}_to_{dest_space}_transform_seq.txt'), 'w') as f:
+                for transform in reversed(transformation_seq[1:]):
+                    f.write(str(transform) + ', ')
+                f.write(str(transformation_seq[0]))
+
+    else:
+        with open(os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/{src_space}_{src_img}_to_{dest_space}_transform_seq.txt'), 'w') as f:
+            for transform in reversed(transformation_seq[1:]):
+                f.write(str(transform) + ', ')
+            f.write(str(transformation_seq[0]))
+
+    return #x, AphiI, disp
+
+
+def transform_img(adj, spaces, src, dest, out, src_img='', dest_img=''):
+    '''
+    Parameters
+    ----------
+    adj: adjacency list
+        of the form: [{1: ('path to transformation from space 0 to space 1', 'b'}, {0: ('path to transform from space 0 to space 1', 'f') }]
+    spaces: spaces dict
+        example: {'MRI':0, 'CT':1, 'ATLAS':2}
+    src: source space (str)
+    dest: destination space (str)
+    out: output directory
+    src_img: path to source image (image to be transformed)
+    dest_img: path to destination image (image in space to which source image will be matched)
+    
+    Returns
+    ----------
+    x: List of arrays storing voxel locations
+    AphiI: Transformed image as tensor
+
+    input: path to image to be transformed (src_img or I), img space to to which the source image will be matched (dest_img, J),
+     adjacency list and spaces dict from run_registration, source and destination space names
+    return: x, transfromed image
+    '''
+    # get transformation sequence
+    path = findShortestPath(adj, spaces[src], spaces[dest], len(spaces))
+    if len(path) < 2:
+        return
+    print("\nPath is:")
+
+    for i in path:
+        for key, value in spaces.items():
+            if i == value:
+                print(key, end=' ')
+
+    transformation_seq = getTransformation(adj, path)
+    print('\nTransformation sequence: ', transformation_seq)
+
+    # load source and destination images
+    xI, I, I_title, _ = emlddmm.read_data(dest_img) # the space to transform into
+    I = I.astype(float)
+    I = torch.as_tensor(I, dtype=dtype, device=device)
+    xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
+    xJ, J, J_title, _ = emlddmm.read_data(src_img) # the image to be transformed
+    J = J.astype(float)
+    J = torch.as_tensor(J,dtype=dtype,device=device)
+    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
+
+    # compose displacements
+    # TODO
+    # first interpolate all displacements in sequence into destination space,
+    # then add them together
+    disp_list = []
+    for i in reversed(range(len(transformation_seq))):
+        # path = glob.glob(transformation_seq[i] + '/transforms/*displacement.vtk')
+        x, disp, title, names = emlddmm.read_vtk_data(transformation_seq[i])
+        if i == len(transformation_seq)-1: # if the first displacement in the sequence
+            down = [a//b for a, b in zip(I.shape[1:], disp.shape[2:])] # check if displacement image was downsampled from original
+            xI,I = emlddmm.downsample_image_domain(xI,I,down) # downsample the domain
+            XI = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
+            disp_list.append(torch.as_tensor(disp)) # add the displacement
+        else: # otherwise we need to interpolate to the destination space
+            ID = torch.stack(torch.meshgrid(x))[None]
+            disp = emlddmm.interp(x,(disp - ID), XI) + XI
+            disp_list.append(torch.as_tensor(disp))
+    # sum the displacements
+    # v = torch.cat(disp_list)
+    disp = torch.sum(torch.stack(disp_list),0).to(device=device)
+    print('disp shape: ', disp.shape)
+    print('XI shape: ', XI.shape)
+    X = disp[0] + XI
+
+    AphiI = emlddmm.apply_transform_float(xJ, J, X)
+
+    # save figure and text file of transformation order
+    if not os.path.exists(out):
+        os.makedirs(out)
+    # plt.savefig(os.path.join(out, '{src}_{dest}'.format(src=src, dest=dest))) # TODO: this image will be saved in qc
+    with open(os.path.join(out, '{src}_{dest}.txt'.format(src=src, dest=dest)), 'w') as f:
+        for transform in reversed(transformation_seq[1:]):
+            f.write(str(transform) + ', ')
+        f.write(str(transformation_seq[0]))
+
+    return xI, AphiI
+
+def main(argv):
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--infile', nargs=1,
+                        help='JSON file to be processed',
+                        type=argparse.FileType('r'))
+    arguments = parser.parse_args()
+
+    input_dict = json.load(arguments.infile[0])
+
+    output = input_dict["output"] if "output" in input_dict else os.getcwd()
+    try:
+        space_image_path = input_dict["space_image_path"]
+    except KeyError:
+        print("space_image_path is a required argument. It is a list of images, with each image being a list of the format: [\"space name\", \"image name\", \"image path\"]")
+    if "registrations" in input_dict:
+        registrations = input_dict["registrations"]
+        try:
+            configs = input_dict["configs"] # if registrations then there must also be configs
+        except KeyError:
+            ("configs must be included in input with registrations. configs is a list of full paths to JSON registration configuration files.")
+    if "transforms" in input_dict:
+        transforms = input_dict["transforms"]
+    if "adj" in input_dict:
+        adj = input_dict["adj"]
+        try:
+            spaces = input_dict["spaces"] # if adj then there must also be spaces
+        except KeyError:
+            ("spaces must be included with adj. spaces is a dictionary of format \{\"spacename\": <space number>\, ...}, where the space number corresponds to the space number in the adjacency list.")
+    transform_all = input_dict["transform_all"] if "transform_all" in input_dict else False
+    transform_all = True if transform_all == "True" or "true" else False
+
+    # convert space_image_path to dictionary of dictionaries. (image_name-path key-values in a dict of space-img key-values)
+    sip = {} # space-image-path dictionary
+    for i in range(len(space_image_path)):
+        if not space_image_path[i][0] in sip:
+            sip[space_image_path[i][0]] = {}
+        new_img = {space_image_path[i][1]: space_image_path[i][2]}
+        sip[space_image_path[i][0]].update(new_img)
+
+    print('output: ', output)
+    print('space-name-path dict: ', sip)
+    if registrations:
+        print('registrations: ', registrations)
+        print('configs: ', configs)
+
+        reg_list = []
+        for i in range(len(registrations)):
+            src_space = registrations[i][0][0]
+            src_img = registrations[i][0][1]
+            dest_space = registrations[i][1][0]
+            dest_img = registrations[i][1][1]
+            src_path = sip[src_space][src_img]
+            dest_path = sip[dest_space][dest_img]
+
+            reg_list.append({'registration': registrations[i], #[src_space, dest_space],
+                            'source': src_path,
+                            'dest': dest_path,
+                            'config': configs[i],
+                            'output': output})
+
+        print('registration list: ', reg_list, '\n')
+        print('running registrations...')
+        adj, spaces = run_registrations(reg_list)
+
+        # write out adjacency list and spaces dict
+        with open(os.path.join(output, 'adjacency_list.txt'), 'w') as f:
+            f.write(str(adj))
+        with open(os.path.join(output, 'spaces_dict.txt'), 'w') as f:
+            f.write(str(spaces))
+
+    if transform_all:
+        transforms = []
+        for i in sip.keys(): # for each space
+            for j in sip.keys(): # for every other space
+                if j == i:
+                    continue
+                dest_img = list(sip[j].keys())[0] # we just need any image in destination space so use the first.
+                for k in sip[i].keys(): # for each image in current space
+                    transforms.append([[i, k], [j, dest_img]])
+
+    if transforms:
+        print('transforms are: ')
+        for i in transforms:
+            print(str(i))
+        for trans in transforms:
+            src_space = trans[0][0]
+            src_img = trans[0][1]
+            src_path = sip[src_space][src_img]
+            dest_space = trans[1][0]
+            dest_img = trans[1][1]
+            dest_path = sip[dest_space][dest_img]
+            do_transformation(adj, spaces, src_space, src_img, dest_space, dest_img, output,\
+                                    src_path=src_path, dest_path=dest_path)
+            # x, AphiI = transform_img(adj=adj, spaces=spaces, src=trans[0], dest=trans[1], out=out,\
+            #                         src_img=space_img_dict[trans[0]], dest_img=space_img_dict[trans[1]])
+
+
+#%%
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
 # %%
 # note: the forward transformation samples the source image in the destination coordinates (i.e. makes the source to look like the dest)
-reg_list = [{'spacenames': ['MRI', 'CT'],
-             'source': '/home/brysongraylocal/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
-             'target': '/home/brysongraylocal/data/MD816_mini/ct_mask.vtk',
-             'config': 'configMD816_MR_to_CT.json',
-             'output_dir': 'transformation_graph_outputs/MR_to_CT_output'},
-             {'spacenames': ['MRI', 'NISSL'],
-             'source': '/home/brysongraylocal/data/MD816/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
-             'target': '/home/brysongraylocal/data/MD816_mini/MD816_STIF_mini_v2',
-             'config': 'config787small.json',
-             'output_dir': 'transformation_graph_outputs_v2/MR_to_NISSL_output'}]
+# reg_list = [{'spacenames': ['NISSL', 'MRI'],
+#              'source': '/home/brysongray/data/MD816_mini/MD816_STIF_nano',
+#              'dest': '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+#              'config': 'config787small.json',
+#              'output': 'transformation_graph_outputs'}]
+# reg_list = [{'spacenames': ['MRI', 'CCF'],
+#              'source': '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+#              'dest': '/home/brysongray/data/MD816_mini/average_template_50.vtk',
+#              'config': 'configMD816_MR_to_CCF.json',
+#              'output': 'transformation_graph_outputs'}]
+# reg_list = [{'spacenames': ['MRI', 'CCF'],
+#              'source': '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+#              'dest': '/home/brysongray/data/MD816_mini/average_template_50.vtk',
+#              'config': 'configMD816_MR_to_CCF.json',
+#              'output': 'transformation_graph_outputs'},
+#              {'spacenames': ['MRI', 'CT'],
+#              'source': '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+#              'dest': '/home/brysongray/data/MD816_mini/ct_mask.vtk',
+#              'config': 'configMD816_MR_to_CT.json',
+#              'output': 'transformation_graph_outputs'}]
+            #  {'spacenames': ['MRI', 'NISSL'],
+            #   'source': '/home/brysongraylocal/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+            #   'dest': '/home/brysongraylocal/data/MD816_mini/MD816_STIF_nano',
+            #   'config': 'config787small.json',
+            #   'output_dir': 'transformation_graph_outputs/MR_to_NISSL_output2'}]
 
-adj, spaces = run_registrations(reg_list)
+# adj, spaces = run_registrations(reg_list)
+
+#%%
+# x, AphiI = transform_img(adj, spaces, 'MRI', 'CCF', 'transformation_graph_outputs/CCF/MRItoCCF',\
+#      src_img='/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk', dest_img='/home/brysongray/data/MD816_mini/average_template_50.vtk')
+
+# #%%
+# x, AphiI = transform_img(adj, spaces, 'CT', 'CCF', 'transformation_graph_outputs/CCF/MRItoCCF',\
+#      src_img='/home/brysongray/data/MD816_mini/ct_mask.vtk', dest_img='/home/brysongray/data/MD816_mini/average_template_50.vtk')
 
 # %%
-from skimage import color
-src = 'CT'
-dest = 'NISSL'
 
-CT_img = '/home/brysongraylocal/data/MD816_mini/ct_mask.vtk'
-MR_img = '/home/brysongraylocal/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
-NISSL_dir = '/home/brysongraylocal/data/MD816_mini/MD816_STIF_mini_v2'
-AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, src_img=CT_img, dest_img=NISSL_dir)
+# CT_img = '/home/brysongray/data/MD816_mini/ct_mask.vtk'
+# MR_img = '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
+# NISSL_dir = '/home/brysongray/data/MD816_mini/MD816_STIF_nano'
+# CCF_img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
+# out = 'transformation_graph_outputs'
+# # %%
+
+# src = 'NISSL'
+# dest = 'CCF'
+# AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, out=out, src_img=NISSL_dir, dest_img=CCF_img)
+
+# # src = 'NISSL'
+# # dest = 'CT'
+# # AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, out=out, src_img=NISSL_dir, dest_img=CT_img)
+
+# # src = 'NISSL'
+# # dest = 'MRI'
+# # AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, out=out, src_img=NISSL_dir, dest_img=MR_img)
+
+# #%%
+
+# src = 'CT'
+# dest = 'CCF'
+# AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, out=out, src_img=CT_img, dest_img=CCF_img)
+
+# # src = 'CT'
+# # dest = 'NISSL'
+# # AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, src_img=CT_img, dest_img=NISSL_dir)
+
+# # src = 'CT'
+# # dest = 'MRI'
+# # AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, src_img=CT_img, dest_img=MR_img)
+# #%%
+
+# src = 'CCF'
+# dest = 'NISSL'
+# AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, out=out, src_img=CCF_img, dest_img=NISSL_dir)
+
+# src = 'CCF'
+# dest = 'CT'
+# AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, out=out, src_img=CCF_img, dest_img=CT_img)
+
+# src = 'CCF'
+# dest = 'MRI'
+# AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, out=out, src_img=CCF_img, dest_img=MR_img)
+
+#%%
+# src = 'MRI'
+# dest = 'CCF'
+# AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, out=out, src_img=MR_img, dest_img=CCF_img)
+
+# # src = 'MRI'
+# # dest = 'NISSL'
+# # AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, src_img=MR_img, dest_img=NISSL_dir)
+
+# # src = 'MRI'
+# # dest = 'CT'
+# # AphiI = do_transformation(adj=adj, spaces=spaces, src=src, dest=dest, src_img=MR_img, dest_img=CT_img)
+
 # %%
