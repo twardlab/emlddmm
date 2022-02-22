@@ -215,99 +215,7 @@
 # plt.imshow(J_cropped[center[0]],cmap='gray')
 # plt.show()
 
-#%%
 
-# import torch, torchvision
-
-# device = 'cuda'
-
-# model = torchvision.models.resnet18(pretrained=True).to(device)
-# data = torch.rand(1, 3, 64, 64, device=device, requires_grad=True)
-# labels = torch.rand(1, 1000, device=device, requires_grad=True)
-
-# prediction = model(data) # forward pass
-
-# loss = (prediction - labels).sum().requires_grad_(True)
-# loss.backward() # backward pass
-
-# # %%
-# print(loss.grad)
-# # %%
-# x = torch.ones(5)  # input tensor
-# y = torch.zeros(3)  # expected output
-# w = torch.randn(5, 3, requires_grad=True)
-# b = torch.randn(3, requires_grad=True)
-# z = torch.matmul(x, w)+b
-# loss = torch.nn.functional.binary_cross_entropy_with_logits(z, y)
-
-# loss.backward()
-# print(w.grad)
-# print(b.grad)
-# # %%
-# device = 'cpu'
-# torch.manual_seed(0)
-# x = torch.ones(5, device=device)  # input tensor
-# y = torch.zeros(3, device=device)  # expected output
-# w = torch.randn(5, 3, requires_grad=True, device=device)
-# b = torch.randn(3, requires_grad=True, device=device)
-# z = torch.matmul(x, w)+b
-# loss = torch.nn.functional.binary_cross_entropy_with_logits(z, y)
-
-# loss.backward()
-# print(w.grad)
-# print(b.grad)
-# # %%
-# import torch
-
-# device = 'cpu'
-# torch.manual_seed(0)
-
-# x = torch.ones(5, device=device)  # input tensor
-# y = torch.zeros(3, device=device)  # expected output
-# w = torch.tensor([[0.1,0.2,0.3],
-#                   [0.4,0.5,0.6],
-#                   [0.7,0.8,0.9],
-#                   [0.25,0.75,1.25],
-#                   [0.5,1,1.5]], requires_grad=True, device=device)
-# b = torch.tensor([0.2,0.3,0.1], requires_grad=True, device=device)
-# z = torch.matmul(x, w)+b
-# loss = torch.nn.functional.binary_cross_entropy_with_logits(z, y)
-
-# loss.backward()
-# print(w.grad)
-# print(b.grad)
-# %%
-import emlddmm
-import torch
-
-
-MR_img = '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
-CCF_img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
-
-xJ,J,title,names = emlddmm.read_data(MR_img)
-xI, I, title, names = emlddmm.read_data(CCF_img)
-
-transformation_seq = [('MR_to_CCF_output', 'b')]
-
-Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
-# Xout = emlddmm.compose_sequence([transformation_seq[0]], Xin)
-
-# %%
-print('shape Xin: ', Xin.shape)
-print('shape Xout: ', Xout.shape)
-print('xJ: ', [x.shape for x in xJ])
-print('xI: ', [x.shape for x in xI])
-# %%
-import os
-
-dir = 'test'
-
-if not os.path.exists(dir):
-    os.makedirs(dir)
-    print('1 path made')
-if not os.path.isdir(dir):
-    os.mkdir(dir)
-    print('2 path made')
 # %%
 import numpy as np
 import emlddmm
@@ -316,7 +224,7 @@ import matplotlib.pyplot as plt
 
 MR_img = '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
 CCF_img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
-CCFtoMRI_disp = '/home/brysongray/emlddmm/transformation_graph_outputs/ATLAS/MRItoATLAS/transforms/ATLAS_to_MRI_displacement.vtk'
+CCFtoMRI_disp = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRI_to_CCF/transforms/CCF_to_MRI_displacement.vtk'
 # velocity = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRItoCCF/transforms/velocity.vtk'
 
 xJ,J,title,names = emlddmm.read_data(MR_img)
@@ -325,15 +233,15 @@ xI, I, title, names = emlddmm.read_data(CCF_img)
 x, disp, title, names = emlddmm.read_vtk_data(CCFtoMRI_disp)
 disp = torch.as_tensor(disp)
 
-down = [a//b for a, b in zip(I.shape[1:], disp.shape[1:])]
+down = [a//b for a, b in zip(I.shape[1:], disp.shape[2:])]
 
 xI,I = emlddmm.downsample_image_domain(xI,I,down)
 XI = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
 
-X = disp + XI
+X = disp[0] + XI
 
 AphiI = emlddmm.apply_transform_float(xJ, J, X)
-# %%
+print(AphiI.shape)
 src='MRI'
 dest='CCF'
 fig = emlddmm.draw(AphiI, xI)
@@ -344,13 +252,167 @@ plt.show()
 # %%
 import emlddmm
 
-MRItoATLAS = '/home/brysongray/emlddmm/transformation_graph_outputs/ATLAS/MRItoATLAS/images/MRI_to_ATLAS.vtk'
-ATLAStoMRI = '/home/brysongray/emlddmm/transformation_graph_outputs/MRI/ATLAStoMRI/images/ATLAS_to_MRI.vtk'
+MRItoCCF = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRI_to_CCF/images/MRI_masked_to_CCF.vtk'
+CCFtoMRI = '/home/brysongray/emlddmm/transformation_graph_outputs/MRI/CCF_to_MRI/images/CCF_average_template_50_to_MRI.vtk'
+HISTtoMRI = '/home/brysongray/emlddmm/transformation_graph_outputs/MRI/HIST_to_MRI/images/HIST_nissl_to_MRI.vtk'
+xI, I, _,_ = emlddmm.read_data(MRItoCCF)
+xJ, J, _,_ = emlddmm.read_data(HISTtoMRI)
+print(J.shape)
+print([len(x) for x in xJ])
+#%%
+# emlddmm.draw(I,xI)
+print(J.shape)
+print(J[:,256,None,...].shape)
+xJ_ = [np.array([xJ[0][256]]), xJ[1], xJ[2]]
 
-xI, I, _,_ = emlddmm.read_data(MRItoATLAS)
-xJ, J, _,_ = emlddmm.read_data(ATLAStoMRI)
-emlddmm.draw(I,xI)
-emlddmm.draw(J,xJ)
+emlddmm.draw(J[:,256,None, ...], xJ_)
 plt.show()
 
 # %%
+# in the special case of transforming an image series to registered or input space, the dest will be a directory containing 2d Affines
+if dest_path == f'{dest_space}_REGISTERED/{dest_space}_INPUT_to_{dest_space}_REGISTERED':
+    xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
+    J = J.astype(float)
+    J = torch.as_tensor(J,dtype=dtype,device=device)
+    x_series = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
+    X_series = torch.stack(torch.meshgrid(x_series), -1)
+    xJ
+    transforms_ls = os.listdir(os.path.join(out, dest_path))
+    transforms_ls = sorted(transforms_ls, key=lambda x: x.split('_matrix.txt')[0][-4:])
+
+    A2d = []
+    for t in transforms_ls:
+        A2d_ = np.genfromtxt(os.path.join(out, dest_path, t), delimiter=',')
+        # note that there are nans at the end if I have commas at the end
+        if np.isnan(A2d_[0, -1]):
+            A2d_ = A2d_[:, :A2d_.shape[1] - 1]
+        A2d.append(A2d_)
+
+    A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
+    A2di = torch.inverse(A2d)
+    points = (A2di[:, None, None, :2, :2] @ X_series[..., 1:, None])[..., 0] # reconstructed space needs to be created from the 2d series coordinates
+    m0 = torch.min(points[..., 0])
+    M0 = torch.max(points[..., 0])
+    m1 = torch.min(points[..., 1])
+    M1 = torch.max(points[..., 1])
+    # construct a recon domain
+    dJ = [x[1] - x[0] for x in x_series]
+    # print('dJ shape: ', [x.shape for x in dJ])
+    xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
+    xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
+    xr = x_series[0], xr0, xr1
+    XR = torch.stack(torch.meshgrid(xr), -1)
+    # reconstruct 2d series
+    Xs = torch.clone(XR)
+    Xs[..., 1:] = (A2d[:, None, None, :2, :2] @ XR[..., 1:, None])[..., 0] + A2d[:, None, None, :2, -1]
+    Xs = Xs.permute(3, 0, 1, 2)
+    Jr = emlddmm.interp(xJ, J, Xs)
+
+    # write out displacement
+    input_disp = (Xs - X_series.permute(3,0,1,2)).cpu()[None]
+    for i in range(input_disp.shape[2]):
+        x_series_ = [x_series[0][i], x_series[1], x_series[2]]
+        x_series_[0] = torch.tensor([x_series_[0], x_series_[0] + 10])
+        xr_ = [xr[0][i], xr[1], xr[2]]
+        xr_[0] = torch.tensor([xr_[0], xr_[0] + 10])
+        # write out input to dest displacement
+        input_dir = os.path.join(out, f'{dest_space}_REGISTERED/{dest_space}_INPUT_to_{dest_space}_REGISTERED')
+        output_name = os.path.join(input_dir, transforms_ls[i].split('_matrix.txt')[0]+'_displacement.vtk')
+        title = transforms_ls[i].split('_matrix.txt')[0]+'_displacement'
+        emlddmm.write_vtk_data(output_name, x_series_, input_disp[:,:, i, None, ...], title)
+
+    # write out image
+    fig = emlddmm.draw(Jr, xr)
+    fig[0].suptitle(f'transformed {src_space} {src_img} to {dest_space} REGISTERED')
+    fig[0].canvas.draw()
+    # save transformed 3d image   
+    img_out = os.path.join(out, f'{dest_space}_REGISTERED/{dest_space}_INPUT_to_{dest_space}_REGISTERED')
+    if not os.path.exists(img_out):
+        os.makedirs(img_out)
+    emlddmm.write_vtk_data(os.path.join(img_out, f'{src_space}_INPUT_to_{dest_space}_REGISTERED.vtk'), xr, Jr, f'{src_space}_INPUT_to_{dest_space}_REGISTERED')
+
+#%%
+# transform images using disp fields
+def transform_img(adj, spaces, src, dest, out, src_img='', dest_img=''):
+    '''
+    Parameters
+    ----------
+    adj: adjacency list
+        of the form: [{1: ('path to transformation from space 0 to space 1', 'b'}, {0: ('path to transform from space 0 to space 1', 'f') }]
+    spaces: spaces dict
+        example: {'MRI':0, 'CT':1, 'ATLAS':2}
+    src: source space (str)
+    dest: destination space (str)
+    out: output directory
+    src_img: path to source image (image to be transformed)
+    dest_img: path to destination image (image in space to which source image will be matched)
+    
+    Returns
+    ----------
+    x: List of arrays storing voxel locations
+    AphiI: Transformed image as tensor
+
+    input: path to image to be transformed (src_img or I), img space to to which the source image will be matched (dest_img, J),
+     adjacency list and spaces dict from run_registration, source and destination space names
+    return: x, transfromed image
+    '''
+    # get transformation sequence
+    path = findShortestPath(adj, spaces[src], spaces[dest], len(spaces))
+    if len(path) < 2:
+        return
+    print("\nPath is:")
+
+    for i in path:
+        for key, value in spaces.items():
+            if i == value:
+                print(key, end=' ')
+
+    transformation_seq = getTransformation(adj, path)
+    print('\nTransformation sequence: ', transformation_seq)
+
+    # load source and destination images
+    xI, I, I_title, _ = emlddmm.read_data(dest_img) # the space to transform into
+    I = I.astype(float)
+    I = torch.as_tensor(I, dtype=dtype, device=device)
+    xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
+    xJ, J, J_title, _ = emlddmm.read_data(src_img) # the image to be transformed
+    J = J.astype(float)
+    J = torch.as_tensor(J,dtype=dtype,device=device)
+    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
+
+    # compose displacements
+    # TODO
+    # first interpolate all displacements in sequence into destination space,
+    # then add them together
+    disp_list = []
+    for i in reversed(range(len(transformation_seq))):
+        # path = glob.glob(transformation_seq[i] + '/transforms/*displacement.vtk')
+        x, disp, title, names = emlddmm.read_vtk_data(transformation_seq[i])
+        if i == len(transformation_seq)-1: # if the first displacement in the sequence
+            down = [a//b for a, b in zip(I.shape[1:], disp.shape[2:])] # check if displacement image was downsampled from original
+            xI,I = emlddmm.downsample_image_domain(xI,I,down) # downsample the domain
+            XI = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
+            disp_list.append(torch.as_tensor(disp)) # add the displacement
+        else: # otherwise we need to interpolate to the destination space
+            ID = torch.stack(torch.meshgrid(x))[None]
+            disp = emlddmm.interp(x,(disp - ID), XI) + XI
+            disp_list.append(torch.as_tensor(disp))
+    # sum the displacements
+    # v = torch.cat(disp_list)
+    disp = torch.sum(torch.stack(disp_list),0).to(device=device)
+    print('disp shape: ', disp.shape)
+    print('XI shape: ', XI.shape)
+    X = disp[0] + XI
+
+    AphiI = emlddmm.apply_transform_float(xJ, J, X)
+
+    # save figure and text file of transformation order
+    if not os.path.exists(out):
+        os.makedirs(out)
+    # plt.savefig(os.path.join(out, '{src}_{dest}'.format(src=src, dest=dest))) # TODO: this image will be saved in qc
+    with open(os.path.join(out, '{src}_{dest}.txt'.format(src=src, dest=dest)), 'w') as f:
+        for transform in reversed(transformation_seq[1:]):
+            f.write(str(transform) + ', ')
+        f.write(str(transformation_seq[0]))
+
+    return xI, AphiI

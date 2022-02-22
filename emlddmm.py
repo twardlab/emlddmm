@@ -1703,103 +1703,18 @@ def write_transform_outputs(output_dir, src_space, dest_space, xJ, xI, output, s
     if slice_outputs:
         slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
         slice_names = sorted(slice_names, key=lambda x: x[-4:])
-        input_dir = os.path.join(output_dir, f'{src_space}_INPUT/{src_space}_INPUT_to_{src_space}_REGISTERED/')
-        if not os.path.isdir(input_dir):
-            os.makedirs(input_dir)
-        registered_dir = os.path.join(output_dir, f'{src_space}_REGISTERED/{src_space}_REGISTERED_to_{src_space}_INPUT/')
+        registered_dir = os.path.join(output_dir, f'{src_space}_REGISTERED/{src_space}_INPUT_to_{src_space}_REGISTERED/')
         if not os.path.isdir(registered_dir):
             os.makedirs(registered_dir)
+        input_dir = os.path.join(output_dir, f'{src_space}_INPUT/{src_space}_REGISTERED_to_{src_space}_INPUT/')
+        if not os.path.isdir(input_dir):
+            os.makedirs(input_dir)
         for i in range(A2d.shape[0]):
-            output_name = os.path.join(input_dir, f'{src_space}_input_{slice_names[i]}_to_{src_space}_registered_{slice_names[i]}_matrix.txt')
+            output_name = os.path.join(registered_dir, f'{src_space}_input_{slice_names[i]}_to_{src_space}_registered_{slice_names[i]}_matrix.txt')
             write_matrix_data(output_name,A2d[i])
-            output_name = os.path.join(registered_dir, f'{src_space}_registered_{slice_names[i]}_to_{src_space}_input_{slice_names[i]}_matrix.txt')
+            output_name = os.path.join(input_dir, f'{src_space}_registered_{slice_names[i]}_to_{src_space}_input_{slice_names[i]}_matrix.txt')
             write_matrix_data(output_name, torch.inverse(A2d[i]))
-
-    # TODO: this section has been moved to do_transformation function. This should be removed and xJ, and xI arguments are no longer necessary
-    # if slice_outputs:
-    #     for i in range(A2d.shape[0]):
-    #         output_name = os.path.join(forward_dir, f'A2d_{i:04d}.txt')
-    #         write_matrix_data(output_name,A2d[i])
-    #     xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
-    #     XJ = torch.stack(torch.meshgrid(xJ),-1)
-    #     A2d = torch.as_tensor(A2d)
-    #     A2di = torch.inverse(A2d)
-    #     points = (A2di[:, None, None, :2, :2] @ XJ[..., 1:, None])[..., 0] # reconstructed space needs to be created from the 2d series coordinates
-    #     m0 = torch.min(points[..., 0])
-    #     M0 = torch.max(points[..., 0])
-    #     m1 = torch.min(points[..., 1])
-    #     M1 = torch.max(points[..., 1])
-
-    #     # construct a recon domain
-    #     dJ = [x[1] - x[0] for x in xJ]
-    #     xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
-    #     xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
-    #     xr = xJ[0], xr0, xr1
-    #     XR = torch.stack(torch.meshgrid(xr), -1).permute(3,0,1,2).to(device=device)
-
-    # # write out displacements
-    # # map points from dest_spaceination to source
-    # transforms = [Transform(v, direction='f', domain=xv), Transform(A, direction='f')]
-    # Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
-    # Xout = compose_sequence(transforms, Xin, direction='f')
-    # displacement = (Xout - Xin)[None] # displacement is tensor with shape 1 x 3 x nz x ny x nx
-    # output_name = os.path.join(forward_dir, f'{dest_space}_to_{src_space}_displacement.vtk')
-    # title = f'{dest_space} to {src_space} displacement'
-    # write_vtk_data(output_name, xI, displacement.cpu().numpy(), title)
-
-    # # write out determinant of jacobian dest_spaceination to source
-    # dv = [x[1]-x[0] for x in xI]
-    # grad = np.stack(np.gradient(displacement[0], 1, dv[0], dv[1], dv[2]), axis=-1)
-    # grad = np.reshape(grad, grad.shape[:-1]+(2,2))
-    # detjac = np.linalg.det(grad)
-    # output_name = os.path.join(forward_dir, f'{dest_space}_to_{src_space}_detjac.vtk')
-    # title = f'{dest_space} to {src_space} detjac'
-    # write_vtk_data(output_name, xI, detjac, title)
-
-    # # map points from source to dest_spaceination
-    # transforms = [Transform(A, direction='b'), Transform(v, direction='b', domain=xv)]
-    # Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ]))
-    # if slice_outputs:
-    #     Xout = compose_sequence(transforms, XR, direction='b').to(device)
-    #     input_disp = (Xout - Xin)[None] # displacement from slices input to dest_spaceination
-    #     registered_disp = (Xout - XR)[None] # displacement from registered slices to dest_spaceination
-    #     input_dir = os.path.join(output_dir, f'{src_space}_INPUT/{dest_space}to{src_space}_INPUT/trasforms/')
-    #     if not os.path.isdir(input_dir):
-    #         os.makedirs(input_dir)
-    #     registered_dir = os.path.join(output_dir, f'{src_space}_REGISTERED/{dest_space}to{src_space}_REGISTERED/transforms/')
-    #     if not os.path.isdir(registered_dir):
-    #         os.makedirs(registered_dir)        
-    #     for i in range(input_disp.shape[2]):
-    #         xJ_ = [xJ[0][i],xJ[1],xJ[2]]
-    #         xJ_[0] = torch.tensor([xJ_[0],xJ_[0]+10])
-    #         # write out input to dest_space displacement
-    #         output_name = os.path.join(input_dir, f'{src_space}_INPUT_{i:04d}_to_{dest_space}_displacement.vtk')
-    #         title = f'{src_space}_INPUT_{i:04d}_to_{dest_space}_displacement'
-    #         write_vtk_data(output_name, xJ_, input_disp[:,:, i, None, ...], title)
-    #         # write out registered to dest_space displacement
-    #         output_name = os.path.join(registered_dir, f'{src_space}_REGISTERED_{i:04d}_to_{dest_space}_displacement.vtk')
-    #         title = f'{src_space}_REGISTERED_{i:04d}_to_{dest_space}_displacement'
-    #         write_vtk_data(output_name, xJ_, registered_disp[:,:, i, None, ...], title)
-    #     # TODO: write out detjac for 2d slices
-    # else:
-    #     Xout = compose_sequence(transforms, Xin, direction='b')
-    #     displacement = (Xout - Xin)[None]
-    #     back_dir = os.path.join(output_dir, f'{src_space}/{dest_space}to{src_space}/transforms/')
-    #     if not os.path.isdir(back_dir):
-    #         os.makedirs(back_dir)
-    #     output_name = os.path.join(back_dir, f'{src_space}_to_{dest_space}_displacement.vtk')
-    #     title = f'{src_space}_to_{dest_space}_displacement'
-    #     write_vtk_data(output_name, xJ, displacement, title)
-
-    #     #write out determinant of jacobian source to dest_spaceination
-    #     dv = [x[1]-x[0] for x in xJ]
-    #     grad = np.stack(np.gradient(displacement[0], 1, dv[0], dv[1], dv[2]), axis=-1)
-    #     grad = np.reshape(grad, grad.shape[:-1]+(2,2))
-    #     detjac = np.linalg.det(grad)
-    #     output_name = os.path.join(back_dir, f'{src_space}_to_{dest_space}_detjac.vtk')
-    #     title = f'{src_space} to {dest_space} detjac'
-    #     write_vtk_data(output_name, xJ, detjac, title)
-
+            
 
 def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output, xI, I, xJ, J, xS=None,S=None):
     ''' 
