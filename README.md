@@ -28,6 +28,34 @@ For 2D serial section datasets images should be stored in standard imaging forma
 
 In python, configuration options are passed as dictionaries.  For command line use these are stored in json files.  See the examples for examples of various parameters.
 
+Here is an example with typical parameters.  When arguments are separated by commas, they refer to each iteration of a multi scale (coarse to fine) approach.
+
+```
+{
+    "n_iter":[1000,200],
+    "downI":[[4,4,4],[2,2,2]],
+    "downJ":[[4,4,4],[2,2,2]],        
+    "a":[200.0],
+    "sigmaR":[5e6],
+    "sigmaM":[2.0],
+    "sigmaB":[4.0],
+    "sigmaA":[6.0],
+    "ev":[1e-0],
+    "eA":[1e6],
+    "priors":[[0.9,0.05,0.05]],
+    "update_muA":[0],
+    "update_muB":[0],
+    "muB":[0.0],
+    "update_sigmaM":[0],
+    "update_sigmaA":[0],
+    "update_sigmaB":[0],
+    "order":[3],
+    "n_draw":[50],
+    "n_e_step":[3],    
+    "v_start":[500,0]
+}
+
+```
 ## Spaces
 
 
@@ -43,7 +71,6 @@ TODO
 
 ### 2D spaces
 #### Input histology space
-
 
 
 #### Registered histology space
@@ -62,24 +89,27 @@ Registrations are computed between pairs of spaces.  Each space should be given 
 Each space may have more than one imaging dataset sampled in it (for example multiple MRI scans with different contrasts).  Each image within a space should be given a unique name.  (e.g. "exvivoMRI -> T1", "exvivoMRI -> T2", "invivoMRI -> T1", "Histology")
 
 ### Registration tuples
+To register a complex multimodal datasets, we specify a list of (space/image to map from, space/image to map to ) tuples. These correspond to edges in a graph and should span the set of spaces.  This set of transformations will be computed using an optimization procedure.
 
 ### Reconstruction tuples
-
+After transforamtions are computed, we can reconstruct data from one space in any other space. Tuples of the form (space/image to map from, space to map to) are specified. Given the registration tuples, a path of transformations will be computed, which may involve the composition of more than one calculated transform.
 
 
 ## Output data format
 
-
+Directory 
 
 
 
 ## Python Interface
+Example TODO
 
 ## Comand Line Interface
+Example TODO
 
 ## Pipelines
 
-Link here to several pipelines.
+Link here to several pipelines. TODO
 
 Mouse:
 
@@ -93,6 +123,9 @@ Mouse:
 Marmoset:
 
 3D registration MR to MR
+TODO
 
+Human:
+TODO
 
 
