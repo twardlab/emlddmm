@@ -757,7 +757,8 @@ def emlddmm(**kwargs):
     
     # set up a domain for xv    
     # I'll put it a bit bigger than xi
-    dv = dI*v_res_factor # we want this to be independent of the I downsampling 
+    dv = dI*v_res_factor # we want this to be independent of the I downsampling, 
+    # feb 4, 2022, I want it to be isotropic though
     print(f'dv {dv}')
     if a is None:
         a = dv[0]*2.0 # so this is also independent of the I downsampling amount
@@ -799,7 +800,7 @@ def emlddmm(**kwargs):
     E = []
     for i in range(3):
         for j in range(4):
-            E.append(   ((torch.arange(4,dtype=dtype,device=device)[None,:] == j)*(torch.arange(4,dtype=dtype,device=device)[:,None] == i))*1.0 )
+            E.append(   ((torch.arange(4,dtype=dtype,device=device)[None,:] == j)*(torch.arange(4,dtype=dtype,device=device)[:,None] == i))*torch.ones(1,device=device,dtype=dtype) )
     # it would be nice to define scaling so that the norm of a perturbation had units of microns
     # e.g. root mean square displacement
     g = torch.zeros((12,12),dtype=dtype,device=device)
@@ -811,7 +812,7 @@ def emlddmm(**kwargs):
             g[i,j] = torch.sum(EiX*EjX) * torch.prod(dI) # because gradient has a factor of N in it, I think its a good idea to do sum
     # note, on july 21 I add factor of voxel size, so it can cancel with factor in cost function
     # feb 2, 2022, use double precision.  TODO: implement this as a solve when it is applied instead of inverse
-    gi = torch.inverse(g.double()).float()
+    gi = torch.inverse(g.double()).to(dtype)
     
 
     # TODO affine metric for 2D affine
@@ -823,7 +824,7 @@ def emlddmm(**kwargs):
     
     for i in range(2):
         for j in range(3):
-            E.append(   ((torch.arange(3,dtype=dtype,device=device)[None,:] == j)*(torch.arange(3,dtype=dtype,device=device)[:,None] == i))*1.0 )
+            E.append(   ((torch.arange(3,dtype=dtype,device=device)[None,:] == j)*(torch.arange(3,dtype=dtype,device=device)[:,None] == i))*torch.ones(1,device=device,dtype=dtype) )
     g2d = torch.zeros((6,6),dtype=dtype,device=device)
     
     for i in range(len(E)):
@@ -832,7 +833,7 @@ def emlddmm(**kwargs):
             EjX = (E[j][:2,:2]@XI_[0,...,1:,:])[...,0] + E[j][:2,-1]
             g2d[i,j] = torch.sum(EiX*EjX) * torch.prod(dI[1:])
     # feb 2, 2022, use double precision.  TODO: implement this as a solve when it is applied instead of inverse
-    g2di = torch.inverse(g2d.double()).float()
+    g2di = torch.inverse(g2d.double()).to(dtype)
             
     # build energy operator for velocity
     fv = [torch.arange(n,device=device,dtype=dtype)/d/n for n,d in zip(nv,dv)]
@@ -1008,9 +1009,9 @@ def emlddmm(**kwargs):
             AphiIpadv = reshape_for_local(AphiI,local_contrast)
             
             # now basis function
-            if I.shape[0] == 1:                
+            if order>1:                
                 raise Exception('local not implemented yet except for linear')
-            elif I.shape[0] > 1 and order == 1:
+            elif order == 1:
                 B_ = torch.cat((torch.ones_like(AphiIpadv[...,0])[...,None],AphiIpadv),-1)
             else:
                 raise Exception('Require either order = 1 or order>1 and 1D atlas')
@@ -1023,7 +1024,7 @@ def emlddmm(**kwargs):
                     # multiply by weight
                     B__ = B_*(WM*W0).reshape(-1)[...,None]
                     # feb 2, 2022 converted from inv to solve and used double
-                    coeffs = torch.linalg.solve((B__.T@B_).double(), (B__.T@(J.reshape(J.shape[0],-1).T)).double() ).float()
+                    coeffs = torch.linalg.solve((B__.T@B_).double(), (B__.T@(J.reshape(J.shape[0],-1).T)).double() ).to(dtype)
                 fAphiI = ((B_@coeffs).T).reshape(J.shape) # there are unnecessary transposes here, probably slowing down, to fix later
             else:
                 # local contrast estimation using refactoring
@@ -1032,7 +1033,7 @@ def emlddmm(**kwargs):
                     BJ = B_.transpose(-1,-2)@(Jpadv*Wlocalpadv)
                     small = 1e-2
                     # convert to double here
-                    coeffs = torch.linalg.solve( BB.double() + torch.eye(BB.shape[-1],device=BB.device,dtype=torch.float64)*small,BJ.double()).float()
+                    coeffs = torch.linalg.solve( BB.double() + torch.eye(BB.shape[-1],device=BB.device,dtype=torch.float64)*small,BJ.double()).to(dtype)
                 fAphiIpadv = (B_@coeffs).reshape(Jpadv.shape[0],Jpadv.shape[1],Jpadv.shape[2],
                                                  local_contrast[0].item(),local_contrast[1].item(),local_contrast[2].item(), 
                                                  Jpadv.shape[-1])
@@ -2052,13 +2053,21 @@ class Transform():
         self.direction = direction
         
         # if it is a velocity field we need to integrate it
+        # if it is a displacement field, then we need to add identity to it
         if self.data.ndim == 5:
-            if self.domain is None:
-                raise Exception('Domain is required when inputting veloctiy field')
-            if self.direction == 'b':
-                self.data = v_to_phii(self.domain,self.data)
+            if self.data.shape[0] == 1:
+                # assume this is a displacement field and add identity
+                # if it is a displacement field we cannot invert it, so we should throw an error if you use the wrong f,b
+                pass
             else:
-                self.data = v_to_phii(self.domain,-torch.flip(self.data,(0,)))
+                # assum this is a velocity field and integrate it
+                if self.domain is None:
+                    raise Exception('Domain is required when inputting veloctiy field')
+                if self.direction == 'b':
+                    self.data = v_to_phii(self.domain,self.data)
+                else:
+                    self.data = v_to_phii(self.domain,-torch.flip(self.data,(0,)))
+            
         elif self.data.ndim == 2:# if it is a matrix check size
             if self.data.shape[0] == 3 and self.data.shape[1]==3:
                 tmp = torch.eye(4,device=device,dtype=dtype)
@@ -2160,7 +2169,9 @@ def compose_sequence(transforms,Xin,direction='f'):
         # print(type(transforms[0]))
         # print(isinstance(transforms[0],Transform))
         #if type(transforms[0]) == Transform:
-        if 'Transform' in str(type(transforms[0])): # this approach may fix the issue but I don't like it
+        if 'Transform' in str(type(transforms[0])): 
+            # this approach may fix the issue but I don't like it
+            # I am having trouble reproducing this error on simpler examples
             # don't do anything here
             pass
         elif type(transforms[0]) == str:
