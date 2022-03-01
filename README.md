@@ -2,26 +2,26 @@
 ## Introduction
 Expectation Maximization Large Deformation Diffeomorphic Metric Mapping is an image registration method for aligning datasets in the presence of differing contrast profiles and missing tissue or artifacts.
 
-It uses an expectation maximization algorithm (EM) [ref] to handle missing data, and leverages the powerful Large Deformation Diffeomorphic Metric Mapping (LDDMM) paradaigm [ref] to ensure mappings are diffeomorphisms [ref], and are generated in a Reimannian framework suitable for statistical analysis [ref].
+It uses an [expectation maximization algorithm](https://en.wikipedia.org/wiki/Expectation%E2%80%93maximization_algorithm) to handle missing data, and leverages the powerful [Large Deformation Diffeomorphic Metric Mapping](https://en.wikipedia.org/wiki/Large_deformation_diffeomorphic_metric_mapping)  (LDDMM) [ref](https://doi.org/10.1023/B:VISI.0000043755.93987.aa) paradaigm  to ensure mappings are diffeomorphisms [ref]( https://www.jstor.org/stable/43638248 ), and are generated in a Reimannian framework suitable for statistical analysis such as PCA [ref](https://doi.org/10.1155/2013/205494).
 
-These concepts were brought together into the EMLDDMM algorithm described in  [ref,ref].
+These concepts were brought together into the EMLDDMM algorithm described in [ref](https://doi.org/10.3389/fnins.2020.00052),[ref](https://doi.org/10.1101/2020.03.22.002618).
 
-Our package is designed for 3D to 3D image registration, or 3D to 2D serial sections.
+Our package is designed for 3D to 3D image registration, or 3D to 2D serial sections, and suports pipelines to efficiently register datasets with multiple modalities of images.
 
 ## File formats
 
 ### 3D data
-We use vtk data as a standard, and use ([vtk simple legacy format](https://kitware.github.io/vtk-examples/site/VTKFileFormats/) because it has a human readable header.  It supports images and vector fields, as well as polydata (points, edges, triangulations) under a common standard.  For visualization we use [paraview](https://www.paraview.org/), or [itksnap](http://www.itksnap.org/pmwiki/pmwiki.php).
+We use vtk data as a standard, and use ([vtk simple legacy format](https://kitware.github.io/vtk-examples/site/VTKFileFormats/) because it has a human readable header.  It supports images and vector fields, as well as polydata (points, edges, triangulations) under a common standard.  For visualization we use [paraview](https://www.paraview.org/), or [itksnap](http://www.itksnap.org/pmwiki/pmwiki.php) (web viewer support coming soon).
 
 For input data we include nibabel and pynrrd as a dependency, and support several other formats supported by these libraries.
 
 ### 2D serial section data
-For 2D serial section datasets images should be stored in standard imaging formats (i.e. to be read by matplotlib's imread function).  While our pipelines do support downsampling to desired resolutions, these serial section images are expected.
+For 2D serial section datasets images should be stored in a single directory using standard imaging formats (i.e. to be read by matplotlib's imread function).  While our pipelines do support downsampling to desired resolutions, code will run more efficiently if these sections are already downsampled.
 
 #### JSON Sidecar files
-2D images have their geometry specified in a json sidecar file. Such sidecar files are inspired by the BIDS (ref) standard, and contain information typically in an NRRD header (ref),
+2D images have their geometry specified in a json sidecar file. Such sidecar files are inspired by the [BIDS](https://bids-apps.neuroimaging.io/) standard, and contain information typically stored in an [NRRD](http://teem.sourceforge.net/nrrd/format.html) header.  Each 2D image should have a sidecar file with the same filename, and the extension `.json`.
 
-Note that each 2D image is modeled as a 3D image with a single slice.  An example is shown here.
+Note that each 2D image is modeled as a 3D image with a single slice.  An example is shown here:
 ```
 {
   "DataFile": "MD787_small_nissl/MD787-N27-2019.03.28-22.55.54_MD787_2_0080.png",
@@ -67,8 +67,9 @@ Note that each 2D image is modeled as a 3D image with a single slice.  An exampl
   ]
 }
 ```
+
 #### Dataset lists
-Since sections may be missing or require other comments, we include a tsv file describing every slice in the dataset.
+Since sections may be missing or require other comments, we include a tsv file in the same directory describing every slice in the dataset.  The required fields are sample_id and status, the latter should contain present or absent.  An example is shown below.
 
 ```
 sample_id 	 participant_id 	 species 	 status
@@ -95,7 +96,7 @@ MD787-N120-2019.03.29-03.49.00_MD787_3_0360.png	MD787	Mus Musculus	present
 
 ## Config files
 
-In python, configuration options are passed as dictionaries.  For command line use these are stored in json files.  See the examples for examples of various parameters.
+In python, configuration options are passed as dictionaries.  For command line use these are stored in `json` files.  See the examples for examples of various parameters.
 
 Here is an example with typical parameters.  When arguments are separated by commas, they refer to each iteration of a multi scale (coarse to fine) approach.
 
@@ -127,26 +128,34 @@ Here is an example with typical parameters.  When arguments are separated by com
 ```
 ## Spaces
 
-
 ### 3D spaces
 
-#### Mouse
+#### Atlases
 
-#### Marmoset
+A typical workflow is to register new imaging data to a well characterized atlas, containing annotations.
+
+##### Mouse
+
+##### Marmoset
 TODO
 
-#### Human
+##### Human
 TODO
+
+
+#### Other images
+We typically work with MRI containing various contrasts, CT, and cleared tissue microscopy.  Workflows will work best when these images are oriented the same way as the standard atlas, but this is not a requirement.
 
 ### 2D spaces
-#### Input histology space
+Datasets with serial sections are sampled in two different spaces.
 
+#### Input histology space
+Images are in the orientation of the originally acquired data.  Typically the position and orientation of each slice differs from its neighbors.
 
 #### Registered histology space
 In our mapping pipeline we apply a rigid transform to each histology slice, so that each slice aligns with its neighors, and the overall geometry matches the 3D dataset being registered.
 
-Since no data was acquired in this space, it can be defined by various conventions.
-
+Since no data was acquired in this space, it can be defined by various conventions.  We typically sample it with the same resolution as the input space, on a grid that is the maximum size of the input space in each dimension.
 
 
 ## Input arguments
@@ -157,16 +166,59 @@ Registrations are computed between pairs of spaces.  Each space should be given 
 ### Names of images
 Each space may have more than one imaging dataset sampled in it (for example multiple MRI scans with different contrasts).  Each image within a space should be given a unique name.  (e.g. "exvivoMRI -> T1", "exvivoMRI -> T2", "invivoMRI -> T1", "Histology")
 
+### Filenames
+Each image should a filename (for 3D data), or a directory (for 2D data) associated to it.
+
 ### Registration tuples
-To register a complex multimodal datasets, we specify a list of (space/image to map from, space/image to map to ) tuples. These correspond to edges in a graph and should span the set of spaces.  This set of transformations will be computed using an optimization procedure.
+To register a complex multimodal datasets, we specify a list of (space/image to map from, space/image to map to ) tuples. These correspond to edges in a graph and should span the set of spaces.  This set of transformations will be computed using our optimization procedure.
 
 ### Reconstruction tuples
 After transforamtions are computed, we can reconstruct data from one space in any other space. Tuples of the form (space/image to map from, space to map to) are specified. Given the registration tuples, a path of transformations will be computed, which may involve the composition of more than one calculated transform.
 
 
 ## Output data format
+Output data structure contains transformations between pairs of named spaces (always), transformed images (suggested but not necessary), and other data types such as points and geojson annotations.
 
-Directory 
+These pairs are organized in a hierarchical tree, where the parent directories contain data *in* a given space, and the child directories contain data *from* a given space.
+
+
+
+
+### Notes 
+1. Output raster data is stored using simple legacy vtk file format. 
+1. Output point data is stored using simple legacy vtk file format, with polydata.
+1. json is shown only for data from atlas to a 2D space.  
+1. Meanxyz is shown only for a 2D space to the atlas. 
+1. Transforms are stored as a rigid transformation matrix only for maps from a 2D space to another 2D space.
+1. Note the “_to_” in the naming of transforms is opposite to images.  This is intentional.
+1. Note that in 2D directories, image names are appended to space names for uniqueness, separated by an underscore. 
+1. Qc figures are not standard, as they will vary by dataset
+Other outputs
+
+### Example
+Example output data structure is shown here. Lists are used to show directory hierarchy:
+This supports an arbitrary number of folders.
+
+```
+{Space i}
+{Space j}_to_{space i}
+Transforms (always)
+{space i}_to_{space j}_displacement.vtk (3D to 3D, or 3D to registered space, NOT 3D to input which does not exist as a displacement field)
+{space i}_{image k}_to_{space j}_{image k’}_matrix.txt (2D to 2D only)
+{space i}_{image k}_to_{space j}_displacement.vtk (i 2D to j 3D only)
+Images (suggested)
+{space j}_{image k}_to_{space i}.vtk
+{space j}_{image k}_to_{space i}_{image k’}.vtk (for 2D to 2D)
+Points (optional)
+{space j}_{image k}_detects_to_{space i}.vtk
+Json (for atlas only)
+Atlas_to_{space j}_{image k}.geojson
+Meanxyz (for atlas only)
+{space j}_{image k}_detects_to_atlas_meanxyz.txt
+Qc (optional)
+Composite_{image slice name}_QC.jpg
+```
+
 
 
 
@@ -180,21 +232,22 @@ Example TODO
 
 Link here to several pipelines. TODO
 
-Mouse:
+### Mouse:
 
-3D registration pipeline with STP
+TODO: 3D registration pipeline with STP
 
-3D to 2D registration pipeline with Nissl series
+TODO 3D to 2D registration pipeline with Nissl series
 
 3D to 2D registration pipeline with alternating series
 
 
-Marmoset:
+### Marmoset:
 
-3D registration MR to MR
-TODO
+TODO 3D registration MR to MR
 
-Human:
-TODO
+
+
+### Human:
+TODO MRI to MRI
 
 
