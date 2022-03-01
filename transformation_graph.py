@@ -249,16 +249,37 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
     # input: image to be transformed (src_path or I), img space to to which the source image will be matched (dest_path, J), adjacency list and spaces dict from run_registration, source and destination space names
     # return: transfromed image
     # TODO: there may be an error if both src and dest images are histology series.
+    
+    # load source image
+    xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
+    J = J.astype(float)
+    J = torch.as_tensor(J,dtype=dtype,device=device)
+    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
 
-    # in the special case of transforming an image series to registered or input space, the dest will be a directory containing 2d Affines
-    if 'REGISTERED' in dest_space:
-        xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
-        J = J.astype(float)
-        J = torch.as_tensor(J,dtype=dtype,device=device)
-        x_series = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
+    '''in the special case of transforming an image series to the same space, e.g. [[HIST, myelin], [HIST, nissl]], we output HIST_INPUT_to_HIST_REGISTERED images
+    and HIST_REGISTERED_to_HIST_INPUT images'''
+    if J_title == 'slice_dataset' and dest_space == src_space:
+        # get image slice names for naming output images
+        dest_slice_names = [os.path.splitext(x)[0] for x in os.listdir(dest_path) if x[-4:] == 'json']
+        dest_slice_names = sorted(dest_slice_names, key=lambda x: x[-4:])
+        src_slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
+        dest_slice_names = sorted(src_slice_names, key=lambda x: x[-4:])
+
+        # first save out registered_to_input images
+        # TODO: this is just the original images. The image names don't make much sense in this case.
+        img_out = os.path.join(out, f'{space}/{space}_REGISTERED_to_{space}_INPUT/images')
+        if not os.path.exists(img_out):
+            os.makedirs(img_out)
+        for i in range(J.shape[1]):
+            J_ = J[:, i, None, ...]
+            xJ_ = [torch.tensor([xJ[0][i], xJ[0][i]+10]), xJ[1], xJ[2]]
+            title = f'{space}_REGISTERED_{src_slice_names[i]}_to_{space}_INPUT_{dest_slice_names[i]}'
+            emlddmm.write_vtk_data(os.path.join(img_out, f'{space}_REGISTERED_{src_slice_names[i]}_to_{space}_INPUT_{dest_slice_names[i]}.vtk'), xJ_, J_, title)
+
+        x_series = xJ
         X_series = torch.stack(torch.meshgrid(x_series), -1)
-        space = dest_space.split('_REGISTERED')[0]
-        transforms = os.path.join(out, f'{dest_space}/{space}_INPUT_to_{dest_space}/')
+        space = space
+        transforms = os.path.join(out, f'{space}/{space}_INPUT_to_{space}_REGISTERED/transforms')
         transforms_ls = sorted(os.listdir(transforms), key=lambda x: x.split('_matrix.txt')[0][-4:])
 
         A2d = []
@@ -271,7 +292,7 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
 
         A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
         A2di = torch.inverse(A2d)
-        points = (A2di[:, None, None, :2, :2] @ X_series[..., 1:, None])[..., 0] # reconstructed space needs to be created from the 2d series coordinates
+        points = (A2di[:, None, None, :2, :2] @ X_series[..., 1:, None])[..., 0] 
         m0 = torch.min(points[..., 0])
         M0 = torch.max(points[..., 0])
         m1 = torch.min(points[..., 1])
@@ -289,32 +310,22 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
         Xs = Xs.permute(3, 0, 1, 2)
         Jr = emlddmm.interp(xJ, J, Xs)
 
-        # get image slice names for naming output images
-        dest_slice_names = [os.path.splitext(x)[0] for x in os.listdir(dest_path) if x[-4:] == 'json']
-        dest_slice_names = sorted(dest_slice_names, key=lambda x: x[-4:])
-        src_slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
-        dest_slice_names = sorted(src_slice_names, key=lambda x: x[-4:])
-
         # save transformed 2d images   
-        img_out = os.path.join(out, f'{dest_space}_REGISTERED/{dest_space}_INPUT_to_{dest_space}_REGISTERED/images')
+        img_out = os.path.join(out, f'{space}/{space}_INPUT_to_{space}_REGISTERED/images')
         if not os.path.exists(img_out):
             os.makedirs(img_out)
-        for i in range(AphiI.shape[1]):
+        for i in range(Jr.shape[1]):
             Jr_ = Jr[:, i, None, ...]
             xr_ = [torch.tensor([xr[0][i], xr[0][i]+10]), xr[1], xr[2]]
-            #TODO:
-            title = f'{src_space}_input_{src_slice_names[i]}_to_{dest_space}_registered_{dest_slice_names[i]}'
-            emlddmm.write_vtk_data(os.path.join(img_out, f'{src_space}_input_{src_slice_names[i]}_to_{dest_space}_registered_{dest_slice_names[i]}.vtk'), xr_, Jr_, title)
+            title = f'{space}_input_{src_slice_names[i]}_to_{space}_registered_{dest_slice_names[i]}'
+            emlddmm.write_vtk_data(os.path.join(img_out, f'{space}_input_{src_slice_names[i]}_to_{space}_registered_{dest_slice_names[i]}.vtk'), xr_, Jr_, title)
         return
-    
+
+    # load destination image
     xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
     I = I.astype(float)
     I = torch.as_tensor(I, dtype=dtype, device=device)
     xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
-    xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
-    J = J.astype(float)
-    J = torch.as_tensor(J,dtype=dtype,device=device)
-    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
 
     slice_matching = 'slice_dataset' in [I_title, J_title]
     # if slice_matching then construct the reconstructed space XR
@@ -374,21 +385,25 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
 
     # if slice_matching and the destination is 2d series, then X = XR
     if I_title == 'slice_dataset':
-        X = torch.clone(XR.permute(3,0,1,2))
+        X = torch.clone(XR.permute(3,0,1,2)) # the reconstructed registered domain
+        # we will also need the input domain for getting to_input displacement and images later
+        X_series_ = torch.clone(X_series)            
+        X_series_[1:] = ((A2di[:,None,None,:2,:2]@ (X_series[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)
+        for i in reversed(range(len(transformation_seq))):
+            Xin = emlddmm.compose_sequence([transformation_seq[i]], Xin)
     else:
         X = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
-    # print('X shape before compose sequence: ', X.shape)
     for i in reversed(range(len(transformation_seq))):
         X = emlddmm.compose_sequence([transformation_seq[i]], X)
-    # print('X shape after compose sequence: ', X.shape)
 
     # get displacement
     if I_title == 'slice_dataset':
-        input_disp = (X - XR.permute(3,0,1,2).cpu())[None]
-        registered_disp = (X - Xs.cpu())[None]
+        # for input disp we need to apply compose_sequence to  A2di @ X_series to get Xin and then input_disp = Xin - X_series
+        input_disp = (Xin - X_series.permute(3,0,1,2).cpu())[None] #TODO: check on this, I'm still not sure.
+        registered_disp = (X - XR.permute(3,0,1,2).cpu())[None]
         
         # save out displacement from input and from registered space
-        input_dir = os.path.join(out, f'{dest_space}_INPUT/{src_space}_to_{dest_space}_INPUT/trasforms/')
+        input_dir = os.path.join(out, f'{dest_space}_INPUT/{src_space}_to_{dest_space}_INPUT/transforms/')
         if not os.path.isdir(input_dir):
             os.makedirs(input_dir)
         
@@ -417,14 +432,23 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
             # TODO: write out detjac for 2d displacements
 
     else:
+        # save out 3d displacement
         disp = (X - torch.stack(torch.meshgrid(xI)).to('cpu'))[None]
         
-        # save out 3d displacement
-        transform_dir = os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/transforms/')
-        if not os.path.isdir(transform_dir):
-            os.makedirs(transform_dir)  
-        output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_displacement.vtk')
-        title = f'{dest_space}_to_{src_space}_displacement'
+        if J_title == 'slice_dataset':
+            transform_dir = os.path.join(out, f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/transforms/')
+            if not os.path.exists(transform_dir):
+                os.makedirs(transform_dir)
+            output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_REGISTERED_displacement.vtk')
+            title = f'{dest_space}_to_{src_space}_REGISTERED_displacement'
+
+        else:
+            transform_dir = os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/transforms/')
+            if not os.path.isdir(transform_dir):
+                os.makedirs(transform_dir)  
+            output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_displacement.vtk')
+            title = f'{dest_space}_to_{src_space}_displacement'
+
         emlddmm.write_vtk_data(output_name, xI, disp, title)
 
         # write out determinant of jacobian (detjac) of displacement
@@ -432,16 +456,20 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
         grad = np.stack(np.gradient(disp[0], 1, dv[0], dv[1], dv[2]), axis=-1)
         grad = np.reshape(grad, grad.shape[:-1]+(2,2))
         detjac = np.linalg.det(grad)
-        output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_detjac.vtk')
-        title = f'{dest_space} to {src_space} detjac'
+        if J_title == 'slice_dataset':
+            output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_REGISTERED_detjac.vtk')
+            title = f'{dest_space}_to_{src_space}_REGISTERED_detjac'
+        else:
+            output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_detjac.vtk')
+            title = f'{dest_space}_to_{src_space}_detjac'
         emlddmm.write_vtk_data(output_name, xI, detjac, title)
 
     # now apply transformation to image
     # if slice_matching and the source is 2d series, then use xr and Jr
     if J_title == 'slice_dataset':
-        # reconstruct 2d series
+        # register 2d series
         Jr = emlddmm.interp(xJ, J, Xs)
-        # apply transform to reconstructed image
+        # apply transform to registered image
         AphiI = emlddmm.apply_transform_float(xr, Jr, X.to(device))
     else:
         AphiI = emlddmm.apply_transform_float(xJ, J, X.to(device))
@@ -454,20 +482,39 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
     fig = emlddmm.draw(AphiI, x)
     fig[0].suptitle(f'transformed {src_space} {src_img} to {dest_space}')
     fig[0].canvas.draw()
+    plt.show()
 
     # save transformed images
     if I_title == 'slice_dataset':
-        img_out = os.path.join(out, f'{dest_space}_INPUT/{src_space}_to_{dest_space}_INPUT/images/')
-        if not os.path.exists(img_out):
-            os.makedirs(img_out)
+        # first save out images of src space to registered slices
+        registered_out = os.path.join(out, f'{dest_space}_REGISTERED/{src_space}_to_{dest_space}_REGISTERED/images/')
+        if not os.path.exists(registered_out):
+            os.makedirs(registered_out)
         for i in range(AphiI.shape[1]):
             AphiI_ = AphiI[:, i, None, ...]
             x_ = [torch.tensor([x[0][i], x[0][i]+10]), x[1], x[2]]
-            emlddmm.write_vtk_data(os.path.join(img_out, f'{src_space}_{src_img}_to_{dest_space}_{slice_names[i]}.vtk'), x_, AphiI_, f'{src_space}_{src_img}_to_{dest_space}_{slice_names[i]}')
-    else:    
-        img_out = os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/images/')
-        if not os.path.exists(img_out):
-            os.makedirs(img_out)
+            emlddmm.write_vtk_data(os.path.join(registered_out, f'{src_space}_{src_img}_to_{dest_space}_registered_{slice_names[i]}.vtk'), x_, AphiI_, f'{src_space}_{src_img}_to_{dest_space}_registered_{slice_names[i]}')
+
+        # now save images of src space to input slices
+        AphiI_to_input = emlddmm.apply_transform_float(xJ, J, Xin.to(device))
+        input_out = os.path.join(out, f'{dest_space}_INPUT/{src_space}_to_{dest_space}_INPUT/images/')
+        if not os.path.exists(input_out):
+            os.makedirs(input_out)
+        for i in range(AphiI_to_input.shape[1]):
+            AphiI_to_input_ = AphiI_to_input[:, i, None, ...]
+            xJ_ = [torch.tensor([xJ[0][i], xJ[0][i]+10]), xJ[1], xJ[2]]
+            emlddmm.write_vtk_data(os.path.join(input_out, f'{src_space}_{src_img}_to_{dest_space}_input_{slice_names[i]}.vtk'), xJ_, AphiI_to_input_, f'{src_space}_{src_img}_to_{dest_space}_input_{slice_names[i]}')
+        
+    else:
+        if J_title == 'slice_dataset':
+            img_out = os.path.join(out, f'{dest_space}/{src_space}_INPUT_to_{dest_space}/images/')
+            if not os.path.exists(img_out):
+                os.makedirs(img_out)
+
+        else:
+            img_out = os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/images/')
+            if not os.path.exists(img_out):
+                os.makedirs(img_out)
         emlddmm.write_vtk_data(os.path.join(img_out, f'{src_space}_{src_img}_to_{dest_space}.vtk'), x, AphiI, f'{src_space}_{src_img}_to_{dest_space}')
 
     # save text file of transformation order
@@ -563,9 +610,15 @@ def main(argv):
         with open(os.path.join(output, 'spaces_dict.txt'), 'w') as f:
             f.write(str(spaces))
 
-    if transform_all:
+    if transform_all: # do every transfrom in both directions and transform all series images to registered space.
         transforms = []
         for i in sip.keys(): # for each space
+            if os.path.isdir(sip[i][list(sip[i])[0]]): # if the path is a directory, then this is an image series 
+                for r in range(len(registrations)): # get the image series that was used for registration. 
+                    if registrations[r][0][1] in sip[i].keys():
+                        dest_img = registrations[r][0][1] 
+                for k in sip[i].keys(): # for each image series in the space,
+                    transforms.append([[i, k], [i, dest_img]]) # add transform to registered space
             for j in sip.keys(): # for every other space
                 if j == i:
                     continue
@@ -581,7 +634,7 @@ def main(argv):
             src_space = trans[0][0]
             src_img = trans[0][1]
             src_path = sip[src_space][src_img]
-            dest_space = trans[1][0] # the dest_space can be HIST_REGISTERED or HIST_INPUT if we want to only apply 2d affines to an image series.
+            dest_space = trans[1][0]
             dest_img = trans[1][1]
             dest_path = sip[dest_space][dest_img] 
             do_transformation(adj, spaces, src_space, src_img, dest_space, output,\

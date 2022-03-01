@@ -415,4 +415,91 @@ def transform_img(adj, spaces, src, dest, out, src_img='', dest_img=''):
         f.write(str(transformation_seq[0]))
 
     return xI, AphiI
+#%%
+# Note: This code is from work on constructing 3d visualization and hausdorff based registration validation
+######################################################################################################################################
+if not slice_matching:
+    Jr_ = Jr.cpu().numpy()[0]
+    AphiI = AphiI.cpu().numpy()
+    # find Hausdorff distance between transformed atlas and target
+    dJ = [x[1]-x[0] for x in xr]
+    thresh = filters.threshold_otsu(Jr_[int(Jr_.shape[0]/2), :, :])
+    AphiI_verts, AphiI_faces, AphiI_normals, AphiI_values  = measure.marching_cubes(np.squeeze(AphiI), thresh, spacing=dJ)
+    J_verts, J_faces, J_normals, J_values = measure.marching_cubes(np.squeeze(np.array(Jr_)), thresh, spacing=dJ)
 
+    distances = np.sum((J_verts[::4][None] - AphiI_verts[::4][:,None])**2, axis=-1)
+    distances = np.sqrt(np.min(distances, axis=1))
+    count, bins_count = np.histogram(distances, bins=1000)
+    pdf = count / sum(count)
+    cdf = np.cumsum(pdf)
+    hausdorff = np.max(distances)
+    hausdorff95 = np.percentile(distances, 95)
+
+    # plot cdf
+    fig = plt.figure()
+    plt.plot(bins_count[1:], cdf)
+    plt.title('CDF')
+    plt.savefig(output_dir+'cdf.png')
+    plt.close()
+
+    # Visualize surfaces in 3d and save in OBJ file
+    surface_fig = mlab.figure(1, fgcolor=(0, 0, 0), bgcolor=(1, 1, 1))
+    mlab.triangular_mesh(AphiI_verts[:,0], AphiI_verts[:,1], AphiI_verts[:,2], AphiI_faces, colormap='hot', opacity=0.5, figure=surface_fig)
+    mlab.triangular_mesh(J_verts[:,0], J_verts[:,1], J_verts[:,2], J_faces, colormap='cool', opacity=0.5, figure=surface_fig)
+    mlab.savefig(output_dir+'surfaces.obj')
+    mlab.close()
+    
+    with open(output_dir+'qc.txt', 'w') as f:
+        f.write('Symmetric Hausdorff Distance: '+str(hausdorff)+'\n95th Percentile Hausdorff Distance: '+str(hausdorff95)+'\nDice Coefficient: '+str(dice_coeff))
+    print('Hausdorff distance: ', hausdorff, '\nhd95: ', hausdorff95, '\ndice: ', dice_coeff)
+
+else:
+    # compute per-slice hausdorff and dice
+    dJ = [x[1] - x[0] for x in xr[1:]]
+
+    # initialize lists for hd, hd95 and dice for each slice
+    hausdorff = []
+    hausdorff95 = []
+    dice_coeff = []
+    n = 0
+    for i in range(Jr_.shape[0]): # for each slice in the volume, Jr
+        # get J slice (Jr is already in grayscale)
+        J_slice = Jr_[i]
+        # find thresh value using otsu's algorithm
+        thresh = filters.threshold_otsu(J_slice)
+        # binarize each image
+        J_slice_bool = (J_slice > thresh) * 1
+        AphiI_slice_bool = (AphiI[0, i, ...] > thresh) * 1
+        if np.max(AphiI_slice_bool) == 0:  # if the array contains all zeros it will not work
+            continue
+        # get hd, hd95, and dice coeff
+        hausdorff.append(binary.hd(J_slice_bool, AphiI_slice_bool, voxelspacing=dJ))
+        hausdorff95.append(binary.hd95(J_slice_bool, AphiI_slice_bool, voxelspacing=dJ))
+        dice_coeff.append(dice(J_slice_bool.flatten(), AphiI_slice_bool.flatten()))
+        with open(os.path.join(output_dir, f'slice_{i:04d}.txt'), 'w') as f:
+            f.write('Symmetric Hausdorff Distance: '+str(hausdorff[n])+'\n95th Percentile Hausdorff Distance: '
+                    + str(hausdorff95[n])+'\nDice Coefficient: '+str(dice_coeff[n]))
+        n += 1  
+
+    hd_mean = np.mean(hausdorff)
+    hd95_mean = np.mean(hausdorff95)
+    dice_mean = np.mean(dice_coeff)
+    print('Mean hausdorff distance: ', hd_mean, '\nMean hd95: ', hd95_mean, '\nMean dice: ', dice_mean)
+
+    with open(output_dir + 'qc.txt', 'a') as f:
+        f.write('\nMean Hausdorff Distance: ' + str(hd_mean) + '\nMean 95th Percentile Hausdorff Distance: ' + str(
+            hd95_mean) + '\nMean Dice Coefficient: ' + str(dice_mean))
+
+fig = draw(torch.cat((I,phiiAiJ,I),0),xI)
+fig[0].suptitle('atlas space')
+#################################################################################################################################
+
+#%%
+
+D = {'A':1, 'B':2}
+
+for i in ['Q', 'R', 'B']:
+    if i in D.keys():
+        P = i
+print(P)
+# %%
