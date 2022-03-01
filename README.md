@@ -19,9 +19,78 @@ For input data we include nibabel and pynrrd as a dependency, and support severa
 For 2D serial section datasets images should be stored in standard imaging formats (i.e. to be read by matplotlib's imread function).  While our pipelines do support downsampling to desired resolutions, these serial section images are expected.
 
 #### JSON Sidecar files
+2D images have their geometry specified in a json sidecar file. Such sidecar files are inspired by the BIDS (ref) standard, and contain information typically in an NRRD header (ref),
 
+Note that each 2D image is modeled as a 3D image with a single slice.  An example is shown here.
+```
+{
+  "DataFile": "MD787_small_nissl/MD787-N27-2019.03.28-22.55.54_MD787_2_0080.png",
+  "Type": "Float32",
+  "Dimension": 3,
+  "Endian": "big",
+  "Sizes": [
+    3,
+    392,
+    480,
+    1
+  ],
+  "Space": "inferior-right-posterior",
+  "SpaceDimension": 3,
+  "SpaceUnits": [
+    "um",
+    "um",
+    "um"
+  ],
+  "SpaceDirections": [
+    "none",
+    [
+      44.160000000000004,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      44.160000000000004,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      200
+    ]
+  ],
+  "SliceThickness": 10.0,
+  "SpaceOrigin": [
+    -8633.28,
+    -10576.32,
+    -120100.0
+  ]
+}
+```
 #### Dataset lists
+Since sections may be missing or require other comments, we include a tsv file describing every slice in the dataset.
 
+```
+sample_id 	 participant_id 	 species 	 status
+MD787-N7-2019.03.28-22.05.43_MD787_2_0020.png	MD787	Mus Musculus	present
+MD787-N14-2019.03.28-22.20.46_MD787_1_0040.png	MD787	Mus Musculus	present
+MD787-N20-2019.03.28-22.36.39_MD787_3_0060.png	MD787	Mus Musculus	present
+MD787-N27-2019.03.28-22.55.54_MD787_2_0080.png	MD787	Mus Musculus	present
+MD787-N34-2019.03.28-23.15.58_MD787_1_0100.png	MD787	Mus Musculus	present
+MD787-N40-2019.03.28-23.33.43_MD787_3_0120.png	MD787	Mus Musculus	present
+MD787-N47-2019.03.28-23.54.40_MD787_2_0140.png	MD787	Mus Musculus	present
+MD787-N54-2019.03.29-00.15.46_MD787_1_0160.png	MD787	Mus Musculus	present
+MD787-N60-2019.03.29-00.33.42_MD787_3_0180.png	MD787	Mus Musculus	present
+MD787-N67-2019.03.29-00.56.05_MD787_2_0200.png	MD787	Mus Musculus	present
+MD787-N74-2019.03.29-01.18.34_MD787_1_0220.png	MD787	Mus Musculus	present
+MD787-N80-2019.03.29-01.36.50_MD787_3_0240.png	MD787	Mus Musculus	present
+MD787-N87-2019.03.29-01.57.37_MD787_2_0260.png	MD787	Mus Musculus	present
+MD787-N94-2019.03.29-02.19.41_MD787_1_0280.png	MD787	Mus Musculus	present
+MD787-N100-2019.03.29-02.40.34_MD787_3_0300.png	MD787	Mus Musculus	present
+MD787-N107-2019.03.29-03.04.17_MD787_2_0320.png	MD787	Mus Musculus	present
+MD787-N114-2019.03.29-03.28.07_MD787_1_0340.png	MD787	Mus Musculus	present
+MD787-N120-2019.03.29-03.49.00_MD787_3_0360.png	MD787	Mus Musculus	present
+```
 
 
 ## Config files
