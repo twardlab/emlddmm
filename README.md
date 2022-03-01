@@ -201,22 +201,22 @@ This supports an arbitrary number of folders.
 
 ```
 {Space i}
-{Space j}_to_{space i}
-Transforms (always)
-{space i}_to_{space j}_displacement.vtk (3D to 3D, or 3D to registered space, NOT 3D to input which does not exist as a displacement field)
-{space i}_{image k}_to_{space j}_{image k’}_matrix.txt (2D to 2D only)
-{space i}_{image k}_to_{space j}_displacement.vtk (i 2D to j 3D only)
-Images (suggested)
-{space j}_{image k}_to_{space i}.vtk
-{space j}_{image k}_to_{space i}_{image k’}.vtk (for 2D to 2D)
-Points (optional)
-{space j}_{image k}_detects_to_{space i}.vtk
-Json (for atlas only)
-Atlas_to_{space j}_{image k}.geojson
-Meanxyz (for atlas only)
-{space j}_{image k}_detects_to_atlas_meanxyz.txt
-Qc (optional)
-Composite_{image slice name}_QC.jpg
+  {Space j}_to_{space i}
+    Transforms (always)
+      {space i}_to_{space j}_displacement.vtk (3D to 3D, or 3D to registered space, NOT 3D to input which does not exist as a displacement field)
+      {space i}_{image k}_to_{space j}_{image k’}_matrix.txt (2D to 2D only)
+      {space i}_{image k}_to_{space j}_displacement.vtk (i 2D to j 3D only)
+    Images (suggested)
+      {space j}_{image k}_to_{space i}.vtk
+      {space j}_{image k}_to_{space i}_{image k’}.vtk (for 2D to 2D)
+    Points (optional)
+      {space j}_{image k}_detects_to_{space i}.vtk
+    Json (for atlas only)
+      Atlas_to_{space j}_{image k}.geojson
+    Meanxyz (for atlas only)
+      {space j}_{image k}_detects_to_atlas_meanxyz.txt
+  Qc (optional)
+    Composite_{image slice name}_QC.jpg
 ```
 
 
