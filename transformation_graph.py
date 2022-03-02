@@ -9,6 +9,7 @@ import sys
 # import getopt
 import argparse
 import glob
+import pickle
 
 if torch.cuda.is_available():
     device = 'cuda:0'
@@ -248,7 +249,6 @@ def run_registrations(reg_list):
 def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path=''):
     # input: image to be transformed (src_path or I), img space to to which the source image will be matched (dest_path, J), adjacency list and spaces dict from run_registration, source and destination space names
     # return: transfromed image
-    # TODO: there may be an error if both src and dest images are histology series.
     
     # load source image
     xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
@@ -256,30 +256,20 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
     J = torch.as_tensor(J,dtype=dtype,device=device)
     xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
 
-    '''in the special case of transforming an image series to the same space, e.g. [[HIST, myelin], [HIST, nissl]], we output HIST_INPUT_to_HIST_REGISTERED images
-    and HIST_REGISTERED_to_HIST_INPUT images'''
+    '''in the special case of transforming an image series to the same space, e.g. [[HIST, nissl], [HIST, nissl]], we output HIST_INPUT_to_HIST_REGISTERED images.
+        TODO: in the future, we should be able to align different histology stains, e.g. [[HIST, myelin], [HIST, nissl]]. In this case two rigid transformations are needed,
+        one to align input myelin to input nissl, and one to align neighboring slices (input to registered space).'''
     if J_title == 'slice_dataset' and dest_space == src_space:
         # get image slice names for naming output images
         dest_slice_names = [os.path.splitext(x)[0] for x in os.listdir(dest_path) if x[-4:] == 'json']
         dest_slice_names = sorted(dest_slice_names, key=lambda x: x[-4:])
         src_slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
-        dest_slice_names = sorted(src_slice_names, key=lambda x: x[-4:])
-
-        # first save out registered_to_input images
-        # TODO: this is just the original images. The image names don't make much sense in this case.
-        img_out = os.path.join(out, f'{space}/{space}_REGISTERED_to_{space}_INPUT/images')
-        if not os.path.exists(img_out):
-            os.makedirs(img_out)
-        for i in range(J.shape[1]):
-            J_ = J[:, i, None, ...]
-            xJ_ = [torch.tensor([xJ[0][i], xJ[0][i]+10]), xJ[1], xJ[2]]
-            title = f'{space}_REGISTERED_{src_slice_names[i]}_to_{space}_INPUT_{dest_slice_names[i]}'
-            emlddmm.write_vtk_data(os.path.join(img_out, f'{space}_REGISTERED_{src_slice_names[i]}_to_{space}_INPUT_{dest_slice_names[i]}.vtk'), xJ_, J_, title)
+        src_slice_names = sorted(src_slice_names, key=lambda x: x[-4:])
+        space = dest_space # src_space = dest_space = space
 
         x_series = xJ
         X_series = torch.stack(torch.meshgrid(x_series), -1)
-        space = space
-        transforms = os.path.join(out, f'{space}/{space}_INPUT_to_{space}_REGISTERED/transforms')
+        transforms = os.path.join(out, f'{space}_REGISTERED/{space}_INPUT_to_{space}_REGISTERED/transforms')
         transforms_ls = sorted(os.listdir(transforms), key=lambda x: x.split('_matrix.txt')[0][-4:])
 
         A2d = []
@@ -311,14 +301,14 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
         Jr = emlddmm.interp(xJ, J, Xs)
 
         # save transformed 2d images   
-        img_out = os.path.join(out, f'{space}/{space}_INPUT_to_{space}_REGISTERED/images')
+        img_out = os.path.join(out, f'{space}_REGISTERED/{space}_INPUT_to_{space}_REGISTERED/images')
         if not os.path.exists(img_out):
             os.makedirs(img_out)
         for i in range(Jr.shape[1]):
             Jr_ = Jr[:, i, None, ...]
             xr_ = [torch.tensor([xr[0][i], xr[0][i]+10]), xr[1], xr[2]]
             title = f'{space}_input_{src_slice_names[i]}_to_{space}_registered_{dest_slice_names[i]}'
-            emlddmm.write_vtk_data(os.path.join(img_out, f'{space}_input_{src_slice_names[i]}_to_{space}_registered_{dest_slice_names[i]}.vtk'), xr_, Jr_, title)
+            emlddmm.write_vtk_data(os.path.join(img_out, f'{space}_INPUT_{src_slice_names[i]}_to_{space}_REGISTERED_{dest_slice_names[i]}.vtk'), xr_, Jr_, title)
         return
 
     # load destination image
@@ -332,10 +322,10 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
     if slice_matching:
         if I_title=='slice_dataset': # then the last transform in transformation_seq should contain A2d files
             # transforms = os.path.join(transformation_seq[-1][0], 'transforms')
-            transforms = os.path.join(out, f'{dest_space}_REGISTERED/{dest_space}_INPUT_to_{dest_space}_REGISTERED/')
+            transforms = os.path.join(out, f'{dest_space}_REGISTERED/{dest_space}_INPUT_to_{dest_space}_REGISTERED/transforms')
         else: # otherwise the first transform in transformation_seq should contain A2d filess
             # transforms = os.path.join(transformation_seq[0][0], 'transforms')
-            transforms = os.path.join(out, f'{src_space}_REGISTERED/{src_space}_INPUT_to_{src_space}_REGISTERED/') 
+            transforms = os.path.join(out, f'{src_space}_REGISTERED/{src_space}_INPUT_to_{src_space}_REGISTERED/transforms') 
         transforms_ls = [f for f in os.listdir(transforms) if 'vtk' not in f and 'A.txt' not in f]
         transforms_ls = sorted(transforms_ls, key=lambda x: x.split('_matrix.txt')[0][-4:])
         # determine which image is constructed from a 2d series, I or J.
@@ -386,9 +376,11 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
     # if slice_matching and the destination is 2d series, then X = XR
     if I_title == 'slice_dataset':
         X = torch.clone(XR.permute(3,0,1,2)) # the reconstructed registered domain
+
         # we will also need the input domain for getting to_input displacement and images later
-        X_series_ = torch.clone(X_series)            
-        X_series_[1:] = ((A2di[:,None,None,:2,:2]@ (X_series[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)
+        Xin = torch.clone(X_series) # note that coordinates are on the last dimension e.g. (i,j,k,3)           
+        Xin[..., 1:] = ((A2di[:,None,None,:2,:2] @ (Xin[..., 1:][..., None]))[...,0] + A2di[:,None,None,:2,-1])
+        Xin = Xin.permute(3,0,1,2) # (3,i,j,k)
         for i in reversed(range(len(transformation_seq))):
             Xin = emlddmm.compose_sequence([transformation_seq[i]], Xin)
     else:
@@ -479,10 +471,10 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
         x = xr
     else:
         x = xI
-    fig = emlddmm.draw(AphiI, x)
-    fig[0].suptitle(f'transformed {src_space} {src_img} to {dest_space}')
-    fig[0].canvas.draw()
-    plt.show()
+    # fig = emlddmm.draw(AphiI, x)
+    # fig[0].suptitle(f'transformed {src_space} {src_img} to {dest_space}')
+    # fig[0].canvas.draw()
+    # plt.show()
 
     # save transformed images
     if I_title == 'slice_dataset':
@@ -495,15 +487,15 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
             x_ = [torch.tensor([x[0][i], x[0][i]+10]), x[1], x[2]]
             emlddmm.write_vtk_data(os.path.join(registered_out, f'{src_space}_{src_img}_to_{dest_space}_registered_{slice_names[i]}.vtk'), x_, AphiI_, f'{src_space}_{src_img}_to_{dest_space}_registered_{slice_names[i]}')
 
-        # now save images of src space to input slices
+        # now save images of src space to slices in input space
         AphiI_to_input = emlddmm.apply_transform_float(xJ, J, Xin.to(device))
         input_out = os.path.join(out, f'{dest_space}_INPUT/{src_space}_to_{dest_space}_INPUT/images/')
         if not os.path.exists(input_out):
             os.makedirs(input_out)
         for i in range(AphiI_to_input.shape[1]):
             AphiI_to_input_ = AphiI_to_input[:, i, None, ...]
-            xJ_ = [torch.tensor([xJ[0][i], xJ[0][i]+10]), xJ[1], xJ[2]]
-            emlddmm.write_vtk_data(os.path.join(input_out, f'{src_space}_{src_img}_to_{dest_space}_input_{slice_names[i]}.vtk'), xJ_, AphiI_to_input_, f'{src_space}_{src_img}_to_{dest_space}_input_{slice_names[i]}')
+            xI_ = [torch.tensor([xI[0][i], xI[0][i]+10]), xI[1], xI[2]]
+            emlddmm.write_vtk_data(os.path.join(input_out, f'{src_space}_{src_img}_to_{dest_space}_input_{slice_names[i]}.vtk'), xI_, AphiI_to_input_, f'{src_space}_{src_img}_to_{dest_space}_input_{slice_names[i]}')
         
     else:
         if J_title == 'slice_dataset':
@@ -531,7 +523,11 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
                 f.write(str(transformation_seq[0]))
 
     else:
-        with open(os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/{src_space}_{src_img}_to_{dest_space}_transform_seq.txt'), 'w') as f:
+        if J_title == 'slice_dataset':
+            output_name = os.path.join(out, f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/{src_space}_REGISTERED_{src_img}_to_{dest_space}_transform_seq.txt')
+        else:
+            output_name = os.path.join(out, f'{dest_space}/{src_space}_to_{dest_space}/{src_space}_{src_img}_to_{dest_space}_transform_seq.txt')
+        with open(output_name, 'w') as f:
             for transform in reversed(transformation_seq[1:]):
                 f.write(str(transform) + ', ')
             f.write(str(transformation_seq[0]))
@@ -550,6 +546,12 @@ def main(argv):
     input_dict = json.load(arguments.infile[0])
 
     output = input_dict["output"] if "output" in input_dict else os.getcwd()
+    if not os.path.exists(output):
+        os.makedirs(output)
+    # save out the json file used for input
+    with open(os.path.join(output, "infile.json"), "w") as f:
+        json.dump(input_dict, f, indent="")
+
     try:
         space_image_path = input_dict["space_image_path"]
     except KeyError:
@@ -563,9 +565,9 @@ def main(argv):
     if "transforms" in input_dict:
         transforms = input_dict["transforms"]
     if "adj" in input_dict:
-        adj = input_dict["adj"]
+        adj = pickle.load(open(input_dict["adj"], "rb"))
         try:
-            spaces = input_dict["spaces"] # if adj then there must also be spaces
+            spaces = pickle.load(open(input_dict["spaces"], "rb")) # if adj then there must also be spaces
         except KeyError:
             ("spaces must be included with adj. spaces is a dictionary of format \{\"spacename\": <space number>\, ...}, where the space number corresponds to the space number in the adjacency list.")
     transform_all = input_dict["transform_all"] if "transform_all" in input_dict else False
@@ -585,7 +587,7 @@ def main(argv):
         print('registrations: ', registrations)
         print('configs: ', configs)
 
-        reg_list = []
+        reg_list = [] # a list of dicts specifying inputs for each registration to perform
         for i in range(len(registrations)):
             src_space = registrations[i][0][0]
             src_img = registrations[i][0][1]
@@ -594,7 +596,7 @@ def main(argv):
             src_path = sip[src_space][src_img]
             dest_path = sip[dest_space][dest_img]
 
-            reg_list.append({'registration': registrations[i], #[src_space, dest_space],
+            reg_list.append({'registration': registrations[i], # registrsation is a list of strings: [src_space, dest_space],
                             'source': src_path,
                             'dest': dest_path,
                             'config': configs[i],
@@ -605,15 +607,16 @@ def main(argv):
         adj, spaces = run_registrations(reg_list)
 
         # write out adjacency list and spaces dict
-        with open(os.path.join(output, 'adjacency_list.txt'), 'w') as f:
-            f.write(str(adj))
-        with open(os.path.join(output, 'spaces_dict.txt'), 'w') as f:
-            f.write(str(spaces))
+        with open(os.path.join(output, 'adjacency_list.p'), 'wb') as f:
+            pickle.dump(adj, f)
+        with open(os.path.join(output, 'spaces_dict.p'), 'wb') as f:
+            pickle.dump(spaces, f)
 
     if transform_all: # do every transfrom in both directions and transform all series images to registered space.
         transforms = []
         for i in sip.keys(): # for each space
-            if os.path.isdir(sip[i][list(sip[i])[0]]): # if the path is a directory, then this is an image series 
+            if os.path.isdir(sip[i][list(sip[i])[0]]): # if the path is a directory, then this is an image series
+                # TODO: this will need to be done differently when we have datasets with multiple histology series.
                 for r in range(len(registrations)): # get the image series that was used for registration. 
                     if registrations[r][0][1] in sip[i].keys():
                         dest_img = registrations[r][0][1] 

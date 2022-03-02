@@ -224,31 +224,113 @@ import matplotlib.pyplot as plt
 
 MR_img = '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
 CCF_img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
-CCFtoMRI_disp = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRI_to_CCF/transforms/CCF_to_MRI_displacement.vtk'
+# CCFtoMRI_disp = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRI_to_CCF/transforms/CCF_to_MRI_displacement.vtk'
 # velocity = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRItoCCF/transforms/velocity.vtk'
 
 xJ,J,title,names = emlddmm.read_data(MR_img)
-xI, I, title, names = emlddmm.read_data(CCF_img)
+xJ = [torch.as_tensor(x) for x in xJ]
+# xI, I, title, names = emlddmm.read_data(CCF_img)
 
-x, disp, title, names = emlddmm.read_vtk_data(CCFtoMRI_disp)
-disp = torch.as_tensor(disp)
+XJ = torch.stack(torch.meshgrid(xJ))
+print(XJ.shape)
+print(XJ[1:].permute(1,2,3,0).shape)
+XJ_ = torch.stack(torch.meshgrid(xJ), -1)
+print(XJ_[..., 1:].shape)
+# x, disp, title, names = emlddmm.read_vtk_data(CCFtoMRI_disp)
+# disp = torch.as_tensor(disp)
 
-down = [a//b for a, b in zip(I.shape[1:], disp.shape[2:])]
+# down = [a//b for a, b in zip(I.shape[1:], disp.shape[2:])]
 
-xI,I = emlddmm.downsample_image_domain(xI,I,down)
-XI = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
+# xI,I = emlddmm.downsample_image_domain(xI,I,down)
+# XI = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
 
-X = disp[0] + XI
+# X = disp[0] + XI
 
-AphiI = emlddmm.apply_transform_float(xJ, J, X)
-print(AphiI.shape)
-src='MRI'
-dest='CCF'
-fig = emlddmm.draw(AphiI, xI)
-fig[0].suptitle('transformed {src} to {dest}'.format(src=src, dest=dest))
-fig[0].canvas.draw()
+# AphiI = emlddmm.apply_transform_float(xJ, J, X)
+# print(AphiI.shape)
+# src='MRI'
+# dest='CCF'
+# fig = emlddmm.draw(AphiI, xI)
+# fig[0].suptitle('transformed {src} to {dest}'.format(src=src, dest=dest))
+# fig[0].canvas.draw()
+# plt.show()
+
+#%%
+import os
+import emlddmm
+import torch
+import numpy as np
+
+out = '/home/brysongray/emlddmm/transformation_graph_outputs/'
+space = "HIST"
+hist_img = '/home/brysongray/data/MD816_mini/MD816_STIF_mini'
+xJ,J,title,names = emlddmm.read_data(hist_img)
+xJ = [torch.as_tensor(x) for x in xJ]
+transforms = os.path.join(out, f'{space}_REGISTERED/{space}_INPUT_to_{space}_REGISTERED/transforms')
+transforms_ls = sorted(os.listdir(transforms), key=lambda x: x.split('_matrix.txt')[0][-4:])
+
+A2d = []
+for t in transforms_ls:
+    A2d_ = np.genfromtxt(os.path.join(transforms, t), delimiter=',')
+    # note that there are nans at the end if I have commas at the end
+    if np.isnan(A2d_[0, -1]):
+        A2d_ = A2d_[:, :A2d_.shape[1] - 1]
+    A2d.append(A2d_)
+A2d = torch.as_tensor(np.stack(A2d))
+A2di = torch.inverse(A2d)
+
+print("A2di shape: ", A2di.shape)
+
+#%%
+# what I'm doing now
+XJ = torch.stack(torch.meshgrid(xJ), -1) # easier to stack along dim -1 for my application
+XJ_ = torch.clone(XJ.permute(3,0,1,2))
+print("XJ shape: ", XJ.shape)
+print("XJ_ shape before: ", XJ_.shape)
+# print('A2di[:,None,None,:2,:2] shape: ', A2di[:,None,None,:2,:2].shape)
+# print('(XJ_[1:].permute(1,2,3,0)[...,None]) shape: ', (XJ_[1:].permute(1,2,3,0)[...,None]).shape)
+# print('A2di[:,None,None,:2,-1] shape: ', A2di[:,None,None,:2,-1].shape)
+XJ_[1:] = ((A2di[:,None,None,:2,:2]@ (XJ_[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)  
+
+print('XJ_ shape after: ', XJ_.shape)
+#%%
+# what write qc does
+XJ = torch.stack(torch.meshgrid(xJ)) # stack along dim 1
+print('XJ shape: ', XJ.shape)
+
+XJ_ = torch.clone(XJ)
+print('XJ_ shape before: ', XJ_.shape)
+XJ_[1:] = ((A2di[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)
+print('XJ_ shape: ', XJ_.shape)
+
+#%%
+# better way. Stack along dim -1 with fewer permutations
+XJ = torch.stack(torch.meshgrid(xJ), -1)
+XJ_ = torch.clone(XJ)
+print("XJ shape: ", XJ.shape)
+print("XJ_ shape before: ", XJ_.shape)
+
+XJ_[..., 1:] = ((A2di[:,None,None,:2,:2]@ (XJ_[..., 1:][...,None]))[...,0] + A2di[:,None,None,:2,-1])
+print('XJ_ shape after: ', XJ_.shape)
+
+#%%
+import emlddmm
+import matplotlib.pyplot as plt
+
+# img = '/home/brysongray/emlddmm/transformation_graph_outputs/HIST_INPUT/HIST_REGISTERED_to_HIST_INPUT/images/HIST_REGISTERED_MD816-N1-2021.04.05-17.44.55_MD816_1_0001_to_HIST_INPUT_MD816-N1-2021.04.05-17.44.55_MD816_1_0001.vtk'
+img1 = '/home/brysongray/emlddmm/transformation_graph_outputs/MRI/HIST_INPUT_to_MRI/images/HIST_nissl_to_MRI.vtk'
+img2 = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRI_to_CCF/images/MRI_masked_to_CCF.vtk'
+
+xJ, J, title, names = emlddmm.read_data(img1)
+xI, I, title, names = emlddmm.read_data(img2)
+
+fig1 = emlddmm.draw(J,xJ)
+fig1[0].canvas.draw()
+
+fig2 = emlddmm.draw(I,xI)
+fig2[0].canvas.draw()
+
 plt.show()
-
 # %%
 import emlddmm
 
@@ -496,10 +578,13 @@ fig[0].suptitle('atlas space')
 
 #%%
 
-D = {'A':1, 'B':2}
-
-for i in ['Q', 'R', 'B']:
-    if i in D.keys():
-        P = i
-print(P)
-# %%
+# first save out registered_to_input images
+# TODO: this is just the original images. The image names don't make much sense in this case.
+img_out = os.path.join(out, f'{space}_INPUT/{space}_REGISTERED_to_{space}_INPUT/images')
+if not os.path.exists(img_out):
+    os.makedirs(img_out)
+for i in range(J.shape[1]):
+    J_ = J[:, i, None, ...]
+    xJ_ = [torch.tensor([xJ[0][i], xJ[0][i]+10]), xJ[1], xJ[2]]
+    title = f'{space}_REGISTERED_{src_slice_names[i]}_to_{space}_INPUT_{dest_slice_names[i]}'
+    emlddmm.write_vtk_data(os.path.join(img_out, f'{space}_REGISTERED_{src_slice_names[i]}_to_{space}_INPUT_{dest_slice_names[i]}.vtk'), xJ_, J_, title)
