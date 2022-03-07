@@ -175,6 +175,33 @@ To register a complex multimodal datasets, we specify a list of (space/image to 
 ### Reconstruction tuples
 After transforamtions are computed, we can reconstruct data from one space in any other space. Tuples of the form (space/image to map from, space to map to) are specified. Given the registration tuples, a path of transformations will be computed, which may involve the composition of more than one calculated transform.
 
+### Example
+For example we can run registration and reconstruction with the command
+```
+python transformation_graph.py --infile <input json file>
+```
+
+Where the input json file contains
+
+```
+{
+    "space_image_path": [["MRI", "masked", "/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk"],
+                       ["CCF", "average_template_50", "/home/brysongray/data/MD816_mini/average_template_50.vtk"],
+                       ["MRI", "unmasked", "/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1.vtk"],
+                       ["CT", "masked", "/home/brysongray/data/MD816_mini/ct_mask.vtk"],
+                       ["HIST", "nissl", "/home/brysongray/data/MD816_mini/MD816_STIF_mini"]],
+    "registrations": [[["HIST", "nissl"], ["MRI", "masked"]],
+                       [["MRI", "masked"], ["CCF", "average_template_50"]],
+                       [["MRI", "masked"], ["CT", "masked"]]],
+    "configs": ["/home/brysongray/emlddmm/config787small.json",
+                "/home/brysongray/emlddmm/configMD816_MR_to_CCF.json",
+                "/home/brysongray/emlddmm/configMD816_MR_to_CT.json"],
+    "output": "/home/brysongray/emlddmm/transformation_graph_outputs",
+    "transforms": [[["HIST", "nissl"], ["CCF", "average_template_50"]],
+                   [["MRI", "masked"], ["CT", "masked"]]],
+    "transform_all": "True"
+}
+```
 
 ## Output data format
 Output data structure contains transformations between pairs of named spaces (always), transformed images (suggested but not necessary), and other data types such as points and geojson annotations.
