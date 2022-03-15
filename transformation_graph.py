@@ -4,11 +4,8 @@ import torch
 import numpy as np
 import json
 import os
-import matplotlib.pyplot as plt
 import sys
-# import getopt
 import argparse
-import glob
 import pickle
 
 if torch.cuda.is_available():
@@ -18,45 +15,85 @@ else:
 dtype = torch.float
 
 # %%
-# utility function to form edge between two vertices
-# source and dest
-def add_edge(adj, spaces, src_space, src_img, dest_space, out):
+
+def add_edge(adj, spaces, src_space, dest_space, out):
+    """ Add edge between two vertices in registration adjacency list.
+
+    Adds the key:value pair, dest_space:('path/to/tranforms', 'direction') to the dict corresponding to source space in the adjacency list.
+    The adjacency list (adj) has the form [{src_space_1 dict}, ..., {src_space_n dict}] for n source spaces.
+    Each source space dict has the form {dest_space_1: ('path/to/transforms_1', 'direction'), ..., dest_space_n: ('path/to/transforms_n', 'direction}
+    which indicates the spaces to which the source space were registered, and the location of transforms corresponding to that registration.
+    For each registration both the forward and backward transformation is recorded in the list. e.g. [{space_1: ('space_0_to_space_1/transforms', 'f')}, {space_0: ('space_0_to_space_1/transforms', 'b')}
+
+    Parameters
+    ----------
+    adj : list of dicts
+        adjacency list of transformations between spaces
+    spaces: dict
+        user assigned space name strings each assigned an integer value as a key:value pair in a dictionary
+    src_space: str
+        user assigned source space name
+    dest_space: str
+        user assigned destination space name
+    out: str
+        path to registration outputs
+
+    Returns
+    -------
+    None
+
+    """ 
  
     adj[spaces[src_space]][spaces[dest_space]] = (os.path.join(out,f'{dest_space}/{src_space}_to_{dest_space}/'), 'f')
     adj[spaces[dest_space]][spaces[src_space]] = (os.path.join(out,f'{dest_space}/{src_space}_to_{dest_space}/'), 'b')
 
 
-# a modified version of BFS that stores predecessor
-# of each vertex in array p
-# and its distance from source in array d
 def BFS(adj, src, dest, v, pred, dist):
+    """ Breadth first search
+
+    a modified version of BFS that stores predecessor
+    of each vertex in array pred and its distance from source in array dist
+
+    Parameters
+    ----------
+    adj : list of dicts
+        adjacency list of transformations between spaces
+    src: int
+        int value given by corresponding source in spaces dict
+    dest: int 
+        dest value given by corresponding destination in spaces dict
+    v: int
+        length of spaces dict
+    pred: list of ints
+        stores predecessor of vertex i at pred[i]
+    dist: list of ints
+        stores distance (by number of vertices) of vertex i from source vertex
+
+
+
+    Returns
+    -------
+    bool
+        True if a path from src to dest is found and False otherwise
+
+    """
  
-    # a queue to maintain queue of vertices whose
-    # adjacency list is to be scanned as per normal
-    # DFS algorithm
+
     queue = []
   
-    # boolean array visited[] which stores the
-    # information whether ith vertex is reached
-    # at least once in the Breadth first search
     visited = [False for i in range(v)]
-  
-    # initially all vertices are unvisited
-    # so v[i] for all i is false
-    # and as no path is yet constructed
-    # dist[i] for all i set to infinity
+    # for each space we initialize the distance from src to be a large number and the predecessor to be -1
     for i in range(v):
  
         dist[i] = 1000000
         pred[i] = -1
      
-    # now source is first to be visited and
-    # distance from source to itself should be 0
+    # visit source first. Distance from source to itself is 0
     visited[src] = True
     dist[src] = 0
     queue.append(src)
   
-    # standard BFS algorithm
+    # BFS algorithm
     while (len(queue) != 0):
         u = queue[0]
         queue.pop(0)
@@ -76,20 +113,36 @@ def BFS(adj, src, dest, v, pred, dist):
     return False
   
   
-# function to print the shortest distance
-# between source vertex and destination vertex
-def findShortestPath(adj, src, dest, v):
+def find_shortest_path(adj, src, dest, v):
+    """ Find Shortest Path
+
+    Finds the shortest path between src and dest in the adjacency list and prints its length
+
+    Parameters
+    ----------
+    adj : list of dicts
+        adjacency list of transformations between spaces
+    src: int
+        int value given by corresponding source in spaces dict
+    dest: int 
+        dest value given by corresponding destination in spaces dict
+    v: int
+        length of spaces dict
+
+    Returns
+    -------
+    path : list of ints
+        path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.
+
+    """
      
-    # predecessor[i] array stores predecessor of
-    # i and distance array stores distance of i
-    # from s
-    pred=[0 for i in range(v)]
-    dist=[0 for i in range(v)]
+    pred=[0 for i in range(v)] # predecessor of space i in path from src to dest
+    dist=[0 for i in range(v)] # distance of vertex i by number of vertices from src
   
     if (BFS(adj, src, dest, v, pred, dist) == False):
         print("Given source and destination are not connected")
   
-    # vector path stores the shortest path
+    # path stores the shortest path
     path = []
     crawl = dest
     path.append(crawl)
@@ -106,7 +159,24 @@ def findShortestPath(adj, src, dest, v):
     return path
 
 
-def getTransformation(adj, path):
+def get_transformation(adj, path):
+    """ Get Transformation
+
+    Gets file path or paths to the transforms needed to match src to dest
+
+    Parameters
+    ----------
+    adj : list of dicts
+        adjacency list of transformations between spaces
+    path : list of ints
+        path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.
+
+    Returns
+    -------
+    transformation : list of strings
+        list of file paths to sequence of transformations matching src to dest
+
+    """
     transformation = []
     for i in range(len(path)-1):
         transformation.append(adj[path[i]][path[i+1]])
@@ -115,6 +185,31 @@ def getTransformation(adj, path):
 
 
 def reg(dest, source, registration, config, out, labels=None):
+    """ registration
+
+    Registers a single source image and destination image. Affine matrix and velocity field transformations, and qc images are saved.
+
+    Parameters
+    ----------
+    dest : str
+        path to destination image
+    source: str
+        path to source image or series of images
+    registration: list of strings
+        List of two strings, giving source space name and destination space name.
+        These are used for naming output files.
+    config: str
+        path to JSON configuration file specifying registration parameters
+    out: str
+        path to output directory
+    labels: str
+        path to labels image used for qc
+
+    Returns
+    -------
+    None
+
+    """
     src_path = source
     src_space = registration[0][0]
     src_img = registration[0][1]
@@ -122,7 +217,7 @@ def reg(dest, source, registration, config, out, labels=None):
     dest_img = registration[1][1]
     dest_space = registration[1][0]
     config_file = config
-    output_dir = out #os.path.join(out, '{dest}'.format(dest_space))
+    output_dir = out 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     label_name = labels
@@ -208,6 +303,24 @@ def reg(dest, source, registration, config, out, labels=None):
 
 
 def run_registrations(reg_list):
+    """ Run Registrations
+
+    Runs a sequence of registrations given by reg_list
+
+    Parameters
+    ----------
+    reg_list : list of dicts
+        each dict in reg_list specifies the source image path, destination image path,
+        src and dest space names, output directory, and registration configuration settings.
+
+    Returns
+    -------
+    adj : list of dicts
+        adjacency list of transformations between spaces
+    spaces: dict
+        user assigned space name strings each assigned an integer value as a key:value pair in a dictionary
+
+    """
     # input: list of dicts of sources, targets, labels, configs, and the output dir 
     # Return: adj list, dict of space name keys and node number values
 
@@ -228,7 +341,7 @@ def run_registrations(reg_list):
     spaces = {}
     v = 0
     for i in reg_list:
-        for j in [i['registration'][0][0], i['registration'][1][0]]: # for space names in registration
+        for j in [i['registration'][0][0], i['registration'][1][0]]: # for src and dest space names in each registration
             if j not in spaces:
                 spaces[j] = v
                 v += 1
@@ -240,13 +353,41 @@ def run_registrations(reg_list):
         src_img = reg_list[i]['registration'][0][1]
         dest_space = reg_list[i]['registration'][1][0]
         out = reg_list[i]['output']
-        add_edge(adj, spaces, src_space, src_img, dest_space, out)
+        add_edge(adj, spaces, src_space, dest_space, out)
 
     return adj, spaces
 
 
-# Do new transform using composition of calculated transformations
-def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path=''):
+def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path=''):
+    """ Apply Transformation
+
+    Applies affine matrix and velocity field transforms to map dest points to src points. Saves displacement field from dest points to src points
+    (i.e. difference between transformed coordinates and input coordinates), and determinant of Jacobian for 3d destination spaces. Also saves transformed image in vtk format.
+
+    Parameters
+    ----------
+    adj : list of dicts
+        adjacency list of transformations between spaces
+    spaces: dict
+        user assigned space name strings each assigned an integer value as a key:value pair in a dictionary
+    src_space: str
+        user assigned src space name used for naming outputs
+    src_img: str
+        user assigned src image name used for naming outputs
+    dest_space: str
+        user assigned dest image name used for naming outputs
+    out: str
+        path to registration outputs root
+    src_path: str
+        path to source image (image to be sampled on transformed points)
+    dest_path: str
+        path to destination image (image whos points are to be transformed)
+    
+    Returns
+    -------
+    None
+
+    """
     # input: image to be transformed (src_path or I), img space to to which the source image will be matched (dest_path, J), adjacency list and spaces dict from run_registration, source and destination space names
     # return: transfromed image
     
@@ -359,7 +500,7 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
         Xs[..., 1:] = (A2d[:, None, None, :2, :2] @ XR[..., 1:, None])[..., 0] + A2d[:, None, None, :2, -1]
         Xs = Xs.permute(3, 0, 1, 2)
 
-    path = findShortestPath(adj, spaces[src_space], spaces[dest_space], len(spaces))
+    path = find_shortest_path(adj, spaces[src_space], spaces[dest_space], len(spaces))
     if len(path) < 2:
         return
     print("\nPath is:")
@@ -370,7 +511,7 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
             if i == value:
                 print(key, end=' ')
 
-    transformation_seq = getTransformation(adj, path)
+    transformation_seq = get_transformation(adj, path)
     print('\nTransformation sequence: ', transformation_seq)
 
     # if slice_matching and the destination is 2d series, then X = XR
@@ -536,6 +677,28 @@ def do_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path
 
 
 def main(argv):
+    """ 
+
+    Main function for parsing input arguments, running registrations and applying transformations.
+
+    Parameters
+    ----------
+    argv : command line arguments list
+        Arg parser looks for one argument, '--infile', which is a JSON file with the following entries:
+         1) "space_image_path": a list of lists, each containing the space name, image name, and path to an image or image series
+         2) "registrations": a list of lists, each containing two space-image pairs to be registered. e.g. [[["HIST", "nissl"], ["MRI", "masked"]],
+                                                                                                            [["MRI", "masked"], ["CCF", "average_template_50"]],
+                                                                                                            [["MRI", "masked"], ["CT", "masked"]]]
+         3) "configs": list of paths to registration config JSON files, the order of which corresponds to the order of registrations listed in the previous value.
+         4) "output": output directory which will be the output hierarchy root. If none is given, it is set to the current directory.
+         5) "transforms": transforms to apply after they are computed from registration. Only necessary if "transform_all" is False. Format is the same as for "registrations".
+         6) "transform_all": bool. applys all possible transformations given the transformation graph (adjacency list) formed by the registrations performed.
+
+    Returns
+    -------
+    None
+
+    """
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--infile', nargs=1,
@@ -640,8 +803,10 @@ def main(argv):
             dest_space = trans[1][0]
             dest_img = trans[1][1]
             dest_path = sip[dest_space][dest_img] 
-            do_transformation(adj, spaces, src_space, src_img, dest_space, output,\
+            apply_transformation(adj, spaces, src_space, src_img, dest_space, output,\
                                     src_path=src_path, dest_path=dest_path)
+
+    return
 
 
 
