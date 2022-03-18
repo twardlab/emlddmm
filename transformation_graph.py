@@ -4,7 +4,6 @@ import torch
 import numpy as np
 import json
 import os
-import sys
 import argparse
 import pickle
 
@@ -483,7 +482,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
         A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
         A2di = torch.inverse(A2d)
-        points = (A2di[:, None, None, :2, :2] @ X_series[..., 1:, None])[..., 0] # reconstructed space needs to be created from the 2d series coordinates
+        points = (A2di[:, None, None, :2, :2] @ X_series[..., 1:, None])[..., 0]
         m0 = torch.min(points[..., 0])
         M0 = torch.max(points[..., 0])
         m1 = torch.min(points[..., 1])
@@ -676,14 +675,14 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
     return
 
 
-def main(argv):
+def main():
     """ 
 
     Main function for parsing input arguments, running registrations and applying transformations.
 
     Parameters
     ----------
-    argv : command line arguments list
+    command line arguments list: 
         Arg parser looks for one argument, '--infile', which is a JSON file with the following entries:
          1) "space_image_path": a list of lists, each containing the space name, image name, and path to an image or image series
          2) "registrations": a list of lists, each containing two space-image pairs to be registered. e.g. [[["HIST", "nissl"], ["MRI", "masked"]],
@@ -812,4 +811,4 @@ def main(argv):
 
 #%%
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
