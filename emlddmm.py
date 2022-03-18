@@ -1,3 +1,4 @@
+from turtle import forward
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -5,13 +6,15 @@ from torch.nn.functional import grid_sample
 import glob
 import os
 import nibabel
-import nrrd
 import json
 import re
 import argparse
 import warnings
-
-
+from skimage import measure, filters
+#from mayavi import mlab
+# import nrrd
+# from scipy.spatial.distance import directed_hausdorff, dice
+# from medpy.metric import binary
 
 # display
 def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
@@ -51,7 +54,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     fig : matplotlib figure
         The matplotlib figure variable with data.
     axs : array of matplotlib axes
-        An array of matplotlib subplut axes containing each image.
+        An array of matplotlib subplot axes containing each image.
 
 
     """
@@ -142,7 +145,7 @@ def load_slices(target_name):
     ----------
     target_name : string
         Name of a directory containing slice dataset.
-        
+
     Returns
     -------
     xJ : list of numpy arrays
@@ -196,8 +199,8 @@ def load_slices(target_name):
     nJ_ = np.zeros((data.shape[0],3),dtype=int)
     J_ = []
     for i in range(data.shape[0]):
-        namekey = data[i,0]        
-        searchstring = os.path.join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')        
+        namekey = data[i,0]
+        searchstring = os.path.join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')
         jsonfile = glob.glob(searchstring)
         present = data[i,3] == 'present'
         if not present:
@@ -208,8 +211,8 @@ def load_slices(target_name):
         with open(jsonfile[0]) as f:
             jsondata = json.load(f)
         #nJ_[i] = np.array(jsondata['Sizes'])
-        
-        
+
+
         # this should contain an image and a json    
         if 'DataFile' in jsondata:
             image_name = jsondata['DataFile']
@@ -221,26 +224,27 @@ def load_slices(target_name):
             J__ = plt.imread(image_name)
         if J__.dtype == np.uint8:
             J__ = J__.astype(float)/255.0
-        
-        J__ = J__[...,:3] # no alpha        
+
+        J__ = J__[...,:3] # no alpha
+
         nJ_[i] = np.array(J__.shape)
-        
+
         J_.append(J__)
-        
+
         if not i%20:
             ax[0].cla()
             ax[0].imshow(J__)
 
-                  
+
             fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
             fig.canvas.draw()
-                
+
         # the domain
         if i == 0:
             dJ = np.diag(np.array(jsondata['SpaceDirections'][1:]))[::-1]
-            
+
         # note the order needs to be reversed
-        
+
         # if this is the first file we want to set up a 3D volume
         
     nJm = np.max(nJ_,0)
@@ -793,7 +797,7 @@ def emlddmm(**kwargs):
     XJ = torch.stack(torch.meshgrid(xJ))
     
     
-    # build an affine metric for 3D affinee
+    # build an affine metric for 3D affine
     # this one is based on pullback metric from action on voxel locations (not image)
     # build a basis in lexicographic order and push forward using the voxel locations
     XI_ = XI.permute((1,2,3,0))[...,None]    
@@ -803,7 +807,7 @@ def emlddmm(**kwargs):
             E.append(   ((torch.arange(4,dtype=dtype,device=device)[None,:] == j)*(torch.arange(4,dtype=dtype,device=device)[:,None] == i))*torch.ones(1,device=device,dtype=dtype) )
     # it would be nice to define scaling so that the norm of a perturbation had units of microns
     # e.g. root mean square displacement
-    g = torch.zeros((12,12),dtype=dtype,device=device)
+    g = torch.zeros((12,12), dtype=torch.double, device=device)
     for i in range(len(E)):
         EiX = (E[i][:3,:3]@XI_)[...,0] + E[i][:3,-1]
         for j in range(len(E)):
@@ -811,6 +815,7 @@ def emlddmm(**kwargs):
             # matrix multiplication            
             g[i,j] = torch.sum(EiX*EjX) * torch.prod(dI) # because gradient has a factor of N in it, I think its a good idea to do sum
     # note, on july 21 I add factor of voxel size, so it can cancel with factor in cost function
+
     # feb 2, 2022, use double precision.  TODO: implement this as a solve when it is applied instead of inverse
     gi = torch.inverse(g.double()).to(dtype)
     
@@ -826,14 +831,17 @@ def emlddmm(**kwargs):
         for j in range(3):
             E.append(   ((torch.arange(3,dtype=dtype,device=device)[None,:] == j)*(torch.arange(3,dtype=dtype,device=device)[:,None] == i))*torch.ones(1,device=device,dtype=dtype) )
     g2d = torch.zeros((6,6),dtype=dtype,device=device)
+
     
     for i in range(len(E)):
         EiX = (E[i][:2,:2]@XI_[0,...,1:,:])[...,0] + E[i][:2,-1]
         for j in range(len(E)):
             EjX = (E[j][:2,:2]@XI_[0,...,1:,:])[...,0] + E[j][:2,-1]
             g2d[i,j] = torch.sum(EiX*EjX) * torch.prod(dI[1:])
+
     # feb 2, 2022, use double precision.  TODO: implement this as a solve when it is applied instead of inverse
     g2di = torch.inverse(g2d.double()).to(dtype)
+
             
     # build energy operator for velocity
     fv = [torch.arange(n,device=device,dtype=dtype)/d/n for n,d in zip(nv,dv)]
@@ -926,19 +934,19 @@ def emlddmm(**kwargs):
         sigmaB = torch.std(J,dim=(1,2,3))*2.0#*DJ
     else:
         sigmaB = torch.as_tensor(sigmaB,device=device,dtype=dtype)
-    
-    figE,axE = plt.subplots(1,3)
-    figA,axA = plt.subplots(2,2)
-    axA = axA.ravel()
-    if slice_matching:
-        figA2d,axA2d = plt.subplots(2,2)
-        axA2d = axA2d.ravel()
-    figI = plt.figure()
-    figfI = plt.figure()
-    figErr = plt.figure()
-    figJ = plt.figure()
-    figV = plt.figure()
-    figW = plt.figure()
+    if full_outputs:
+        figE,axE = plt.subplots(1,3)
+        figA,axA = plt.subplots(2,2)
+        axA = axA.ravel()
+        if slice_matching:
+            figA2d,axA2d = plt.subplots(2,2)
+            axA2d = axA2d.ravel()
+        figI = plt.figure()
+        figfI = plt.figure()
+        figErr = plt.figure()
+        figJ = plt.figure()
+        figV = plt.figure()
+        figW = plt.figure()
 
 
     Esave = []
@@ -978,6 +986,7 @@ def emlddmm(**kwargs):
         AphiI = interp(xI,I,phiiAi)        
 
         # transform contrast (here assume atlas is dim 1)
+
         # I'd like to support two cases, order 1 and arbitrary dim
         # or order > 1 and 1 dim
         # first step is to set up the basis functions
@@ -1045,7 +1054,7 @@ def emlddmm(**kwargs):
                                               Jpadv.shape[2]*local_contrast[2].item())
                 fAphiI = fAphiIpad[:,:J.shape[1],:J.shape[2],:J.shape[3]]
 
-                
+
         else: # with slice matching I need to solve these equation for every slice
             # so far it looks like it is exactly the same as the above
             # I need to update
@@ -1053,6 +1062,7 @@ def emlddmm(**kwargs):
                 # multiply by weight
                 B__ = B_*(WM*W0).reshape(-1)[...,None]                
                 coeffs = torch.inverse(B__.T@B_) @ (B__.T@(J.reshape(J.shape[0],-1).T))                                    
+
             fAphiI = ((B_@coeffs).T).reshape(J.shape) 
         
         err = (fAphiI - J)
@@ -1124,16 +1134,18 @@ def emlddmm(**kwargs):
         if version_num < 7:
             vgrad = torch.irfft(torch.rfft(v.grad,3,onesided=False)*(KK)[None,None,...,None],3,onesided=False)
         else:
+
             #vgrad = torch.view_as_real(torch.fft.ifftn(torch.fft.fftn(v.grad,dim=3,norm="backward")*(KK),
             #    dim=3,norm="backward"))
             #vgrad = vgrad[...,0]
             # dec 14, 2021 I don't think the above is correct, re dim
             vgrad = torch.fft.ifftn(torch.fft.fftn(v.grad,dim=(2,3,4))*(KK),dim=(2,3,4)).real
             
-        
-        Agrad = (gi@(A.grad[:3,:4].reshape(-1))).reshape(3,4)
+        # Agrad = (gi@(A.grad[:3,:4].reshape(-1).to(dtype=torch.double))).reshape(3,4)
+        Agrad = torch.linalg.solve(g, A.grad[:3,:4].reshape(-1).to(dtype=torch.double)).reshape(3,4)
         if slice_matching:
-            A2dgrad = (g2di@(A2d.grad[:,:2,:3].reshape(A2d.shape[0],6,1))).reshape(A2d.shape[0],2,3)
+            # A2dgrad = (g2di@(A2d.grad[:,:2,:3].reshape(A2d.shape[0],6,1).to(dtype=torch.double))).reshape(A2d.shape[0],2,3)
+            A2dgrad = torch.linalg.solve(g2d, A2d.grad[:,:2,:3].reshape(A2d.shape[0],6,1).to(dtype=torch.double)).reshape(A2d.shape[0],2,3)
             
 
         # plotting
@@ -1171,74 +1183,74 @@ def emlddmm(**kwargs):
                 
             # to do, check sign for a2d
 
+        if full_outputs:
+            if not it%n_draw or it==n_iter-1:
+                axE[0].cla()
+                axE[0].plot(np.array(Esave)[:,0])
+                axE[0].plot(np.array(Esave)[:,1])
+                #axE[0].plot(np.array(Esave)[:,2])
+                axE[0].set_title('Energy')
+                axE[1].cla()
+                axE[1].plot(np.array(Esave)[:,1])
+                axE[1].set_title('Matching')
+                axE[2].cla()
+                axE[2].plot(np.array(Esave)[:,2])
+                axE[2].set_title('Reg')
 
-        if not it%n_draw or it==n_iter-1:
-            axE[0].cla()
-            axE[0].plot(np.array(Esave)[:,0])
-            axE[0].plot(np.array(Esave)[:,1])
-            #axE[0].plot(np.array(Esave)[:,2])
-            axE[0].set_title('Energy')
-            axE[1].cla()
-            axE[1].plot(np.array(Esave)[:,1])
-            axE[1].set_title('Matching')
-            axE[2].cla()
-            axE[2].plot(np.array(Esave)[:,2])
-            axE[2].set_title('Reg')
 
+                _ = draw(AphiI.detach().cpu(),xJ,fig=figI,vmin=vminI,vmax=vmaxI)
+                figI.suptitle('AphiI')
+                _ = draw(fAphiI.detach().cpu(),xJ,fig=figfI,vmin=vminJ,vmax=vmaxJ)
+                figfI.suptitle('fAphiI')
+                _ = draw(fAphiI.detach().cpu() - J.cpu(),xJ,fig=figErr)
+                figErr.suptitle('Err')
+                _ = draw(J.cpu(),xJ,fig=figJ,vmin=vminJ,vmax=vmaxJ)
+                figJ.suptitle('J')
 
-            _ = draw(AphiI.detach().cpu(),xJ,fig=figI,vmin=vminI,vmax=vmaxI)
-            figI.suptitle('AphiI')
-            _ = draw(fAphiI.detach().cpu(),xJ,fig=figfI,vmin=vminJ,vmax=vmaxJ)
-            figfI.suptitle('fAphiI')
-            _ = draw(fAphiI.detach().cpu() - J.cpu(),xJ,fig=figErr)
-            figErr.suptitle('Err')
-            _ = draw(J.cpu(),xJ,fig=figJ,vmin=vminJ,vmax=vmaxJ)
-            figJ.suptitle('J')
-
-            axA[0].cla()
-            axA[0].plot(np.array(Tsave))
-            axA[0].set_title('T')
-            axA[1].cla()
-            axA[1].plot(np.array(Lsave))
-            axA[1].set_title('L')
-            axA[2].cla()
-            axA[2].plot(np.array(maxvsave))
-            axA[2].set_title('maxv')
-            
-            axA[3].cla()
-            axA[3].plot(sigmaMsave)
-            axA[3].plot(sigmaAsave)
-            axA[3].plot(sigmaBsave)
-            axA[3].set_title('sigma')
-            
-
-            if slice_matching:
-                axA2d[0].cla()
-                axA2d[0].plot(np.array(T2dsave))
-                axA2d[0].set_title('T2d')
-                axA2d[1].cla()
-                axA2d[1].plot(np.array(L2dsave))
-                axA2d[1].set_title('L2d')
+                axA[0].cla()
+                axA[0].plot(np.array(Tsave))
+                axA[0].set_title('T')
+                axA[1].cla()
+                axA[1].plot(np.array(Lsave))
+                axA[1].set_title('L')
+                axA[2].cla()
+                axA[2].plot(np.array(maxvsave))
+                axA[2].set_title('maxv')
                 
-            
-            figV.clf()
-            draw(v[0].detach(),xv,fig=figV)
-            figV.suptitle('velocity')
+                axA[3].cla()
+                axA[3].plot(sigmaMsave)
+                axA[3].plot(sigmaAsave)
+                axA[3].plot(sigmaBsave)
+                axA[3].set_title('sigma')
+                
 
-            figW.clf()
-            draw(torch.stack((WM*W0,WA*W0,WB*W0)),xJ,fig=figW,vmin=0.0,vmax=1.0)
-            figW.suptitle('Weights')
+                if slice_matching:
+                    axA2d[0].cla()
+                    axA2d[0].plot(np.array(T2dsave))
+                    axA2d[0].set_title('T2d')
+                    axA2d[1].cla()
+                    axA2d[1].plot(np.array(L2dsave))
+                    axA2d[1].set_title('L2d')
+                    
+                
+                figV.clf()
+                draw(v[0].detach(),xv,fig=figV)
+                figV.suptitle('velocity')
 
-            figE.canvas.draw()
-            figI.canvas.draw()
-            figfI.canvas.draw()
-            figErr.canvas.draw()
-            figA.canvas.draw()
-            figV.canvas.draw()
-            figW.canvas.draw()
-            figJ.canvas.draw()
-            if slice_matching:
-                figA2d.canvas.draw()
+                figW.clf()
+                draw(torch.stack((WM*W0,WA*W0,WB*W0)),xJ,fig=figW,vmin=0.0,vmax=1.0)
+                figW.suptitle('Weights')
+
+                figE.canvas.draw()
+                figI.canvas.draw()
+                figfI.canvas.draw()
+                figErr.canvas.draw()
+                figA.canvas.draw()
+                figV.canvas.draw()
+                figW.canvas.draw()
+                figJ.canvas.draw()
+                if slice_matching:
+                    figA2d.canvas.draw()
 
 
         # update
@@ -1352,6 +1364,7 @@ def emlddmm_multiscale(**kwargs):
     A list of emlddmm outputs (see documentation for emlddmm)
     
     '''
+
     # how many levels?
     # note I expect downI to be either a list, or a list of lists, not numpy array
     if 'downI' in kwargs:
@@ -1388,7 +1401,6 @@ def emlddmm_multiscale(**kwargs):
         if 'sigmaA' not in params:
             params['sigmaA'] = np.ones(kwargs['J'].shape[0])*5.0
         output = emlddmm(v_res_factor=3.0,      
-                         full_outputs=True,
                         **params)
         # I should save an output at each iteration
         outputs.append(output)
@@ -1661,7 +1673,7 @@ def read_vtk_data(fname,endian='b'):
     return x,images,title,names
     
     
-def read_data(fname,**kwargs):    
+def read_data(fname,**kwargs):
     '''
     Read array data from several file types.
     
@@ -1674,9 +1686,8 @@ def read_data(fname,**kwargs):
     fname : str
         Filename (full path or relative) of array data to load. Can be .vtk or 
         nibabel supported formats (e.g. .nii)
-        
     **kwargs : dict
-        Keword parameters that are passed on to the loader function
+        Keyword parameters that are passed on to the loader function
     
     Returns
     -------
@@ -1787,7 +1798,7 @@ def write_matrix_data(fname,A):
             f.write('\n')
 
 # write outputs
-def write_transform_outputs(output_dir, output):
+def write_transform_outputs(output_dir, src_space, dest_space, xJ, xI, output, src_path=''):
     '''
     Write transforms output from emlddmm.  Velocity field, 3D affine transform,
     and 2D affine transforms for each slice if applicable.
@@ -1810,24 +1821,38 @@ def write_transform_outputs(output_dir, output):
     slice_outputs = 'A2d' in output
     if slice_outputs:
         A2d = output['A2d']
-    
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
-    output_dir = os.path.join(output_dir,'transforms/')
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
-        
-    output_name = os.path.join(output_dir, 'velocity.vtk')
-    title = 'velocity_field'
-    write_vtk_data(output_name,xv,v.cpu().numpy(),title)  
-    output_name = os.path.join(output_dir, 'A.txt')
-    write_matrix_data(output_name,A)
-    if slice_outputs:
-        for i in range(A2d.shape[0]):
-            output_name = os.path.join(output_dir,f'A2d_{i:04d}.txt')
-            write_matrix_data(output_name,A2d[i])
 
-def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
+    device = A.device
+    dtype = A.dtype
+
+    forward_dir = os.path.join(output_dir, f'{dest_space}/{src_space}_to_{dest_space}/transforms/')
+    if not os.path.isdir(forward_dir):
+        os.makedirs(forward_dir)
+
+    output_name = os.path.join(forward_dir, 'velocity.vtk')
+    title = 'velocity_field'
+    write_vtk_data(output_name,xv,v.cpu().numpy(),title)
+
+    output_name = os.path.join(forward_dir, 'A.txt')
+    write_matrix_data(output_name,A)
+
+    if slice_outputs:
+        slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
+        slice_names = sorted(slice_names, key=lambda x: x[-4:])
+        registered_dir = os.path.join(output_dir, f'{src_space}_REGISTERED/{src_space}_INPUT_to_{src_space}_REGISTERED/transforms')
+        if not os.path.isdir(registered_dir):
+            os.makedirs(registered_dir)
+        input_dir = os.path.join(output_dir, f'{src_space}_INPUT/{src_space}_REGISTERED_to_{src_space}_INPUT/transforms')
+        if not os.path.isdir(input_dir):
+            os.makedirs(input_dir)
+        for i in range(A2d.shape[0]):
+            output_name = os.path.join(registered_dir, f'{src_space}_REGISTERED_{slice_names[i]}_to_{src_space}_INPUT_{slice_names[i]}_matrix.txt')
+            write_matrix_data(output_name,A2d[i])
+            output_name = os.path.join(input_dir, f'{src_space}_INPUT_{slice_names[i]}_to_{src_space}_REGISTERED_{slice_names[i]}_matrix.txt')
+            write_matrix_data(output_name, torch.inverse(A2d[i]))
+            
+
+def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output, xI, I, xJ, J, xS=None,S=None):
     ''' 
     Write outputs
     TODO figure out how to do this with or without A2d
@@ -1864,10 +1889,11 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
-    output_dir = os.path.join(output_dir,'qc/')
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
-    print(f'output dir is {output_dir}')
+    # TODO: clean up later
+    # output_dir = os.path.join(output_dir,'qc/')
+    # if not os.path.isdir(output_dir):
+    #     os.mkdir(output_dir)
+    # print(f'output dir is {output_dir}')
     
     # first, lets see the transformed atlas and target    
     XJ = torch.stack(torch.meshgrid(xJ))    
@@ -1886,16 +1912,36 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
     phiiAi = interp(xv,phii-XV,Xs) + Xs
 
     # transform image
-    AphiI = interp(xI,I,phiiAi)       
+    AphiI = interp(xI,I,phiiAi)
 
+    # print('J shape: ', J.shape)
+    # print('AphiI shape: ', AphiI.shape)       
 
-    fig = draw(AphiI,xJ)
-    fig[0].suptitle('I input')
-    fig[0].savefig(output_dir+'I_input.jpg')
+    if slice_matching:
+        to_input_out = os.path.join(output_dir,f'{src_space}_INPUT/{dest_space}_to_{src_space}_INPUT/qc/')
+        if not os.path.isdir(to_input_out):
+            os.makedirs(to_input_out)
+        print(f'output dir is {to_input_out}')
+        fig = draw(J,xJ)
+        fig[0].suptitle(f'{src_space} {src_img} input')
+        fig[0].savefig(to_input_out+f'{src_space}_{src_img}_input.jpg')
 
-    fig = draw(J,xJ)
-    fig[0].suptitle('J input')
-    fig[0].savefig(output_dir+'J_input.jpg')
+        fig = draw(AphiI,xJ)
+        fig[0].suptitle(f'{dest_space} {dest_img} to {src_space}')
+        fig[0].savefig(to_input_out+f'{dest_space}_{dest_img}_to_{src_space}.jpg')
+    else:
+        to_src_space_out = os.path.join(output_dir,f'{src_space}/{dest_space}_to_{src_space}/qc/')
+        if not os.path.isdir(to_src_space_out):
+            os.makedirs(to_src_space_out)
+        print(f'output dir is {to_src_space_out}')
+
+        fig = draw(AphiI,xJ)
+        fig[0].suptitle(f'{dest_space} {dest_img} to {src_space}')
+        fig[0].savefig(to_src_space_out+f'{dest_space}_{dest_img}_to_{src_space}.jpg')
+
+        fig = draw(J,xJ)
+        fig[0].suptitle(f'{src_space} {src_img} Original')
+        fig[0].savefig(to_src_space_out+f'{src_space}_{src_img}_original.jpg')
 
     #fig = draw(torch.cat((AphiI,J,AphiI),0),xJ)
     #fig[0].suptitle('Input Space')
@@ -1930,8 +1976,11 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
         Xs = Xs.permute(3,0,1,2)
         Jr = interp(xJ,J,Xs)
         fig = draw(Jr,xr)
-        fig[0].suptitle('J recon')
-        fig[0].savefig(output_dir + 'J_recon.jpg')
+        fig[0].suptitle(f'{src_space} {src_img} Registered')
+        to_registered_out = os.path.join(output_dir,f'{src_space}_REGISTERED/{dest_space}_to_{src_space}_REGISTERED/qc/')
+        if not os.path.isdir(to_registered_out):
+            os.makedirs(to_registered_out)
+        fig[0].savefig(to_registered_out + f'{src_space}_{src_img}_registered.jpg')
 
         # and we need atlas recon
         # sample points for affine
@@ -1943,8 +1992,8 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
         # transform image
         AphiI = interp(xI,I,phiiAi)       
         fig = draw(AphiI,xr)
-        fig[0].suptitle('I recon')
-        fig[0].savefig(output_dir + 'I_recon.jpg')
+        fig[0].suptitle(f'{dest_space} {dest_img} to {src_space} Registered')
+        fig[0].savefig(to_registered_out + f'{dest_space}_{dest_img}_to_{src_space}_registered.jpg')
     else:
         Jr = J
         xr = xJ
@@ -1963,16 +2012,18 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
 
     phiiAiJ = interp(xr,Jr,Aphi)
 
+    to_dest_space_out = os.path.join(output_dir,f'{dest_space}/{src_space}_to_{dest_space}/qc/')
+    if not os.path.isdir(to_dest_space_out):
+        os.makedirs(to_dest_space_out)
+    print(f'output dir is {to_dest_space_out}')
+
     fig = draw(phiiAiJ,xI)
-    fig[0].suptitle('J atlas')
-    fig[0].savefig(output_dir+'J_atlas.jpg' )
+    fig[0].suptitle(f'{src_space} {src_img} to {dest_space}')
+    fig[0].savefig(to_dest_space_out+f'{src_space}_{src_img}_to_{dest_space}.jpg')
 
     fig = draw(I,xI)
-    fig[0].suptitle('I atlas')
-    fig[0].savefig(output_dir+'I_atlas.jpg')
-
-    #fig = draw(torch.cat((I,phiiAiJ,I),0),xI)
-    #fig[0].suptitle('atlas space')
+    fig[0].suptitle(f'{dest_space} {dest_img} Original')
+    fig[0].savefig(to_dest_space_out+f'{dest_space}_{dest_img}_original.jpg')
 
     output_slices = slice_matching and ( (xS is not None) and (S is not None))
     if output_slices:
@@ -2019,7 +2070,7 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
             ax.imshow(show_[:,s].transpose(1,2,0))
             ax.set_xticks([])
             ax.set_yticks([])
-            f.savefig(os.path.join(output_dir,f'slice_{s:04d}.jpg'))
+            f.savefig(os.path.join(to_src_space_out,f'slice_{s:04d}.jpg'))
 
 
 class Transform():    
@@ -2096,9 +2147,9 @@ class Transform():
             # recall all components are stored on the first axis,
             # but for sampling they need to be on the last axis
             ID = torch.stack(torch.meshgrid(self.domain))
-            #print(f'ID shape {ID.shape}')
-            #print(f'X shape {X.shape}')
-            #print(f'data shape {self.data.shape}')
+            # print(f'ID shape {ID.shape}')
+            # print(f'X shape {X.shape}')
+            # print(f'data shape {self.data.shape}')
             return interp(self.domain,(self.data-ID),X) + X
             
         
@@ -2207,7 +2258,7 @@ def apply_transform_float(x,I,Xout,**kwargs):
     
     AphiI = interp(x,torch.as_tensor(I,dtype=Xout.dtype,device=Xout.device),Xout,**kwargs).cpu()
     if isnumpy:
-        AphiI = IphiI.numpy()
+        AphiI = AphiI.numpy()
     return AphiI
 
 def apply_transform_int(x,I,Xout,double=True,**kwargs):
