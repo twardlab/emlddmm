@@ -11,7 +11,7 @@ import re
 import argparse
 import warnings
 from skimage import measure, filters
-from mayavi import mlab
+#from mayavi import mlab
 # import nrrd
 # from scipy.spatial.distance import directed_hausdorff, dice
 # from medpy.metric import binary
