@@ -1,4 +1,4 @@
-from turtle import forward
+#from turtle import forward
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -10,7 +10,7 @@ import json
 import re
 import argparse
 import warnings
-from skimage import measure, filters
+#from skimage import measure, filters
 #from mayavi import mlab
 # import nrrd
 # from scipy.spatial.distance import directed_hausdorff, dice
