@@ -652,12 +652,13 @@ def emlddmm(**kwargs):
                 'muA':None,
                 'update_muA':True,
                 'sigmaA':None,
-                'update_sigmaA':True,
+                'update_sigmaA':False,
                 'sigmaB':None,
-                'update_sigmaB':True,
+                'update_sigmaB':False,
                 'sigmaM':None,
-                'update_sigmaM':True,
+                'update_sigmaM':False,
                 'A':None,
+                'Amode':0, # 0 for standard, 1 for rigid, 2 for rigid+scale
                 'v':None,
                 'A2d':None,     
                 'eA2d':1e-3, # removed eL and eT using metric, need to double check 2d case works well
@@ -733,7 +734,8 @@ def emlddmm(**kwargs):
     update_sigmaM = kwargs['update_sigmaM']
     
     
-    A = kwargs['A'] 
+    A = kwargs['A']
+    Amode = kwargs['Amode']
     v = kwargs['v']
     slice_matching = kwargs['slice_matching']
     if slice_matching is None:
@@ -934,7 +936,7 @@ def emlddmm(**kwargs):
         sigmaB = torch.std(J,dim=(1,2,3))*2.0#*DJ
     else:
         sigmaB = torch.as_tensor(sigmaB,device=device,dtype=dtype)
-    if full_outputs:
+    if n_draw: # if n_draw is not 0, we create figures
         figE,axE = plt.subplots(1,3)
         figA,axA = plt.subplots(2,2)
         axA = axA.ravel()
@@ -985,13 +987,12 @@ def emlddmm(**kwargs):
         # transform image
         AphiI = interp(xI,I,phiiAi)        
 
-        # transform contrast (here assume atlas is dim 1)
-
+        # transform contrast
         # I'd like to support two cases, order 1 and arbitrary dim
         # or order > 1 and 1 dim
         # first step is to set up the basis functions
         Nvoxels = AphiI.shape[1]*AphiI.shape[2]*AphiI.shape[3] # why did I write 0, well its equal to 1 here        
-        if type(local_contrast) == list:
+        if type(local_contrast) == list: # an empty list means global contrast
             if I.shape[0] == 1:
                 B_ = torch.ones((Nvoxels,order+1),dtype=dtype,device=device)
                 for i in range(order):
@@ -1058,12 +1059,18 @@ def emlddmm(**kwargs):
         else: # with slice matching I need to solve these equation for every slice
             # so far it looks like it is exactly the same as the above
             # I need to update
+            # TODO
+            B_ = B_.reshape(J.shape[1],-1,B_.shape[-1])
             with torch.no_grad():
-                # multiply by weight
-                B__ = B_*(WM*W0).reshape(-1)[...,None]                
-                coeffs = torch.inverse(B__.T@B_) @ (B__.T@(J.reshape(J.shape[0],-1).T))                                    
-
+                # multiply by weight                
+                B__ = B_*(WM*W0).reshape(WM.shape[0],-1)[...,None]                
+                BB = B__.transpose(-1,-2)@B_
+                BJ = (B__.transpose(-1,-2)@(J.reshape(J.shape[0],J.shape[1],-1).permute(1,2,0)))
+                coeffs = torch.inverse(BB) @ BJ
+                
+            
             fAphiI = ((B_@coeffs).T).reshape(J.shape) 
+            
         
         err = (fAphiI - J)
         err2 = (err**2*(WM*W0))
@@ -1142,10 +1149,10 @@ def emlddmm(**kwargs):
             vgrad = torch.fft.ifftn(torch.fft.fftn(v.grad,dim=(2,3,4))*(KK),dim=(2,3,4)).real
             
         # Agrad = (gi@(A.grad[:3,:4].reshape(-1).to(dtype=torch.double))).reshape(3,4)
-        Agrad = torch.linalg.solve(g, A.grad[:3,:4].reshape(-1).to(dtype=torch.double)).reshape(3,4)
+        Agrad = torch.linalg.solve(g.to(dtype=torch.double), A.grad[:3,:4].reshape(-1).to(dtype=torch.double)).reshape(3,4).to(dtype=dtype)
         if slice_matching:
             # A2dgrad = (g2di@(A2d.grad[:,:2,:3].reshape(A2d.shape[0],6,1).to(dtype=torch.double))).reshape(A2d.shape[0],2,3)
-            A2dgrad = torch.linalg.solve(g2d, A2d.grad[:,:2,:3].reshape(A2d.shape[0],6,1).to(dtype=torch.double)).reshape(A2d.shape[0],2,3)
+            A2dgrad = torch.linalg.solve(g2d.to(dtype=torch.double), A2d.grad[:,:2,:3].reshape(A2d.shape[0],6,1).to(dtype=torch.double)).reshape(A2d.shape[0],2,3).to(dtype=dtype)
             
 
         # plotting
@@ -1183,74 +1190,74 @@ def emlddmm(**kwargs):
                 
             # to do, check sign for a2d
 
-        if full_outputs:
-            if not it%n_draw or it==n_iter-1:
-                axE[0].cla()
-                axE[0].plot(np.array(Esave)[:,0])
-                axE[0].plot(np.array(Esave)[:,1])
-                #axE[0].plot(np.array(Esave)[:,2])
-                axE[0].set_title('Energy')
-                axE[1].cla()
-                axE[1].plot(np.array(Esave)[:,1])
-                axE[1].set_title('Matching')
-                axE[2].cla()
-                axE[2].plot(np.array(Esave)[:,2])
-                axE[2].set_title('Reg')
+        
+        if n_draw and (not it%n_draw or it==n_iter-1):
+            axE[0].cla()
+            axE[0].plot(np.array(Esave)[:,0])
+            axE[0].plot(np.array(Esave)[:,1])
+            #axE[0].plot(np.array(Esave)[:,2])
+            axE[0].set_title('Energy')
+            axE[1].cla()
+            axE[1].plot(np.array(Esave)[:,1])
+            axE[1].set_title('Matching')
+            axE[2].cla()
+            axE[2].plot(np.array(Esave)[:,2])
+            axE[2].set_title('Reg')
 
 
-                _ = draw(AphiI.detach().cpu(),xJ,fig=figI,vmin=vminI,vmax=vmaxI)
-                figI.suptitle('AphiI')
-                _ = draw(fAphiI.detach().cpu(),xJ,fig=figfI,vmin=vminJ,vmax=vmaxJ)
-                figfI.suptitle('fAphiI')
-                _ = draw(fAphiI.detach().cpu() - J.cpu(),xJ,fig=figErr)
-                figErr.suptitle('Err')
-                _ = draw(J.cpu(),xJ,fig=figJ,vmin=vminJ,vmax=vmaxJ)
-                figJ.suptitle('J')
+            _ = draw(AphiI.detach().cpu(),xJ,fig=figI,vmin=vminI,vmax=vmaxI)
+            figI.suptitle('AphiI')
+            _ = draw(fAphiI.detach().cpu(),xJ,fig=figfI,vmin=vminJ,vmax=vmaxJ)
+            figfI.suptitle('fAphiI')
+            _ = draw(fAphiI.detach().cpu() - J.cpu(),xJ,fig=figErr)
+            figErr.suptitle('Err')
+            _ = draw(J.cpu(),xJ,fig=figJ,vmin=vminJ,vmax=vmaxJ)
+            figJ.suptitle('J')
 
-                axA[0].cla()
-                axA[0].plot(np.array(Tsave))
-                axA[0].set_title('T')
-                axA[1].cla()
-                axA[1].plot(np.array(Lsave))
-                axA[1].set_title('L')
-                axA[2].cla()
-                axA[2].plot(np.array(maxvsave))
-                axA[2].set_title('maxv')
-                
-                axA[3].cla()
-                axA[3].plot(sigmaMsave)
-                axA[3].plot(sigmaAsave)
-                axA[3].plot(sigmaBsave)
-                axA[3].set_title('sigma')
-                
+            axA[0].cla()
+            axA[0].plot(np.array(Tsave))
+            axA[0].set_title('T')
+            axA[1].cla()
+            axA[1].plot(np.array(Lsave))
+            axA[1].set_title('L')
+            axA[2].cla()
+            axA[2].plot(np.array(maxvsave))
+            axA[2].set_title('maxv')
 
-                if slice_matching:
-                    axA2d[0].cla()
-                    axA2d[0].plot(np.array(T2dsave))
-                    axA2d[0].set_title('T2d')
-                    axA2d[1].cla()
-                    axA2d[1].plot(np.array(L2dsave))
-                    axA2d[1].set_title('L2d')
-                    
-                
-                figV.clf()
-                draw(v[0].detach(),xv,fig=figV)
-                figV.suptitle('velocity')
+            axA[3].cla()
+            axA[3].plot(sigmaMsave)
+            axA[3].plot(sigmaAsave)
+            axA[3].plot(sigmaBsave)
+            axA[3].set_title('sigma')
 
-                figW.clf()
-                draw(torch.stack((WM*W0,WA*W0,WB*W0)),xJ,fig=figW,vmin=0.0,vmax=1.0)
-                figW.suptitle('Weights')
 
-                figE.canvas.draw()
-                figI.canvas.draw()
-                figfI.canvas.draw()
-                figErr.canvas.draw()
-                figA.canvas.draw()
-                figV.canvas.draw()
-                figW.canvas.draw()
-                figJ.canvas.draw()
-                if slice_matching:
-                    figA2d.canvas.draw()
+            if slice_matching:
+                axA2d[0].cla()
+                axA2d[0].plot(np.array(T2dsave))
+                axA2d[0].set_title('T2d')
+                axA2d[1].cla()
+                axA2d[1].plot(np.array(L2dsave))
+                axA2d[1].set_title('L2d')
+
+
+            figV.clf()
+            draw(v[0].detach(),xv,fig=figV)
+            figV.suptitle('velocity')
+
+            figW.clf()
+            draw(torch.stack((WM*W0,WA*W0,WB*W0)),xJ,fig=figW,vmin=0.0,vmax=1.0)
+            figW.suptitle('Weights')
+
+            figE.canvas.draw()
+            figI.canvas.draw()
+            figfI.canvas.draw()
+            figErr.canvas.draw()
+            figA.canvas.draw()
+            figV.canvas.draw()
+            figW.canvas.draw()
+            figJ.canvas.draw()
+            if slice_matching:
+                figA2d.canvas.draw()
 
 
         # update
@@ -1260,6 +1267,12 @@ def emlddmm(**kwargs):
             v.grad.zero_()
             
             A[:3] -= Agrad*eA
+            if Amode==1: # 1 means rigid
+                U,S,VH = torch.linalg.svd(A[:3,:3])
+                A[:3,:3] = U@VH
+            elif Amode==2: # 2 means rigid + scale
+                U,S,VH = torch.linalg.svd(A[:3,:3])
+                A[:3,:3] = (U@VH)*torch.exp(torch.mean(torch.log(S)))
             A.grad.zero_()
             
             if slice_matching:
@@ -1327,14 +1340,15 @@ def emlddmm(**kwargs):
         out['sigmaM'] = sigmaM.detach().clone()
         out['coeffs'] = coeffs.detach().clone()
         # return figures
-        out['figA'] = figA
-        out['figE'] = figE
-        out['figI'] = figI        
-        out['figfI'] = figfI        
-        out['figErr'] = figErr        
-        out['figJ'] = figJ        
-        out['figW'] = figW        
-        out['figV'] = figV        
+        if n_draw:
+            out['figA'] = figA
+            out['figE'] = figE
+            out['figI'] = figI        
+            out['figfI'] = figfI        
+            out['figErr'] = figErr        
+            out['figJ'] = figJ        
+            out['figW'] = figW        
+            out['figV'] = figV        
         # others ...
     return out
 
@@ -1713,7 +1727,7 @@ def read_data(fname,**kwargs):
     if ext == '.gz':
         base,ext_ = os.path.splitext(base)
         ext = ext_+ext
-    print(f'Found extension {ext}')
+    #print(f'Found extension {ext}')
     
     if ext == '':
         xJ,J,W0 = load_slices(fname)
@@ -1752,7 +1766,7 @@ def write_data(fname,x,out,title,names=None):
     if ext == '.gz':
         base,ext_ = os.path.splitext(base)
         ext = ext_+ext
-    print(f'Found extension {ext}')
+    #print(f'Found extension {ext}')
     
     if ext == '.vtk':
         write_vtk_data(fname,x,out,title,names)
@@ -2307,6 +2321,234 @@ def rigid2D(xI,I,xJ,J,**kwargs):
     
     '''
     pass
+        
+    
+def write_outputs_for_pair(output_dir,outputs,
+                           xI,I,xJ,J,WJ=None,
+                           atlas_space_name=None,target_space_name=None,
+                           atlas_image_name=None,target_image_name=None):
+    '''
+    Write outputs in standard format for a pair of images
+    
+    Parameters
+    ----------
+    output_dir : str
+        Location to store output data.
+    outputs : dict
+        Dictionary of outputs from the emlddmm python code
+    xI : list of numpy array
+        Location of voxels in atlas
+    I : numpy array
+        Atlas image
+    xJ : list of numpy array
+        Location of voxels in target
+    J : numpy array
+        Target image
+    names : str
+        Names of spaces;images otherwise will use default
+    
+    '''
+    if atlas_space_name is None:
+        atlas_space_name = 'atlas'
+    if target_space_name is None:
+        target_space_name = 'target'
+    if atlas_image_name is None:
+        atlas_image_name = 'atlasimage'
+    if target_image_name is None:
+        target_image_name = 'targetimage'
+ 
+        
+        
+    if 'A2d' in outputs:
+        slice_matching = True
+    else:
+        slice_matching = False
+        
+    exist_ok=True
+    IMAGES = 'images' # define some strings
+    TRANSFORMS = 'transforms'
+    # make the output directory
+    # note this function will do it recursively even if it exists
+    os.makedirs(output_dir,exist_ok=exist_ok)
+    # to atlas space
+    to_space_name = atlas_space_name
+    to_space_dir = os.path.join(output_dir,to_space_name)
+    os.makedirs(to_space_dir, exist_ok=exist_ok)
+    # to atlas space from atlas space 
+    from_space_name = atlas_space_name
+    from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+    os.makedirs(from_space_dir, exist_ok=exist_ok)
+    # to atlas space from atlas space
+    images_dir = os.path.join(from_space_dir,IMAGES)
+    os.makedirs(images_dir, exist_ok=exist_ok)
+    # write out the atlas (in single)
+    write_data(os.path.join(images_dir,f'{atlas_space_name}_{atlas_image_name}_to_{atlas_space_name}.vtk'),
+               xI,torch.tensor(I,dtype=torch.float32),'atlas')
+    
+    if not slice_matching:
+        raise Exception('not implemented yet')
+        # to atlas space from target space    
+        from_space_name = target_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir, exist_ok=exist_ok)
+        # to atlas space from target space transforms    
+        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        os.makedirs(transforms_dir)
+        # write out the atlas to target transform as a displacement field
+    else: # if slice matching
+        # to atlas space from registered target space
+        from_space_name = 'registered_' + target_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir, exist_ok=exist_ok)
+        # to atlas space from registered target space transforms    
+        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        os.makedirs(transforms_dir, exist_ok=exist_ok)
+        # we need the atlas to registered displacement
+        # this is  A phi - x
+        XV = torch.stack(torch.meshgrid(outputs['xv'],indexing='ij'),0)
+        phi = v_to_phii(outputs['xv'],-1*torch.flip(outputs['v'],dims=(0,)))
+        XI = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xI],indexing='ij'),0)
+        phiXI = interp(outputs['xv'],phi-XV,XI) + XI            
+        AphiXI = ((outputs['A'][:3,:3]@phiXI.permute(1,2,3,0)[...,None])[...,0] + outputs['A'][:3,-1]).permute(-1,0,1,2)                
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xI,(AphiXI-XI)[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
+        
+        # to atlas space from registered space images
+        # nothing here because no images were acquired in this space
+        
+        
+        
+        # to atlas space from input target space
+        from_space_name = 'input_' + target_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir, exist_ok=exist_ok)
+        # to atlas space from input target space transforms    
+        # THESE TRANSFORMS DO NOT EXIST
+        # to atlas space from input target space images
+        images_dir = os.path.join(from_space_dir,IMAGES)
+        os.makedirs(images_dir, exist_ok=exist_ok)
+        # to get these images I first need to map them to registered
+        XJ = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xJ]))
+        R = outputs['A2d']
+        RXJ = ((R[:,None,None,:2,:2]@(XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + R[:,None,None,:2,-1]).permute(-1,0,1,2)
+        RXJ = torch.cat((XJ[0][None],RXJ))
+        RiJ = interp([torch.tensor(x,device=RXJ.device,dtype=RXJ.dtype) for x in xJ],torch.tensor(J,device=RXJ.device,dtype=RXJ.dtype),RXJ,padding_mode='zeros')
+        phiiAiRiJ = interp([torch.tensor(x,device=RXJ.device,dtype=RXJ.dtype) for x in xJ],RiJ,AphiXI,padding_mode='zeros')
+        write_data(os.path.join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
+                   xI,phiiAiRiJ.to(torch.float32),f'{from_space_name}_{target_image_name}_to_{to_space_name}')
+        
+        # qc in atlas space
+        qc_dir = os.path.join(to_space_dir,'qc')
+        os.makedirs(qc_dir,exist_ok=exist_ok)        
+        fig,ax = draw(phiiAiRiJ,xI)
+        fig.savefig(os.path.join(qc_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
+        fig,ax = draw(I,xI)
+        fig.savefig(os.path.join(qc_dir,f'{to_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
+    
+    
+        # now we do to registered space
+        to_space_name = 'registered_' + target_space_name
+        to_space_dir = os.path.join(output_dir,to_space_name)
+        os.makedirs(to_space_dir,exist_ok=exist_ok)
+        # from input
+        from_space_name = 'input_' + target_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir,exist_ok=exist_ok)
+        # transforms, registered to input
+        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        os.makedirs(transforms_dir,exist_ok=exist_ok)
+        #for i in range(R.shape[0]):
+        #    # convert to xyz
+        #    Rxyz = torch.tensor(R[i])
+        #    Rxyz[:2] = torch.flip(Rxyz[:2],dims=(0,))
+        #    Rxyz[:,:2] = torch.flip(Rxyz[:,:2],dims=(1,))
+        #    # write out
+        #    with open(os.path.join(from_space_dir)):
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
+                  xJ,(RXJ-XJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
+        # images
+        images_dir = os.path.join(from_space_dir,IMAGES)
+        os.makedirs(images_dir,exist_ok=exist_ok)
+        write_data(os.path.join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
+                  xJ,(RiJ).to(torch.float32), f'{from_space_name}_{target_image_name}_to_{to_space_name}')
+        # from atlas
+        from_space_name = atlas_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir,exist_ok=exist_ok)
+        # transforms, registered to atlas
+        phii = v_to_phii(outputs['xv'],outputs['v'])
+        Ai = torch.linalg.inv(outputs['A'])
+        AiXJ = ((Ai[:3,:3]@XJ.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1]).permute(-1,0,1,2)
+        phiiAiXJ = interp(outputs['xv'],phii-XV,AiXJ) + AiXJ                
+        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        os.makedirs(transforms_dir,exist_ok=exist_ok)
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
+                  xJ,(phiiAiXJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
+        # images
+        AphiI = interp(xI,torch.tensor(I,device=phiiAiXJ.device,dtype=phiiAiXJ.dtype),phiiAiXJ,padding_mode='zeros')
+        images_dir = os.path.join(from_space_dir,IMAGES)
+        os.makedirs(images_dir,exist_ok=exist_ok)
+        write_data(os.path.join(images_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.vtk'),
+                  xJ,(AphiI).to(torch.float32), f'{from_space_name}_{atlas_image_name}_to_{to_space_name}')
+        
+        # a qc directory
+        qc_dir = os.path.join(to_space_dir,'qc')
+        os.makedirs(qc_dir,exist_ok=exist_ok)
+        fig,ax = draw(RiJ,xJ)
+        fig.savefig(os.path.join(qc_dir,
+                                 f'input_{target_space_name}_{target_image_name}_to_registered_{target_space_name}.jpg'))
+        fig,ax = draw(AphiI,xJ)
+        fig.savefig(os.path.join(qc_dir,
+                                 f'input_{atlas_space_name}_{atlas_image_name}_to_registered_{target_space_name}.jpg'))
+        
+        
+        # to input space
+        to_space_name = 'input_' + target_space_name
+        to_space_dir = os.path.join(output_dir,to_space_name)
+        os.makedirs(to_space_dir,exist_ok=exist_ok)
+        # input to input
+        # TODO: i can write the original images here
+        
+        # registered to input
+        from_space_name = 'registered_' + target_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir,exist_ok=exist_ok)
+        # images, NONE        
+        # transforms
+        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        os.makedirs(transforms_dir,exist_ok=exist_ok)
+        Ri = torch.linalg.inv(outputs['A2d'])
+        RiXJ = ((R[:,None,None,:2,:2]@(XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + Ri[:,None,None,:2,-1]).permute(-1,0,1,2)
+        RiXJ = torch.cat((XJ[0][None],RiXJ))
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
+                  xJ,(RXJ-XJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
+        
+        
+        # atlas to input
+        from_space_name = atlas_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir,exist_ok=exist_ok)
+        # transforms
+        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        os.makedirs(transforms_dir,exist_ok=exist_ok)
+        AiRiXJ = ((Ai[:3,:3]@RiXJ.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1]).permute(-1,0,1,2)
+        phiiAiRiXJ = interp(outputs['xv'],phii-XV,AiRiXJ) + AiRiXJ
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
+                  xJ,(phiiAiRiXJ-XJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
+        # images
+        images_dir = os.path.join(from_space_dir,IMAGES)
+        os.makedirs(images_dir,exist_ok=exist_ok)
+        RAphiI = interp(xI,torch.tensor(I,device=phiiAiRiXJ.device,dtype=phiiAiRiXJ.dtype),phiiAiRiXJ,padding_mode='zeros')
+        write_data(os.path.join(images_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.vtk'),
+                  xJ,(RAphiI).to(torch.float32), f'{from_space_name}_{atlas_image_name}_to_{to_space_name}')
+        
+        # input space qc        
+        qc_dir = os.path.join(to_space_dir,'qc')
+        os.makedirs(qc_dir,exist_ok=exist_ok)
+        
+        fig,ax = draw(J,xJ)
+        fig.savefig(os.path.join(qc_dir,f'{to_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
+        fig,ax = draw(RAphiI,xJ)
+        fig.savefig(os.path.join(qc_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
         
         
 # now we'll start building an interface
