@@ -317,7 +317,7 @@ def sinc_resample_numpy(I,n):
     return Id
     
 
-def downsample_ax(I,down,ax):
+def downsample_ax(I,down,ax,W=None):
     '''
     Downsample imaging data along one of the first 5 axes.
     
@@ -334,6 +334,8 @@ def downsample_ax(I,down,ax):
         into one new downsampled pixel
     ax : int
         Which axis to downsample along.
+    W : np array
+        A mask the same size as I, but without a "channel" dimension
     
     Returns
     -------
@@ -346,23 +348,58 @@ def downsample_ax(I,down,ax):
         Id = torch.zeros(nd,device=I.device,dtype=I.dtype)
     else:
         Id = np.zeros(nd,dtype=I.dtype)
-    for d in range(down):
-        if ax==0:        
-            Id += I[d:down*nd[ax]:down]
-        elif ax==1:        
-            Id += I[:,d:down*nd[ax]:down]
-        elif ax==2:
-            Id += I[:,:,d:down*nd[ax]:down]
-        elif ax==3:
-            Id += I[:,:,:,d:down*nd[ax]:down]
-        elif ax==4:
-            Id += I[:,:,:,:,d:down*nd[ax]:down]
-        elif ax==5:
-            Id += I[:,:,:,:,:,d:down*nd[ax]:down]
-        # ... should be enough but there really has to be a better way to do this        
-    Id = Id/down
-    return Id
-def downsample(I,down):
+    if W is not None:
+        if type(W) == torch.Tensor:
+            Wd = torch.zeros(nd[1:],device=W.device,dtype=W.dtype)
+        else:
+            Wd = np.zeros(nd[1:],dtype=W.dtype)            
+    if W is None:
+        for d in range(down):
+            if ax==0:        
+                Id += I[d:down*nd[ax]:down]
+            elif ax==1:        
+                Id += I[:,d:down*nd[ax]:down]
+            elif ax==2:
+                Id += I[:,:,d:down*nd[ax]:down]
+            elif ax==3:
+                Id += I[:,:,:,d:down*nd[ax]:down]
+            elif ax==4:
+                Id += I[:,:,:,:,d:down*nd[ax]:down]
+            elif ax==5:
+                Id += I[:,:,:,:,:,d:down*nd[ax]:down]
+            # ... should be enough but there really has to be a better way to do this        
+            # note I could use "take"
+        Id = Id/down
+        return Id
+    else:
+        # if W is not none
+        for d in range(down):
+            if ax==0:        
+                Id += I[d:down*nd[ax]:down]*W[d:down*nd[ax]:down]
+                raise Exception('W not supported with ax=0')
+                
+            elif ax==1:        
+                Id += I[:,d:down*nd[ax]:down]*W[d:down*nd[ax]:down]
+                Wd += W[d:down*nd[ax]:down]
+            elif ax==2:
+                Id += I[:,:,d:down*nd[ax]:down]*W[:,d:down*nd[ax]:down]
+                Wd += W[:,d:down*nd[ax]:down]
+            elif ax==3:
+                Id += I[:,:,:,d:down*nd[ax]:down]*W[:,:,d:down*nd[ax]:down]
+                Wd += W[:,:,d:down*nd[ax]:down]
+            elif ax==4:
+                Id += I[:,:,:,:,d:down*nd[ax]:down]*W[:,:,:,d:down*nd[ax]:down]
+                Wd += W[:,:,:,d:down*nd[ax]:down]
+            elif ax==5:
+                Id += I[:,:,:,:,:,d:down*nd[ax]:down]*W[:,:,:,:,d:down*nd[ax]:down]
+                Wd += W[:,:,:,:,d:down*nd[ax]:down]
+        Id = Id / (Wd + Wd.max()*1e-6)
+        
+        
+        Wd = Wd / down
+        return Id,Wd
+        
+def downsample(I,down,W=None):
     '''
     Downsample an image by an integer factor along each axis. Note extra data at 
     the end will be truncated if necessary.
@@ -375,6 +412,8 @@ def downsample(I,down):
         Imaging data to downsample
     down : list of int
         List of downsampling factors for each axis.
+    W : array (numpy or torch)
+        A weight of the same size as I but without the "channel" dimension
     
     Returns
     -------
@@ -388,13 +427,25 @@ def downsample(I,down):
         Id = torch.clone(I)
     else:
         Id = np.copy(I)
+    if W is not None:
+        if type(W) == torch.Tensor:
+            Wd = torch.clone(W)
+        else:
+            Wd = np.copy(W)
     for i,d in enumerate(down):
         if d==1:
             continue
-        Id = downsample_ax(Id,d,i)
-    return Id
+        if W is None:
+            Id = downsample_ax(Id,d,i)
+        else:
+            Id,Wd = downsample_ax(Id,d,i,W=Wd)
+    if W is None:
+        return Id
+    else:
+        return Id,Wd
 
-def downsample_image_domain(xI,I,down): 
+
+def downsample_image_domain(xI,I,down,W=None): 
     '''
     Downsample an image as well as pixel locations
     
@@ -407,6 +458,8 @@ def downsample_image_domain(xI,I,down):
         Image to be downsampled
     down : list of ints
         Factor by which to downsample along each dimension
+    W : array like
+        Weights the same size as I, but without a "channel" dimension
         
     Returns
     -------
@@ -417,11 +470,17 @@ def downsample_image_domain(xI,I,down):
     '''
     if len(xI) != len(down):
         raise Exception('Length of down and xI must be equal')
-    Id = downsample(I,down)    
+    if W is None:
+        Id = downsample(I,down)    
+    else:
+        Id,Wd = downsample(I,down,W=W)
     xId = []
     for i,d in enumerate(down):
         xId.append(downsample_ax(xI[i],d,0))
-    return xId,Id
+    if W is None:
+        return xId,Id
+    else:
+        return xId,Id,Wd
 
 # build an interp function from grid sample
 def interp(x,I,phii,**kwargs):
@@ -664,8 +723,9 @@ def emlddmm(**kwargs):
                 'eA2d':1e-3, # removed eL and eT using metric, need to double check 2d case works well
                 'slice_matching':False, # if true include rigid motions and contrast on each slice
                 'slice_matching_start':0,
-                'slice_matching_isotropic':True, # if true 3D affine is isotropic scale
+                'slice_matching_isotropic':False, # if true 3D affine is isotropic scale
                 'local_contrast':[], # simple local contrast estimation mode, should be a list of ints
+                'reduce_factor':0.9,
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -691,6 +751,7 @@ def emlddmm(**kwargs):
     eA = kwargs['eA']
     ev = kwargs['ev']
     eA2d = kwargs['eA2d']
+    reduce_factor = kwargs['reduce_factor']
     
     order = kwargs['order'] 
     
@@ -779,7 +840,7 @@ def emlddmm(**kwargs):
     
     # downample    
     xI,I = downsample_image_domain(xI,I,downI)
-    xJ,J = downsample_image_domain(xJ,J,downJ)
+    xJ,J,W0 = downsample_image_domain(xJ,J,downJ,W=W0)
     dI *= torch.prod(torch.tensor(downI,device=device,dtype=dtype))
     dJ *= torch.prod(torch.tensor(downJ,device=device,dtype=dtype))
     # I think the above two lines are wrong, let's just repeat
@@ -793,8 +854,7 @@ def emlddmm(**kwargs):
     vminJ = [np.quantile(J_.cpu().numpy(),0.001) for J_ in J]
     vmaxJ = [np.quantile(J_.cpu().numpy(),0.999) for J_ in J]
     
-    
-    W0 = downsample(W0,downJ)
+        
     XI = torch.stack(torch.meshgrid(xI))
     XJ = torch.stack(torch.meshgrid(xJ))
     
@@ -1003,6 +1063,7 @@ def emlddmm(**kwargs):
                 B_[:,1:] = AphiI.reshape(AphiI.shape[0],-1).T
             else:
                 raise Exception('Require either order = 1 or order>1 and 1D atlas')
+            # note B was size N voxels by N channels
         else:
             # simple approach to local contrast
             # we will pad and refactor
@@ -1060,16 +1121,31 @@ def emlddmm(**kwargs):
             # so far it looks like it is exactly the same as the above
             # I need to update
             # TODO
+            # recall B_ is size nvoxels by nchannels
             B_ = B_.reshape(J.shape[1],-1,B_.shape[-1])
+            
+           
+            
+            
+            # now be is nslices x npixels x nchannels B
             with torch.no_grad():
                 # multiply by weight                
-                B__ = B_*(WM*W0).reshape(WM.shape[0],-1)[...,None]                
+                B__ = B_*(WM*W0).reshape(WM.shape[0],-1)[...,None]     
+                # B__ is shape nslices x npixels x nchannelsB
                 BB = B__.transpose(-1,-2)@B_
-                BJ = (B__.transpose(-1,-2)@(J.reshape(J.shape[0],J.shape[1],-1).permute(1,2,0)))
-                coeffs = torch.inverse(BB) @ BJ
+                # BB is shape nslices x nchannelsb x nchannels b
                 
-            
-            fAphiI = ((B_@coeffs).T).reshape(J.shape) 
+                J_ = (J.permute(1,2,3,0).reshape(J.shape[1],-1,J.shape[0]))        
+                # J_ is shape nslices x npixels x nchannelsJ
+                # B__.T is shape nslices x nchannelsB x npixels
+                BJ = (B__.transpose(-1,-2))@ J_
+                # BJ is shape nslices x nchannels B x nchannels J
+                # TODO: add identity to BB
+                coeffs = torch.inverse(BB + torch.eye(BB.shape[-1],device=BB.device,dtype=BB.dtype).repeat((BB.shape[0],1,1))*torch.max(BB)*1e-6) @ BJ
+                # coeffs is shape nslices x nchannelsB x nchannelsJ
+                
+                      
+            fAphiI = (B_[...,None,:]@coeffs[:,None]).reshape(J.shape[1],J.shape[2],J.shape[3],J.shape[0]).permute(-1,0,1,2)
             
         
         err = (fAphiI - J)
@@ -1165,7 +1241,7 @@ def emlddmm(**kwargs):
             L2dsave.append(A2d[:,:2,:2].detach().clone().squeeze().reshape(-1).cpu().numpy())
         # a nice check on step size would be to see if these are oscilating or monotonic
         if it > 10 and not it%n_reduce_step:
-            reduce_factor = 0.9
+            
             checksign0 = np.sign(maxvsave[-1] - maxvsave[-2])
             checksign1 = np.sign(maxvsave[-2] - maxvsave[-3])
             checksign2 = np.sign(maxvsave[-3] - maxvsave[-4])
@@ -1273,6 +1349,10 @@ def emlddmm(**kwargs):
             elif Amode==2: # 2 means rigid + scale
                 U,S,VH = torch.linalg.svd(A[:3,:3])
                 A[:3,:3] = (U@VH)*torch.exp(torch.mean(torch.log(S)))
+            elif Amode==0: # 0 means nothing
+                pass
+            else:
+                raise Exception('Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale)')
             A.grad.zero_()
             
             if slice_matching:
@@ -2440,10 +2520,12 @@ def write_outputs_for_pair(output_dir,outputs,
         qc_dir = os.path.join(to_space_dir,'qc')
         os.makedirs(qc_dir,exist_ok=exist_ok)        
         fig,ax = draw(phiiAiRiJ,xI)
+        fig.suptitle('phiiAiRiJ')
         fig.savefig(os.path.join(qc_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
         fig,ax = draw(I,xI)
+        fig.suptitle('I')
         fig.savefig(os.path.join(qc_dir,f'{to_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
-    
+        
     
         # now we do to registered space
         to_space_name = 'registered_' + target_space_name
@@ -2494,9 +2576,11 @@ def write_outputs_for_pair(output_dir,outputs,
         qc_dir = os.path.join(to_space_dir,'qc')
         os.makedirs(qc_dir,exist_ok=exist_ok)
         fig,ax = draw(RiJ,xJ)
+        fig.suptitle('RiJ')
         fig.savefig(os.path.join(qc_dir,
                                  f'input_{target_space_name}_{target_image_name}_to_registered_{target_space_name}.jpg'))
         fig,ax = draw(AphiI,xJ)
+        fig.suptitle('AphiI')
         fig.savefig(os.path.join(qc_dir,
                                  f'input_{atlas_space_name}_{atlas_image_name}_to_registered_{target_space_name}.jpg'))
         
@@ -2546,8 +2630,11 @@ def write_outputs_for_pair(output_dir,outputs,
         os.makedirs(qc_dir,exist_ok=exist_ok)
         
         fig,ax = draw(J,xJ)
+        fig.suptitle('J')
         fig.savefig(os.path.join(qc_dir,f'{to_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
+        
         fig,ax = draw(RAphiI,xJ)
+        fig.suptitle('RAphiI')
         fig.savefig(os.path.join(qc_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
         
         
