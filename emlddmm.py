@@ -1907,7 +1907,7 @@ def write_matrix_data(fname,A):
                 if j < A_.shape[1]-1:
                     f.write(', ')
             f.write('\n')
-# todo
+
 def read_matrix_data(fname):
     '''
     Read linear transforms as matrix text file.
