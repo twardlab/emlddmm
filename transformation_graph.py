@@ -289,12 +289,12 @@ def reg(dest, source, registration, config, out, labels=None):
     output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,device=device,full_outputs=False,**config)
     #write outputs
     print('saving transformations to ' + output_dir + '...')
-    emlddmm.write_transform_outputs(output_dir, src_space, dest_space, xJ, xI, output[-1], src_path=src_path)
+    emlddmm.write_transform_outputs(output_dir, src_space, dest_space, output[-1], src_path=src_path)
     print('saving qc to ' + output_dir + '...')
     if label_name:
         # get labels
         xS,S,title,names = emlddmm.read_data(label_name,endian='l')
-        emlddmm.write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output[-1],xI,I,xJ,J,xS=xS,S=S.astype(float))
+        emlddmm.write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output[-1], xI, I, xJ, J, src_path=src_path, xS=xS, S=S.astype(float))
     else:
         emlddmm.write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output[-1],xI,I,xJ,J)
 
