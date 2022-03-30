@@ -690,7 +690,7 @@ def emlddmm(**kwargs):
                 'n_draw':10,
                 'sigmaR':1e6,
                 'n_iter':2000,
-                'n_e_step':10,
+                'n_e_step':5,
                 'v_start':200,
                 'n_reduce_step':10,
                 'v_expand_factor':0.2,
@@ -1601,7 +1601,9 @@ def write_vtk_data(fname,x,out,title,names=None):
         with open(fname,'ab') as f:
             # make sure big endian 
             if type_ == 'VECTORS':
-                out_ = np.array(out[i].transpose(1,2,3,0))
+                # put the vector component at the end
+                # on march 29, 2022, daniel flips zyx to xyz
+                out_ = np.array(out[i].transpose(1,2,3,0)[...,::-1])
             else:
                 f.write('LOOKUP_TABLE default\n'.encode())
                 out_ = np.array(out[i])
@@ -1761,6 +1763,8 @@ def read_vtk_data(fname,endian='b'):
                 data = data.reshape((dimensions[-1],dimensions[-2],dimensions[-3],3))
                 # move vector components first
                 data = data.transpose((3,0,1,2))
+                # with vector data we should flip xyz (file) to zyx (python) (added march 29)
+                data = np.copy(data[::-1])
             images.append(data)
             count += 1
         images = np.stack(images) # stack on axis 0
@@ -1873,23 +1877,66 @@ def write_data(fname,x,out,title,names=None):
 def write_matrix_data(fname,A):
     '''
     Write linear transforms as matrix text file.
+    Note that in python we use zyx order, 
+    but we write outputs in xyz order
     
     Parameter
     ---------
     fname : str
         Filename to write
     A : 2D array
-        Matrix data to write.
+        Matrix data to write. Assumed to be in zyx order.
         
     Returns
     -------
     None
     '''
+    # copy the matrix
+    A_ = np.zeros((A.shape[0],A.shape[1]))    
+    for i in range(A.shape[0]):
+        for j in range(A.shape[1]):
+            A_[i,j] = A[i,j]
+    
+    # swap zyx -> xyz, accounting for affine
+    A_[:-1] = A_[:-1][::-1]
+    A_[:,:-1] = A_[:,:-1][:,::-1]
     with open(fname,'wt') as f:
-        for i in range(A.shape[0]):
-            for j in range(A.shape[1]):                
-                f.write(f'{A[i,j]}, ')
+        for i in range(A_.shape[0]):
+            for j in range(A_.shape[1]):                
+                f.write(f'{A_[i,j]}')
+                if j < A_.shape[1]-1:
+                    f.write(', ')
             f.write('\n')
+# todo
+def read_matrix_data(fname):
+    '''
+    Read linear transforms as matrix text file.
+    Note in python we work in zyx order, but text files are in xyz order
+    
+    Parameters
+    ----------
+    fname : str
+    
+    Returns
+    -------
+    A : array
+        matrix in zyx order
+    '''
+    A = np.zeros((4,4))
+    with open(fname,'rt') as f:
+        i = 0
+        for line in f:
+            for j,num in enumerate(line.split(',')):
+                A[i,j] = float(num)
+            i += 1
+    
+    # if it is 3x3, then i is 3
+    A = A[:i,:i]
+    # swap xyz -> zyx, accounting for affine
+    A[:-1] = A[:-1][::-1]
+    A[:,:-1] = A[:,:-1][:,::-1]
+    return np.copy(A) # make copy to avoid negative strides
+
 
 # write outputs
 def write_transform_outputs(output_dir, src_space, dest_space, xJ, xI, output, src_path=''):
@@ -2177,11 +2224,15 @@ class Transform():
             # instead we load it
             prefix,extension = os.path.splitext(data)
             if extension == '.txt':
+                '''
                 data = np.genfromtxt(data,delimiter=',')                
                 # note that there are nans at the end if I have commas at the end
                 if np.isnan(data[0,-1]):
                     data = data[:,:data.shape[1]-1]
                     #print(data)
+                '''
+                # note on March 29, daniel adds the following and commented out the above
+                data = read_matrix_data(data)
             elif extension == '.vtk':
                 x,images,title,names = read_vtk_data(data)
                 domain = x
@@ -2636,7 +2687,18 @@ def write_outputs_for_pair(output_dir,outputs,
         fig,ax = draw(RAphiI,xJ)
         fig.suptitle('RAphiI')
         fig.savefig(os.path.join(qc_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
+
         
+def pad(xI,I,n,**kwargs):
+    '''
+    Pad an image and its domain.    
+    
+    Perhaps include here
+    '''
+    
+    pass
+    
+    
         
 # now we'll start building an interface
 if __name__ == '__main__':
