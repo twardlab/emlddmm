@@ -111,8 +111,7 @@ def BFS(adj, src, dest, v, pred, dist):
                     return True
   
     return False
-  
-  
+
 def find_shortest_path(adj, src, dest, v):
     """ Find Shortest Path
 
@@ -415,10 +414,14 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
         A2d = []
         for t in transforms_ls:
+            '''
             A2d_ = np.genfromtxt(os.path.join(transforms, t), delimiter=',')
             # note that there are nans at the end if I have commas at the end
             if np.isnan(A2d_[0, -1]):
                 A2d_ = A2d_[:, :A2d_.shape[1] - 1]
+            '''
+            # march 30, replace genfromtxt with read_matrix_data
+            A2d_ = emlddmm.read_matrix_data(os.path.join(transforms, t))
             A2d.append(A2d_)
 
         A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
@@ -475,10 +478,14 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
         A2d = []
         for t in transforms_ls:
+            '''
             A2d_ = np.genfromtxt(os.path.join(transforms, t), delimiter=',')
             # note that there are nans at the end if I have commas at the end
             if np.isnan(A2d_[0, -1]):
                 A2d_ = A2d_[:, :A2d_.shape[1] - 1]
+            '''
+            # march 30, replace genfromtxt with read_matrix_data
+            A2d_ = emlddmm.read_matrix_data(os.path.join(transforms, t))
             A2d.append(A2d_)
 
         A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
