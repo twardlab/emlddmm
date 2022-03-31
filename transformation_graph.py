@@ -275,14 +275,14 @@ def reg(dest, source, registration, config, out, labels=None):
     #     config['A'] = A
 
     # update sigma factors based on normalization
-    if 'sigmaR' in config:
-        config['sigmaR'][0] /= normJ
-    if 'sigmaA' in config:
-        config['sigmaA'][0] /= normJ
-    if 'sigmaB' in config:
-        config['sigmaB'][0] /= normJ
-    if 'sigmaM' in config:
-        config['sigmaM'][0] /= normJ
+    #if 'sigmaR' in config:
+    #    config['sigmaR'][0] /= normJ
+    #if 'sigmaA' in config:
+    #    config['sigmaA'][0] /= normJ
+    #if 'sigmaB' in config:
+    #    config['sigmaB'][0] /= normJ
+    #if 'sigmaM' in config:
+    #    config['sigmaM'][0] /= normJ
 
     device = 'cuda:0'
     # device = 'cpu'
