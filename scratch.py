@@ -320,9 +320,11 @@ import matplotlib.pyplot as plt
 # img = '/home/brysongray/emlddmm/transformation_graph_outputs/HIST_INPUT/HIST_REGISTERED_to_HIST_INPUT/images/HIST_REGISTERED_MD816-N1-2021.04.05-17.44.55_MD816_1_0001_to_HIST_INPUT_MD816-N1-2021.04.05-17.44.55_MD816_1_0001.vtk'
 img1 = '/home/brysongray/emlddmm/transformation_graph_outputs/MRI/HIST_INPUT_to_MRI/images/HIST_nissl_to_MRI.vtk'
 img2 = '/home/brysongray/emlddmm/transformation_graph_outputs/CCF/MRI_to_CCF/images/MRI_masked_to_CCF.vtk'
+CT_to_MRI = '/home/brysongraylocal/emlddmm/transformation_graph_outputs/MRI/CT_to_MRI/images/CT_masked_to_MRI.vtk'
+MRI_to_CT = '/home/brysongraylocal/emlddmm/transformation_graph_outputs/CT/MRI_to_CT/images/MRI_masked_to_CT.vtk'
 
-xJ, J, title, names = emlddmm.read_data(img1)
-xI, I, title, names = emlddmm.read_data(img2)
+xJ, J, title, names = emlddmm.read_data(CT_to_MRI)
+xI, I, title, names = emlddmm.read_data(MRI_to_CT)
 
 fig1 = emlddmm.draw(J,xJ)
 fig1[0].canvas.draw()

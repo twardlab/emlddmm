@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import argparse
+from argparse import RawTextHelpFormatter
 import pickle
 
 if torch.cuda.is_available():
@@ -16,7 +17,7 @@ dtype = torch.float
 
 # %%
 
-def add_edge(adj, spaces, src_space, dest_space, out):
+def add_edge(adj, spaces, src_space, dest_space, out, slice_matching=False):
     """ Add edge between two vertices in registration adjacency list.
 
     Adds the key:value pair, dest_space:('path/to/tranforms', 'direction') to the dict corresponding to source space in the adjacency list.
@@ -43,9 +44,13 @@ def add_edge(adj, spaces, src_space, dest_space, out):
     None
 
     """ 
- 
-    adj[spaces[src_space]][spaces[dest_space]] = (os.path.join(out,f'{dest_space}/{src_space}_to_{dest_space}/'), 'f')
-    adj[spaces[dest_space]][spaces[src_space]] = (os.path.join(out,f'{dest_space}/{src_space}_to_{dest_space}/'), 'b')
+    if slice_matching:
+        transforms_path = os.path.join(out,f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/')
+    else:
+        transforms_path = os.path.join(out,f'{dest_space}/{src_space}_to_{dest_space}/')
+
+    adj[spaces[src_space]][spaces[dest_space]] = (transforms_path, 'f')
+    adj[spaces[dest_space]][spaces[src_space]] = (transforms_path, 'b')
 
 
 def BFS(adj, src, dest, v, pred, dist):
@@ -111,7 +116,8 @@ def BFS(adj, src, dest, v, pred, dist):
                     return True
   
     return False
-
+  
+  
 def find_shortest_path(adj, src, dest, v):
     """ Find Shortest Path
 
@@ -222,7 +228,6 @@ def reg(dest, source, registration, config, out, labels=None):
     label_name = labels
     with open(config_file) as f:
         config = json.load(f)
-        f.close()
     # I'm getting this for initial downsampling for preprocessing
     downIs = config['downI']
     downJs = config['downJ']
@@ -289,12 +294,12 @@ def reg(dest, source, registration, config, out, labels=None):
     output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,device=device,full_outputs=False,**config)
     #write outputs
     print('saving transformations to ' + output_dir + '...')
-    emlddmm.write_transform_outputs(output_dir, src_space, dest_space, output[-1], src_path=src_path)
+    emlddmm.write_transform_outputs(output_dir, src_space, dest_space, output[-1], src_path)
     print('saving qc to ' + output_dir + '...')
     if label_name:
         # get labels
         xS,S,title,names = emlddmm.read_data(label_name,endian='l')
-        emlddmm.write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output[-1], xI, I, xJ, J, src_path=src_path, xS=xS, S=S.astype(float))
+        emlddmm.write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output[-1],xI,I,xJ,J,xS=xS,S=S.astype(float))
     else:
         emlddmm.write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output[-1],xI,I,xJ,J)
 
@@ -347,12 +352,19 @@ def run_registrations(reg_list):
 
     adj = [{} for i in range(len(spaces))]
 
+    # add edge to adj list
     for i in range(len(reg_list)):
         src_space = reg_list[i]['registration'][0][0]
-        src_img = reg_list[i]['registration'][0][1]
+        config_file = reg_list[i]['config']
+        with open(config_file) as f:
+            config = json.load(f)
+        if 'slice_matching' in config: # transforms get saved in {src_space}_REGISTERED_to_{dest_space} if slicematching
+            slice_matching = True
+        else:
+            slice_matching = False
         dest_space = reg_list[i]['registration'][1][0]
         out = reg_list[i]['output']
-        add_edge(adj, spaces, src_space, dest_space, out)
+        add_edge(adj, spaces, src_space, dest_space, out, slice_matching)
 
     return adj, spaces
 
@@ -414,14 +426,10 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
         A2d = []
         for t in transforms_ls:
-            '''
             A2d_ = np.genfromtxt(os.path.join(transforms, t), delimiter=',')
             # note that there are nans at the end if I have commas at the end
             if np.isnan(A2d_[0, -1]):
                 A2d_ = A2d_[:, :A2d_.shape[1] - 1]
-            '''
-            # march 30, replace genfromtxt with read_matrix_data
-            A2d_ = emlddmm.read_matrix_data(os.path.join(transforms, t))
             A2d.append(A2d_)
 
         A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
@@ -478,14 +486,10 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
         A2d = []
         for t in transforms_ls:
-            '''
             A2d_ = np.genfromtxt(os.path.join(transforms, t), delimiter=',')
             # note that there are nans at the end if I have commas at the end
             if np.isnan(A2d_[0, -1]):
                 A2d_ = A2d_[:, :A2d_.shape[1] - 1]
-            '''
-            # march 30, replace genfromtxt with read_matrix_data
-            A2d_ = emlddmm.read_matrix_data(os.path.join(transforms, t))
             A2d.append(A2d_)
 
         A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
@@ -683,33 +687,29 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
     return
 
 
-def main(argv):
+def main():
     """ 
 
-    Main function for parsing input arguments, running registrations and applying transformations.
-
-    Parameters
-    ----------
-    argv : command line arguments list
-        Arg parser looks for one argument, '--infile', which is a JSON file with the following entries:
-         1) "space_image_path": a list of lists, each containing the space name, image name, and path to an image or image series
-         2) "registrations": a list of lists, each containing two space-image pairs to be registered. e.g. [[["HIST", "nissl"], ["MRI", "masked"]],
-                                                                                                            [["MRI", "masked"], ["CCF", "average_template_50"]],
-                                                                                                            [["MRI", "masked"], ["CT", "masked"]]]
-         3) "configs": list of paths to registration config JSON files, the order of which corresponds to the order of registrations listed in the previous value.
-         4) "output": output directory which will be the output hierarchy root. If none is given, it is set to the current directory.
-         5) "transforms": transforms to apply after they are computed from registration. Only necessary if "transform_all" is False. Format is the same as for "registrations".
-         6) "transform_all": bool. applys all possible transformations given the transformation graph (adjacency list) formed by the registrations performed.
-
-    Returns
-    -------
-    None
+    Main function for parsing input arguments, calculating registrations and applying transformations.
 
     """
 
-    parser = argparse.ArgumentParser()
+    help_string = "Arg parser looks for one argument, \'--infile\', which is a JSON file with the following entries: \n\
+1) \"space_image_path\": a list of lists, each containing the space name, image name, and path to an image or image series. (Required)\n\
+2) \"registrations\": a list of lists, each containing two space-image pairs to be registered. e.g. [[[\"HIST\", \"nissl\"], [\"MRI\", \"masked\"]],\n\
+                                                                                                    [[\"MRI\", \"masked\"], [\"CCF\", \"average_template_50\"]],\n\
+                                                                                                    [[\"MRI\", \"masked\"], [\"CT\", \"masked\"]]]\n\
+                    If registrations were previously computed, this argument may be left out, and \"adj\" and \"spaces\" arguments can be used to apply transforms.\n\
+3) \"configs\": list of paths to registration config JSON files, the order of which corresponds to the order of registrations listed in the previous value. (Required if computing registrations)\n\
+4) \"output\": output directory which will be the output hierarchy root. If none is given, it is set to the current directory. (Required)\n\
+5) \"transforms\": transforms to apply after they are computed from registration. Only necessary if \"transform_all\" is False. Format is the same as \"registrations\".\n\
+6) \"transform_all\": bool. Applys all possible transformations given the transformation graph (adjacency list) formed by the registrations performed.\n\
+7) \"adj\": path to \"adjacency_list.p\" pickle file saved to output after performing registrations. (Only required for reconstructing images from previously computed registrations)\n\
+8) \"spaces\": path to \"spaces_dict.p\". Required with \"adj\" for reconstructing previously computed registrations."
+
+    parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
     parser.add_argument('--infile', nargs=1,
-                        help='JSON file to be processed',
+                        help=help_string,
                         type=argparse.FileType('r'))
     arguments = parser.parse_args()
 
@@ -759,7 +759,7 @@ def main(argv):
 
     print('output: ', output)
     print('space-name-path dict: ', sip)
-    if registrations:
+    if 'registrations' in locals():
         print('registrations: ', registrations)
         print('configs: ', configs)
 
@@ -792,12 +792,10 @@ def main(argv):
         transforms = []
         for i in sip.keys(): # for each space
             if os.path.isdir(sip[i][list(sip[i])[0]]): # if the path is a directory, then this is an image series
-                # TODO: this will need to be done differently when we have datasets with multiple histology series.
-                for r in range(len(registrations)): # get the image series that was used for registration. 
-                    if registrations[r][0][1] in sip[i].keys():
-                        dest_img = registrations[r][0][1] 
-                for k in sip[i].keys(): # for each image series in the space,
-                    transforms.append([[i, k], [i, dest_img]]) # add transform to registered space
+                '''We assume there is only one image series in the space. In the future, we plan to include
+                support for multiple stains in the same histology space.'''
+                dest_img = list(sip[i].keys())[0]
+                transforms.append([[i,dest_img],[i,dest_img]])
             for j in sip.keys(): # for every other space
                 if j == i:
                     continue
@@ -805,7 +803,7 @@ def main(argv):
                 for k in sip[i].keys(): # for each image in current space
                     transforms.append([[i, k], [j, dest_img]])
 
-    if transforms:
+    if 'transforms' in locals():
         print('transforms are: ')
         for i in transforms:
             print(str(i))
@@ -825,4 +823,4 @@ def main(argv):
 
 #%%
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
