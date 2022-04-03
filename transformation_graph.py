@@ -740,14 +740,10 @@ def main():
             spaces = pickle.load(open(input_dict["spaces"], "rb")) # if adj then there must also be spaces
         except KeyError:
             ("spaces must be included with adj. spaces is a dictionary of format \{\"spacename\": <space number>\, ...}, where the space number corresponds to the space number in the adjacency list.")
+    transform_all = False
     if "transform_all" in input_dict:
-        transform_all = input_dict["transform_all"]
-        if transform_all.casefold() == "true":
+        if input_dict["transform_all"].casefold() == "true":
             transform_all = True
-        else:
-            transform_all = False
-    else:
-        transform_all = False
 
     # convert space_image_path to dictionary of dictionaries. (image_name-path key-values in a dict of space-img key-values)
     sip = {} # space-image-path dictionary
