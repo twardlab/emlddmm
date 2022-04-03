@@ -15,6 +15,7 @@ import warnings
 # import nrrd
 # from scipy.spatial.distance import directed_hausdorff, dice
 # from medpy.metric import binary
+import tifffile as tf # for 16 bit tiff
 
 # display
 def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
@@ -1825,6 +1826,37 @@ def read_data(fname,**kwargs):
     elif ext == '.nrrd':
         print('opening with nrrd')
         raise Exception('NRRD not currently supported')
+    elif ext in ['.tif','.tiff','.jpg','.jpeg','.png']:
+        print('opening 2D image file')
+        if 'dx' not in kwargs:
+            warn('Voxel size dx not in keywords, using (1,1,1)')
+            dx = np.array([1.0,1.0,1.0])
+        if 'ox' not in kwargs:
+            warn('Origin not in keywords, using 0 for z, and image center for xy')
+            ox = [0.0,None,None]
+        if ext in ['.tif','.tiff']:
+            images = tf.imread(fname)
+        else:
+            images = plt.imread(fname)
+        # add leading dimensions and reshape
+        images = images[None].transpose(-1,0,1,2)
+        nI = images[1:].shape
+        x0 = np.arange(nI[0])*dx[0] + ox[0]
+        x1 = np.arange(nI[1])*dx[1]
+        if ox[1] is None:
+            x1 -= np.mean(x1)
+        else:
+            x1 += ox[1]
+        x2 = np.arange(nI[2])*dx[2]
+        if ox[2] is None:
+            x2 -= np.mean(x2)
+        else:
+            x2 += ox[2]
+        x = [x0,x1,x2]
+        title = ''
+        names = ['']            
+        
+        
     else:
         print('Opening with nibabel, note only 3D images supported')
         vol = nibabel.load(fname,**kwargs)
