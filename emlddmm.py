@@ -1971,7 +1971,7 @@ def read_matrix_data(fname):
 
 
 # write outputs
-def write_transform_outputs(output_dir, src_space, dest_space, xJ, xI, output, src_path=''):
+def write_transform_outputs(output_dir, src_space, dest_space, output, src_path=''):
     '''
     Write transforms output from emlddmm.  Velocity field, 3D affine transform,
     and 2D affine transforms for each slice if applicable.
@@ -1998,16 +1998,6 @@ def write_transform_outputs(output_dir, src_space, dest_space, xJ, xI, output, s
     device = A.device
     dtype = A.dtype
 
-    forward_dir = os.path.join(output_dir, f'{dest_space}/{src_space}_to_{dest_space}/transforms/')
-    if not os.path.isdir(forward_dir):
-        os.makedirs(forward_dir)
-
-    output_name = os.path.join(forward_dir, 'velocity.vtk')
-    title = 'velocity_field'
-    write_vtk_data(output_name,xv,v.cpu().numpy(),title)
-
-    output_name = os.path.join(forward_dir, 'A.txt')
-    write_matrix_data(output_name,A)
 
     if slice_outputs:
         slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
@@ -2023,9 +2013,31 @@ def write_transform_outputs(output_dir, src_space, dest_space, xJ, xI, output, s
             write_matrix_data(output_name,A2d[i])
             output_name = os.path.join(input_dir, f'{src_space}_INPUT_{slice_names[i]}_to_{src_space}_REGISTERED_{slice_names[i]}_matrix.txt')
             write_matrix_data(output_name, torch.inverse(A2d[i]))
-            
 
-def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output, xI, I, xJ, J, xS=None,S=None):
+        forward_dir = os.path.join(output_dir, f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/transforms/')
+        if not os.path.isdir(forward_dir):
+            os.makedirs(forward_dir)
+
+        output_name = os.path.join(forward_dir, 'velocity.vtk')
+        title = 'velocity_field'
+        write_vtk_data(output_name,xv,v.cpu().numpy(),title)
+
+        output_name = os.path.join(forward_dir, 'A.txt')
+        write_matrix_data(output_name,A)
+
+    else:
+        forward_dir = os.path.join(output_dir, f'{dest_space}/{src_space}_to_{dest_space}/transforms/')
+        if not os.path.isdir(forward_dir):
+            os.makedirs(forward_dir)
+
+        output_name = os.path.join(forward_dir, 'velocity.vtk')
+        title = 'velocity_field'
+        write_vtk_data(output_name,xv,v.cpu().numpy(),title)
+
+        output_name = os.path.join(forward_dir, 'A.txt')
+        write_matrix_data(output_name,A)
+
+def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output, xI, I, xJ, J, src_path='', xS=None,S=None):
     ''' 
     Write outputs
     TODO figure out how to do this with or without A2d
@@ -2185,10 +2197,16 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
 
     phiiAiJ = interp(xr,Jr,Aphi)
 
-    to_dest_space_out = os.path.join(output_dir,f'{dest_space}/{src_space}_to_{dest_space}/qc/')
-    if not os.path.isdir(to_dest_space_out):
-        os.makedirs(to_dest_space_out)
-    print(f'output dir is {to_dest_space_out}')
+    if slice_matching:
+        to_dest_space_out = os.path.join(output_dir,f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/qc/')
+        if not os.path.isdir(to_dest_space_out):
+            os.makedirs(to_dest_space_out)
+        print(f'output dir is {to_dest_space_out}')
+    else:
+        to_dest_space_out = os.path.join(output_dir,f'{dest_space}/{src_space}_to_{dest_space}/qc/')
+        if not os.path.isdir(to_dest_space_out):
+            os.makedirs(to_dest_space_out)
+        print(f'output dir is {to_dest_space_out}')
 
     fig = draw(phiiAiJ,xI)
     fig[0].suptitle(f'{src_space} {src_img} to {dest_space}')
@@ -2237,13 +2255,16 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         #f,ax = plt.subplots()
         #ax.imshow(show_[:,show.shape[1]//2].transpose(1,2,0))
         
+        # get slice names
+        slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
+        slice_names = sorted(slice_names, key=lambda x: x[-4:])
         f,ax = plt.subplots()
         for s in range(show_.shape[1]):
             ax.cla()
             ax.imshow(show_[:,s].transpose(1,2,0))
             ax.set_xticks([])
             ax.set_yticks([])
-            f.savefig(os.path.join(to_src_space_out,f'slice_{s:04d}.jpg'))
+            f.savefig(os.path.join(to_registered_out,f'{dest_space}_{dest_img}_to_{src_space}_REGISTERED_{slice_names[i]}.jpg'))
 
 
 class Transform():    

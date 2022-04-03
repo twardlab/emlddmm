@@ -14,5 +14,5 @@
     "output": "/home/brysongray/emlddmm/transformation_graph_outputs",
     "transforms": [[["HIST", "nissl"], ["CCF", "average_template_50"]],
                    [["MRI", "masked"], ["CT", "masked"]]],
-    "transform_all": "True"
+    "transform_all": "False"
 }
