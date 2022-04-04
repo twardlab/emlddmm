@@ -106,7 +106,10 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     extent = (xJ[2][0],xJ[2][-1],xJ[1][-1],xJ[1][0])
     for i in range(n_slices):
         ax = fig.add_subplot(3,n_slices,i+1)
-        ax.imshow(J[:,slices[i]].transpose(1,2,0).squeeze(-1),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
+        toshow = J[:,slices[i]].transpose(1,2,0)
+        if toshow.shape[-1] == 1:
+            toshow = toshow.squeeze(-1)
+        ax.imshow(toshow,vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
@@ -115,8 +118,11 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     slices = np.round(np.linspace(0,J.shape[2]-1,n_slices+2)[1:-1]).astype(int)    
     extent = (xJ[2][0],xJ[2][-1],xJ[0][-1],xJ[0][0])
     for i in range(n_slices):
-        ax = fig.add_subplot(3,n_slices,i+1+n_slices)        
-        ax.imshow(J[:,:,slices[i]].transpose(1,2,0).squeeze(-1),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
+        ax = fig.add_subplot(3,n_slices,i+1+n_slices)      
+        toshow = J[:,:,slices[i]].transpose(1,2,0)
+        if toshow.shape[-1] == 1:
+            toshow = toshow.squeeze(-1)
+        ax.imshow(toshow,vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
@@ -126,7 +132,10 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     extent = (xJ[1][0],xJ[1][-1],xJ[0][-1],xJ[0][0])
     for i in range(n_slices):        
         ax = fig.add_subplot(3,n_slices,i+1+n_slices*2)
-        ax.imshow(J[:,:,:,slices[i]].transpose(1,2,0).squeeze(-1),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
+        toshow = J[:,:,:,slices[i]].transpose(1,2,0)
+        if toshow.shape[-1] == 1:
+            toshow = toshow.squeeze(-1)
+        ax.imshow(toshow,vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
