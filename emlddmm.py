@@ -9,7 +9,7 @@ import nibabel
 import json
 import re
 import argparse
-import warnings
+from warnings import warn
 #from skimage import measure, filters
 #from mayavi import mlab
 # import nrrd
@@ -101,32 +101,32 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     axs = []
     axsi = []
     # ax0
-    slices = np.round(np.linspace(0,J.shape[1],n_slices+2)[1:-1]).astype(int)    
+    slices = np.round(np.linspace(0,J.shape[1]-1,n_slices+2)[1:-1]).astype(int)        
     # for origin upper (default), extent is x (small to big), then y reversed (big to small)
     extent = (xJ[2][0],xJ[2][-1],xJ[1][-1],xJ[1][0])
     for i in range(n_slices):
         ax = fig.add_subplot(3,n_slices,i+1)
-        ax.imshow(J[:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
+        ax.imshow(J[:,slices[i]].transpose(1,2,0).squeeze(-1),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
     axsi = []
     # ax1
-    slices = np.round(np.linspace(0,J.shape[2],n_slices+2)[1:-1]).astype(int)    
+    slices = np.round(np.linspace(0,J.shape[2]-1,n_slices+2)[1:-1]).astype(int)    
     extent = (xJ[2][0],xJ[2][-1],xJ[0][-1],xJ[0][0])
     for i in range(n_slices):
-        ax = fig.add_subplot(3,n_slices,i+1+n_slices)
-        ax.imshow(J[:,:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
+        ax = fig.add_subplot(3,n_slices,i+1+n_slices)        
+        ax.imshow(J[:,:,slices[i]].transpose(1,2,0).squeeze(-1),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
     axsi = []
     # ax2
-    slices = np.round(np.linspace(0,J.shape[3],n_slices+2)[1:-1]).astype(int)    
+    slices = np.round(np.linspace(0,J.shape[3]-1,n_slices+2)[1:-1]).astype(int)        
     extent = (xJ[1][0],xJ[1][-1],xJ[0][-1],xJ[0][0])
     for i in range(n_slices):        
         ax = fig.add_subplot(3,n_slices,i+1+n_slices*2)
-        ax.imshow(J[:,:,:,slices[i]].transpose(1,2,0).squeeze(),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
+        ax.imshow(J[:,:,:,slices[i]].transpose(1,2,0).squeeze(-1),vmin=vmin,vmax=vmax,aspect='equal',extent=extent,**kwargs)
         if i>0: ax.set_yticks([])
         axsi.append(ax)
     axs.append(axsi)
@@ -1827,7 +1827,39 @@ def read_data(fname,**kwargs):
         print('opening with nrrd')
         raise Exception('NRRD not currently supported')
     elif ext in ['.tif','.tiff','.jpg','.jpeg','.png']:
+        # 2D image file, I can specify dx and ox
+        # or I can search for a companion file
         print('opening 2D image file')
+        if 'dx' not in kwargs and 'ox' not in kwargs:
+            print('No geometry information provided')
+            print('Searching for geometry information files')
+            json_name = fname.replace(ext,'.json')
+            geometry_name = os.path.join(os.path.split(fname)[0],'geometry.csv')
+            if os.path.exists(json_name):
+                print('Found json sidecar')
+                raise Exception('json reader for single slice not implemented yet')            
+            elif os.path.exists(geometry_name):                
+                print('Found legacy geometry file')
+                with open(geometry_name,'rt') as f:
+                    for line in f:
+                        if os.path.split(fname)[-1] in line:
+                            #print(line)
+                            parts = line.split(',')
+                            # filename, nx,ny,nz,dx,dy,dz,ox,oy,oz
+                            nx = np.array([int(p) for p in parts[1:4]])
+                            #print(nx)
+                            dx = np.array([float(p) for p in parts[4:7]])
+                            #print(dx)
+                            ox = np.array([float(p) for p in parts[7:10]])
+                            #print(ox)
+                            # change xyz to zyx
+                            nx = nx[::-1]
+                            dx = dx[::-1]
+                            ox = ox[::-1]
+                            kwargs['dx'] = dx
+                            kwargs['ox'] = ox                                            
+            else:
+                print('did not found geomtry info, using some defaults')
         if 'dx' not in kwargs:
             warn('Voxel size dx not in keywords, using (1,1,1)')
             dx = np.array([1.0,1.0,1.0])
@@ -1838,9 +1870,15 @@ def read_data(fname,**kwargs):
             images = tf.imread(fname)
         else:
             images = plt.imread(fname)
-        # add leading dimensions and reshape
+        # convert to float
+        if images.dtype == np.uint8:
+            images = images.astype(float)/255.0
+        else:
+            images = images.astype(float) # this may do nothing if it is already float
+        
+        # add leading dimensions and reshape, note offset may be none in dims 1 and 2.
         images = images[None].transpose(-1,0,1,2)
-        nI = images[1:].shape
+        nI = images.shape[1:]
         x0 = np.arange(nI[0])*dx[0] + ox[0]
         x1 = np.arange(nI[1])*dx[1]
         if ox[1] is None:
@@ -1957,9 +1995,15 @@ def read_matrix_data(fname):
     A = np.zeros((4,4))
     with open(fname,'rt') as f:
         i = 0
-        for line in f:
-            for j,num in enumerate(line.split(',')):
-                A[i,j] = float(num)
+        for line in f:            
+            if ',' in line:
+                # we expect this to be a csv
+                for j,num in enumerate(line.split(',')):
+                    A[i,j] = float(num)
+            else:
+                # it may be separated by spaces
+                for j,num in enumerate(line.split(' ')):
+                    A[i,j] = float(num)
             i += 1
     
     # if it is 3x3, then i is 3
@@ -1969,6 +2013,78 @@ def read_matrix_data(fname):
     A[:,:-1] = A[:,:-1][:,::-1]
     return np.copy(A) # make copy to avoid negative strides
 
+
+
+# write vtk point data
+def write_vtk_polydata(fname,name,points,connectivity=None,connectivity_type=None):
+    '''
+    points should by Nx3 in zyx order
+    It will be written out in xyz order
+    connectivity should be lists of indices or nothing to write only cell data
+    
+    Parameters
+    ----------
+    fname : str
+        Filename to write
+    name : str
+        Dataset name
+    points : array
+        
+    connectivity : str
+        Array of arrays storing each connectivity element as integers that refer to the points, 
+        size number of points by number of dimensions (expected to be 3)
+    connectivity_type : str
+        Can by VERTICES, or POLYGONS, or LINES
+    
+    Returns
+    -------
+    nothing
+    
+    '''
+    # first we'll open the file
+    with open(fname,'wt') as f:
+        f.write('# vtk DataFile Version 2.0\n')
+        f.write(f'{name}\n')
+        f.write('ASCII\n')
+        f.write('DATASET POLYDATA\n')
+        f.write(f'POINTS {points.shape[0]} float\n')
+        for i in range(points.shape[0]):
+            f.write(f'{points[i][-1]} {points[i][-2]} {points[i][-3]}\n')
+                 
+        if (connectivity is None) or (connectivity_type.upper() == 'VERTICES'):
+            # lets try to add vertices
+            # the second number is how many numbers are below
+            # there is one extra number per line
+            f.write(f'VERTICES {points.shape[0]} {points.shape[0]*2}\n')            
+            for i in range(points.shape[0]):
+                f.write(f'1 {i}\n')
+        elif connectivity_type.upper() == 'POLYGONS':
+            nlines = len(connectivity)
+            ntot = 0
+            for c in connectivity:
+                ntot += len(c)
+            f.write(f'POLYGONS {nlines} {ntot+nlines}\n')
+            for line in connectivity:
+                f.write(f'{len(line)} ')
+                for l in line:
+                    f.write(f'{l} ')
+                f.write('\n')
+                pass
+        elif connectivity_type.upper() == 'LINES':
+            nlines = len(connectivity)
+            ntot = 0
+            for c in connectivity:
+                ntot += len(c)
+            f.write(f'LINES {nlines} {ntot+nlines}\n')
+            for line in connectivity:
+                f.write(f'{len(line)} ')
+                for l in line:
+                    f.write(f'{l} ')
+                f.write('\n')
+                
+# TODO
+# write a polydata reader
+                
 
 # write outputs
 def write_transform_outputs(output_dir, src_space, dest_space, output, src_path=''):
