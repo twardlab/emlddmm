@@ -8,7 +8,7 @@
     "registrations": [[["HIST", "nissl"], ["MRI", "masked"]],
                        [["MRI", "masked"], ["CCF", "average_template_50"]],
                        [["MRI", "masked"], ["CT", "masked"]]],
-    "configs": ["config787small.json",
+    "configs": ["configMD816_Nissl_to_MR.json",
                 "configMD816_MR_to_CCF.json",
                 "configMD816_MR_to_CT.json"],
     "output": "transformation_graph_outputs_daniel",
