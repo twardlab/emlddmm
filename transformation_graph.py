@@ -117,7 +117,6 @@ def BFS(adj, src, dest, v, pred, dist):
   
     return False
   
-  
 def find_shortest_path(adj, src, dest, v):
     """ Find Shortest Path
 
@@ -289,9 +288,20 @@ def reg(dest, source, registration, config, out, labels=None):
     #if 'sigmaM' in config:
     #    config['sigmaM'][0] /= normJ
 
+    # add black borders for extrapolation
+    # Note this feature may be removed
+    I[:,:2] = 0.0
+    I[:,-2:] = 0.0
+    I[:,:,0:2] = 0.0
+    I[:,:,-2:] = 0.0
+    I[:,:,:,:2] = 0.0
+    I[:,:,:,-2:] = 0.0
+    
     device = 'cuda:0'
     # device = 'cpu'
-    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,device=device,full_outputs=False,**config)
+    if 'device' not in config:
+        config['device'] = 'cpu'
+    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,full_outputs=False,**config)
     #write outputs
     print('saving transformations to ' + output_dir + '...')
     emlddmm.write_transform_outputs(output_dir, src_space, dest_space, output[-1], src_path)
