@@ -2091,8 +2091,76 @@ def write_vtk_polydata(fname,name,points,connectivity=None,connectivity_type=Non
                     f.write(f'{l} ')
                 f.write('\n')
                 
-# TODO
-# write a polydata reader
+
+def read_vtk_polydata(fname):
+    
+    '''
+    Read ascii vtk polydata from simple legacy files.
+    Assume file contains xyz order, they are converted to zyx for python
+    
+    Parameters
+    ----------
+    fname : str
+        The name of the file to read
+        
+    Returns
+    -------
+    points : numpy float array
+        nx3 array storing locations of points
+    connectivity : list of lists
+        list of indices containing connectivity elements
+    connectivity_type : str
+        VERTICES or LINES or POLYGONS
+    name : str
+        name of the dataset
+        
+    
+    '''
+    
+    with open(fname,'rt') as f:
+        points = []
+        connectivity = []
+        connectivity_type = ''
+        point_counter = -1
+        connectivity_counter = -1
+        count = 0
+        for line in f:
+            if count == 1:
+                # this line has name
+                name = line.strip()
+            if 'POINTS' in line.upper():
+                #print(f'found points {line}')
+                parts = line.split()
+                npoints = int(parts[1])
+                dtype = parts[2] # not using
+                point_counter = 0
+                continue
+            
+            if point_counter >= 0 and point_counter < npoints:
+                points.append(np.array([float(p) for p in reversed(line.split())])) # xyz -> zyx
+                point_counter += 1
+                if point_counter == npoints:
+                    point_counter = -2
+                    continue
+                    
+            if point_counter == -2 and connectivity_counter == -1:                
+                # next line should say connectivity type
+                parts = line.split()
+                connectivity_type = parts[0]
+                # next number should say number of connectivity entries
+                n_elements = int(parts[1])
+                n_indices = int(parts[2])
+                connectivity_counter = 0
+                continue
+            
+            if connectivity_counter >= 0 and connectivity_counter < n_elements:
+                # the first number specifies how many numbers follow
+                connectivity.append([int(i) for i in line.split()[1:]])
+            
+            count += 1
+                
+    
+    return np.stack(points),connectivity,connectivity_type,name
                 
 
 # write outputs
@@ -2873,9 +2941,302 @@ def pad(xI,I,n,**kwargs):
     
     Perhaps include here
     '''
-    
+    raise Exception('Not Implemented')
     pass
     
+def map_image(emlddmm_path, root_dir, from_space_name, to_space_name,
+              input_image_fname, output_image_directory=None,
+              from_slice_name=None, to_slice_name=None,use_detjac=False,
+              verbose=False,**kwargs):
+    '''
+    This function will map imaging data from one space to another. 
+    There are four cases:
+    1. 3D to 3D mapping: A single displacement field is used to map data
+    2. 3D to 2D mapping: A single displacement field is used to map data, 
+        a slice filename is needed in addition to a space
+    3. 2D to 2D mapping: A single matrix is used to map data.
+    4. 2D to 3D mapping: Currently not supported. Ideally this will output
+        data, and weights for a single slice, so it can be averaged with other slices.
+    
+    
+    Parameters
+    ----------
+    emlddmm_path : str
+        Path to the emlddmm python library, used for io
+    root_dir : str
+        The root directory of the output structure
+    from_space_name : str
+        The name of the space we are mapping data from
+    to_space_name : str
+        The name of the space we are mapping data to
+    input_image_fname : str
+        Filename of the input image to be transformed
+    output_image_fname : str
+        Filename of the output image after transformation. If None (default), it will be returned as a python variable but not written to disk.
+    from_slice_name : str
+        When transforming slice based image data only, we also need to know the filename of the slice the data came from.
+    to_slice_name : str
+        When transforming slice based image data only, we also need to know the filename of the slice the data came from.
+    use_detjac : bool
+        If the image represents a density, it should be transformed and multiplied by the Jacobian of the transformation
+    **kwargs : dict
+        Arguments passed to torch interpolation (grid_resample), e.g. padding_mode,
+    
+    Returns
+    -------
+    phiI : array
+        Transformed image
+    '''
+    
+    from os.path import split,join,splitext
+    from glob import glob     
+    from warnings import warn
+    warn(f'This function is experimental')
+    
+    # first load the image to be transformed
+    xI,I,title,names = read_data(input_image_fname)    
+    
+    # find the transformation we need, in each case I will load the appropriate data, and return a phi
+    transform_dir = join(root_dir,to_space_name,from_space_name + '_to_' + to_space_name,'transforms')
+    if from_slice_name is None and to_slice_name is None:
+        # This is case 1, 3D to 3D
+        files = glob(join(transform_dir,to_space_name +'_to_' + from_space_name + '_displacement.vtk'))
+        xD,D,title,names = read_data(files[0])        
+        D = D[0]
+        phi = D + np.stack(np.meshgrid(*xD,indexing='ij'))
+        if use_detjac:
+            detjac = np.linalg.det(np.stack(np.gradient(phi,xD[0][1]-xD[0][0], xD[1][1]-xD[1][0], xD[2][1]-xD[2][0], axis=(1,2,3))).permute(2,3,4,0,1))
+    elif from_slice_name is None and to_slice_name is not None:
+        # This is case 2, 3D to 2D
+        # we have a displacement field  
+        to_slice_name_ = splitext(split(to_slice_name)[-1])[0]
+        files = glob(join(transform_dir,to_space_name + '_' + to_slice_name_ + '_to_' + from_space_name + '_displacement.vtk'))
+        xD,D,title,names = read_data(files[0])        
+        D = D[0]
+        phi = D + np.stack(np.meshgrid(*xD,indexing='ij'))        
+        if use_detjac:
+            raise Exception('Detjac not currently supported for 3D to 2D')
+    elif from_slice_name is not None and to_slice_name is not None:        
+        # This is case 3, 2D to 2D, we have an xyz matrix        
+        to_slice_name_ = splitext(split(to_slice_name)[-1])[0]
+        from_slice_name_ = splitext(split(from_slice_name)[-1])[0]
+        files = glob(join(transform_dir,to_space_name + '_' + to_slice_name_ + '_to_' + from_space_name + '_' + from_slice_name_ + '_matrix.txt'))
+        if use_detjac:
+            warn('DetJac is 1 for 2D to 2D, so it is ignored')
+        data = read_matrix_data(files[0])
+        if verbose:
+            print('matrix data:')
+            print(data)
+        # we need to convert this to a displacement field
+        # to do this we need some image to get sample points
+        # we use the "to" slice image name
+        image_dir = join(root_dir,to_space_name,from_space_name + '_to_' + to_space_name,'images')
+        
+        testfile = glob(join(image_dir,'*' + splitext(from_slice_name)[0] + '*_to_*' + splitext(to_slice_name)[0] + '*.vtk'))
+        xS,J,_,_ = read_data(testfile[0])
+        Xs = np.stack(np.meshgrid(*xS,indexing='ij'))
+        # now we can build a phi
+        A = data
+        phi = ((A[:2,:2]@Xs[1:].transpose(1,2,3,0)[...,None])[...,0] + A[:2,-1]).transpose(-1,0,1,2)        
+        phi = np.concatenate((Xs[0][None],phi) )         
+        xD = xS
+        
+    elif from_slice_name is not None and to_slice_name is None:
+        # this is 2D to 3D we have a displacement field
+        raise Exception('2D to 3D not implemented yet, may not get implemented')
+    
+    # apply the transform to the image
+    # if desired calculate jacobian
+    if use_detjac:
+        raise Exception('Jacobian not implemented yet for with 2D slices')
+        
+    # todo, implement when I is int
+    phiI = interp(xI,I,phi,**kwargs)    
+    
+    if output_image_directory is not None:
+        # we need to go back to the four cases here
+        if from_slice_name is None and to_slice_name is None:
+            # case 1, 3d to 3d
+            outfname = join(output_image_directory,f'{from_space_name}_{splitext(split(input_image_fname)[-1])[0]}_to_{to_space_name}.vtk')
+            outtitle = split(splitext(outfname)[0])[-1]
+        elif from_slice_name is None and to_slice_name is not None:
+            # case 2, 3d to 2d
+            outfname = join(output_image_directory,f'{from_space_name}_{splitext(split(input_image_fname)[-1])[0]}_to_{to_space_name}_{split(splitext(to_slice_name)[0])[-1]}.vtk')
+            outtitle = split(splitext(outfname)[0])[-1]
+        elif from_slice_name is not None and to_slice_name is not None:
+            # case 3, 2d to 2d
+            outfname = join(output_image_directory,f'{from_space_name}_{split(splitext(from_slice_name)[0])[-1]}_{splitext(split(input_image_fname)[-1])[0]}_to_{to_space_name}_{split(splitext(to_slice_name)[0])[-1]}.vtk')
+            outtitle = split(splitext(outfname)[0])[-1]            
+        else:
+            # case 4, 2d to 3d
+            raise Exception('2D to 3D not supported')
+            
+        # a hack for slice thickness
+        if len(xD[0]) == 1:
+            xD[0] = np.array([xD[0][0],xD[0][0]+20.0])    
+        if verbose:
+            print(f'writing file with name {outfname} and title {outtitle}')
+        write_data(outfname,xD,phiI,outtitle)
+        
+        
+    return xD,phiI
+    
+    
+        
+def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
+              input_points_fname, output_points_directory=None,
+              from_slice_name=None, to_slice_name=None,use_detjac=False,
+              verbose=False,**kwargs):
+    '''    
+    For points we need to get the transforms in the opposite folder to images.
+    
+    This function will map imaging data from one space to another. 
+    There are four cases:
+    1. 3D to 3D mapping: A single displacement field is used to map data
+    2. 3D to 2D mapping: Currently not supported.
+    3. 2D to 2D mapping: A single matrix is used to map data.
+    4. 2D to 3D mapping: A single displacement field is used to map data, 
+        a slice filename is needed in addition to a space
+    
+    
+    Parameters
+    ----------
+    emlddmm_path : str
+        Path to the emlddmm python library, used for io
+    root_dir : str
+        The root directory of the output structure
+    from_space_name : str
+        The name of the space we are mapping data from
+    to_space_name : str
+        The name of the space we are mapping data to
+    input_points_fname : str
+        Filename of the input image to be transformed
+    output_directory_fname : str
+        Filename of the output image after transformation. If None (default), it will be returned as a python variable but not written to disk.
+    from_slice_name : str
+        When transforming slice based image data only, we also need to know the filename of the slice the data came from.
+    to_slice_name : str
+        When transforming slice based image data only, we also need to know the filename of the slice the data came from.
+    use_detjac : bool
+        If the image represents a density, it should be transformed and multiplied by the Jacobian of the transformation
+    **kwargs : dict
+        Arguments passed to torch interpolation (grid_resample), e.g. padding_mode,
+    
+    Returns
+    -------
+    phiP : array
+        Transformed points
+    connectivity : list of lists
+        Same connectivity entries as loaded data
+    connectivity_type : str
+        Same connectivity type as loaded data
+        
+    '''
+    
+    from os.path import split,join,splitext
+    from glob import glob    
+    from warnings import warn
+    warn(f'This function is experimental')
+    
+    # first load the points to be transformed
+    points,connectivity,connectivity_type,name = read_vtk_polydata(input_points_fname)    
+    
+    # find the transformation we need, in each case I will load the appropriate data, and return a phi
+    # note that for points we use the inverse to images
+    # transform_dir = join(root_dir,to_space_name,from_space_name + '_to_' + to_space_name,'transforms')
+    # above was for images
+    transform_dir = join(root_dir,from_space_name,to_space_name + '_to_' + from_space_name,'transforms')
+    if from_slice_name is None and to_slice_name is None:
+        # This is case 1, 3D to 3D
+        files = glob(join(transform_dir,from_space_name +'_to_' + to_space_name + '_displacement.vtk'))
+        xD,D,title,names = read_data(files[0])        
+        D = D[0]
+        phi = D + np.stack(np.meshgrid(*xD,indexing='ij'))
+        if use_detjac:
+            detjac = np.linalg.det(np.stack(np.gradient(phi,xD[0][1]-xD[0][0], xD[1][1]-xD[1][0], xD[2][1]-xD[2][0], axis=(1,2,3))).permute(2,3,4,0,1))
+    elif from_slice_name is None and to_slice_name is not None:
+        # This is case 2, 3D to 2D
+        # this one is not implemented
+        raise Exception('3D to 2D not implemented for points')
+        
+    elif from_slice_name is not None and to_slice_name is not None:        
+        # This is case 3, 2D to 2D, we have an xyz matrix        
+        to_slice_name_ = splitext(split(to_slice_name)[-1])[0]
+        from_slice_name_ = splitext(split(from_slice_name)[-1])[0]
+        file_search = join(transform_dir,from_space_name + '_' + from_slice_name_ + '_to_' + to_space_name + '_' + to_slice_name_ + '_matrix.txt')
+        files = glob(file_search)
+        if verbose:
+            print(file_search)
+            print(files)
+        if use_detjac:
+            warn('DetJac is 1 for 2D to 2D, so it is ignored')
+            
+        data = read_matrix_data(files[0])
+        if verbose:
+            print('matrix data:')
+            print(data)
+        # we do not need to convert this to a displacement field
+        phi = None
+        
+    elif from_slice_name is not None and to_slice_name is None:
+        # this is 2D to 3D we have a displacement field
+        from_slice_name_ = splitext(split(from_slice_name)[-1])[0]
+        file_search = join(transform_dir,from_space_name + '_' + from_slice_name_ + '_to_' + to_space_name + '_displacement.vtk')
+        if verbose:
+            print(file_search)
+        files = glob(file_search)
+        xD,D,title,names = read_data(files[0])        
+        D = D[0]
+        phi = D + np.stack(np.meshgrid(*xD,indexing='ij'))        
+        if use_detjac:
+            raise Exception('Detjac not currently supported for 2D to 3D')
+            
+    
+    # apply the transform to the image
+    # if desired calculate jacobian
+    if use_detjac:
+        raise Exception('Jacobian not implemented yet')
+            
+    if phi is not None:
+        # points is size N x 3
+        # we want 3 x 1 x 1 x N
+        points_ = points.transpose()[:,None,None,:]                
+        phiP = interp(xD,phi,points_,**kwargs)[:,0,0,:].T
+        
+    else:
+        phiP = data[:2,:2]@points[...,1:] + data[:2,-1]
+        phiP = np.concatenate((points[...,0][...,None],phiP),-1)
+        
+    
+    if output_points_directory is not None:        
+        # we need to go back to the four cases here
+        if from_slice_name is None and to_slice_name is None:
+            # case 1, 3d to 3d
+            outfname = join(output_points_directory,f'{from_space_name}_{splitext(split(input_points_fname)[-1])[0]}_to_{to_space_name}.vtk')
+            
+        elif from_slice_name is None and to_slice_name is not None:
+            # case 2, 3d to 2d
+            raise Exception('3D to 2D not supported')
+            
+        elif from_slice_name is not None and to_slice_name is not None:
+            # case 3, 2d to 2d
+            outfname = join(output_points_directory,f'{from_space_name}_{split(splitext(from_slice_name)[0])[-1]}_{splitext(split(input_points_fname)[-1])[0]}_to_{to_space_name}_{split(splitext(to_slice_name)[0])[-1]}.vtk')
+                    
+        else:
+            # case 4, 2d to 3d
+            outfname = join(output_points_directory,f'{from_space_name}_{split(splitext(from_slice_name)[0])[-1]}_{splitext(split(input_points_fname)[-1])[0]}_to_{to_space_name}.vtk')
+            
+            
+         
+        if verbose:
+            print(f'writing file with name {outfname}')
+        write_vtk_polydata(outfname,name,phiP,connectivity=connectivity,connectivity_type=connectivity_type)
+        
+        
+    return phiP, connectivity, connectivity_type, name
+    
+    
+        
     
         
 # now we'll start building an interface
