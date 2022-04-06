@@ -8,7 +8,7 @@
     "registrations": [[["HIST", "nissl"], ["MRI", "masked"]],
                        [["MRI", "masked"], ["CCF", "average_template_50"]],
                        [["MRI", "masked"], ["CT", "masked"]]],
-    "configs": ["/home/brysongray/emlddmm/config787small.json",
+    "configs": ["/home/brysongray/emlddmm/config816_Nissl_to_MR.json",
                 "/home/brysongray/emlddmm/configMD816_MR_to_CCF.json",
                 "/home/brysongray/emlddmm/configMD816_MR_to_CT.json"],
     "output": "/home/brysongray/emlddmm/transformation_graph_outputs",
