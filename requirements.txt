@@ -1,0 +1,8 @@
+numpy
+matplotlib
+nibabel
+scikit-image
+tifffile
+torch
+sphinx
+sphinx_rtd_theme

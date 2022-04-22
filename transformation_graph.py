@@ -131,7 +131,6 @@ def BFS(adj, src, dest, v, pred, dist):
   
     return False
   
-  
 def find_shortest_path(adj, src, dest, v):
     """ Find Shortest Path
 
@@ -331,9 +330,20 @@ def reg(dest, source, registration, config, out, labels=None):
     #if 'sigmaM' in config:
     #    config['sigmaM'][0] /= normJ
 
+    # add black borders for extrapolation
+    # Note this feature may be removed
+    I[:,:2] = 0.0
+    I[:,-2:] = 0.0
+    I[:,:,0:2] = 0.0
+    I[:,:,-2:] = 0.0
+    I[:,:,:,:2] = 0.0
+    I[:,:,:,-2:] = 0.0
+    
     device = 'cuda:0'
     # device = 'cpu'
-    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,device=device,full_outputs=False,**config)
+    if 'device' not in config:
+        config['device'] = 'cpu'
+    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,full_outputs=False,**config)
     #write outputs
     print('saving transformations to ' + output_dir + '...')
     emlddmm.write_transform_outputs(output_dir, src_space, dest_space, output[-1], src_path)
@@ -411,7 +421,7 @@ def run_registrations(reg_list):
     return adj, spaces
 
 
-def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path=''):
+def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path='', **kwargs):
     """ Apply Transformation
 
     Applies affine matrix and velocity field transforms to map dest points to src points. Saves displacement field from dest points to src points
@@ -435,17 +445,22 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         path to source image (image to be sampled on transformed points)
     dest_path: str
         path to destination image (image whos points are to be transformed)
+    **kwargs: optionally input xJ, J, xI, and I instead of loading images from files.
     
     Returns
     -------
     None
 
     """
-    # input: image to be transformed (src_path or I), img space to to which the source image will be matched (dest_path, J), adjacency list and spaces dict from run_registration, source and destination space names
-    # return: transfromed image
     
     # load source image
-    xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
+    if 'xJ' and 'J' in kwargs.keys():
+        xJ = kwargs['xJ']
+
+        J = kwargs['J']
+        J_title = ''
+    else:
+        xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
     J = J.astype(float)
     J = torch.as_tensor(J,dtype=dtype,device=device)
     xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
@@ -506,7 +521,12 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         return
 
     # load destination image
-    xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
+    if 'xI' and 'I' in kwargs.keys():
+        xI = kwargs['xI']
+        I = kwargs['I']
+        I_title = ''
+    else:
+        xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
     I = I.astype(float)
     I = torch.as_tensor(I, dtype=dtype, device=device)
     xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]

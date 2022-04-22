@@ -1,0 +1,42 @@
+{
+    "output": "your/output/directory",
+    "image_space_name": [
+        [
+            "CCF",
+            "STP",
+            "path/to/image0.vtk"
+        ],
+        [
+            "ExvivoMRI",
+            "T1",
+            "path/to/image1.vtk"
+        ]
+    ],
+    "registrations": [
+        [
+            [
+                "MRI",
+                "T1"
+            ],
+            [
+                "CCF",
+                "STP"
+            ]
+        ]
+    ],
+    "configs": [
+        "path/to/example/config.json"
+    ],
+    "transforms": [
+        [
+            [
+                "CCF",
+                "STP"
+            ],
+            [
+                "MRI",
+                "T1"
+            ]
+        ]
+    ]
+}
