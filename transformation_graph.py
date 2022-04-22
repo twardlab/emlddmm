@@ -43,6 +43,22 @@ def add_edge(adj, spaces, src_space, dest_space, out, slice_matching=False):
     -------
     None
 
+    Example
+    -------
+    >>> spaces = {'HIST': 0, 'MRI': 1, 'CCF': 2, 'CT': 3}
+    >>> adj = [{} for i in range(len(spaces))]
+
+    >>> print(adj)
+    [{}, {}, {}, {}]
+
+    >>> add_edge(adj, spaces, 'MRI', 'CCF', 'outputs')
+    >>> print(adj)
+    [{}, {2: ('outputs/CCF/MRI_to_CCF/', 'f')}, {1: ('outputs/CCF/MRI_to_CCF/', 'b')}, {}]
+
+    >>> add_edge(adj, spaces, 'HIST', 'MRI', 'outputs', slice_matching=True)
+    >>> print(adj)
+    [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')}, {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')}, {1: ('outputs/CCF/MRI_to_CCF/', 'b')}, {}]
+    
     """ 
     if slice_matching:
         transforms_path = os.path.join(out,f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/')
@@ -73,8 +89,6 @@ def BFS(adj, src, dest, v, pred, dist):
         stores predecessor of vertex i at pred[i]
     dist: list of ints
         stores distance (by number of vertices) of vertex i from source vertex
-
-
 
     Returns
     -------
@@ -139,6 +153,22 @@ def find_shortest_path(adj, src, dest, v):
     path : list of ints
         path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.
 
+
+    Example
+    -------
+    >>> adj = [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')},
+               {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+               {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
+               {}]
+    >>> path = find_shortest_path(adj, 0, 2, 4)
+    Shortest path length is: 2
+
+    >>> print(path)
+    [0,1,2]
+
+    >>> path = transformation_graph.find_shortest_path(adj, 0, 3, 4)
+    Given source and destination are not connected
+
     """
      
     pred=[0 for i in range(v)] # predecessor of space i in path from src to dest
@@ -146,7 +176,7 @@ def find_shortest_path(adj, src, dest, v):
   
     if (BFS(adj, src, dest, v, pred, dist) == False):
         print("Given source and destination are not connected")
-  
+        
     # path stores the shortest path
     path = []
     crawl = dest
@@ -158,8 +188,9 @@ def find_shortest_path(adj, src, dest, v):
      
     path.reverse()
 
-    # distance from source is in distance array
-    print("Shortest path length is: " + str(dist[dest]), end = '')
+    if len(path) > 1:
+        # distance from source is in distance array
+        print("Shortest path length is: " + str(dist[dest]), end = '')
 
     return path
 
@@ -180,6 +211,17 @@ def get_transformation(adj, path):
     -------
     transformation : list of strings
         list of file paths to sequence of transformations matching src to dest
+
+    Example
+    -------
+    >>> adj = [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')},
+               {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+               {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
+               {}]
+    >>> path = [0,1,2]
+    >>> transformation = get_transformation(adj, path)
+    >>> print(transformation)
+    [('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f'), ('outputs/CCF/MRI_to_CCF/', 'f')]
 
     """
     transformation = []
@@ -272,7 +314,7 @@ def reg(dest, source, registration, config, out, labels=None):
         A = np.array(config['A']).astype(float)
     else:
         A = np.eye(4)
-    print(A)
+    print('Initial affine: \n', A)
 
     # if 'slice_matching' not in config:
     #     # for simplicity I will add a translation manually

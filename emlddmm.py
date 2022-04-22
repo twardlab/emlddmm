@@ -18,7 +18,7 @@ from warnings import warn
 import tifffile as tf # for 16 bit tiff
 
 # display
-def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
+def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,**kwargs):    
     """ Draw 3D imaging data.
     
     Images are shown by sampling slices along 3 orthogonal axes.
@@ -34,7 +34,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         along axis i.  Note these are assumed to be uniformly spaced. The default
         is voxels of size 1.0.
     fig : matplotlib figure
-        A figure in which to draw pictures. Contents of hte figure will be cleared.
+        A figure in which to draw pictures. Contents of the figure will be cleared.
         Default is None, which creates a new figure.
     n_slices : int
         An integer denoting how many slices to draw along each axis. Default 5.
@@ -46,6 +46,8 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         A maximum value for windowing imaging data. Can also be a list of size C for
         windowing each channel separately. Defaults to None, which corresponds 
         to tha 0.999 quantile on each channel.
+    disp : bool
+        Figure display toggle
     kwargs : dict
         Other keywords will be passed on to the matplotlib imshow function. For example
         include cmap='gray' for a gray colormap
@@ -91,7 +93,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         J[J>1] = 1
         vmin = 0.0
         vmax = 1.0
-    # I will only sohw the first 3 channels
+    # I will only show the first 3 channels
     if J.shape[0]>3:
         J = J[:3]
     if J.shape[0]==2:
@@ -140,7 +142,10 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         axsi.append(ax)
     axs.append(axsi)
     
-    fig.subplots_adjust(wspace=0,hspace=0)  
+    fig.subplots_adjust(wspace=0,hspace=0)
+    if not disp:
+        plt.close(fig)
+
     return fig,axs
     
     
@@ -692,7 +697,7 @@ def emlddmm(**kwargs):
     xJ = kwargs['xJ']
     
     ##########################################################################################################
-    # everything else is optinal, defaults are below
+    # everything else is optional, defaults are below
     defaults = {'nt':5,
                 'eA':1e5,
                 'ev':2e3,
@@ -2232,11 +2237,11 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         if not os.path.isdir(to_input_out):
             os.makedirs(to_input_out)
         print(f'output dir is {to_input_out}')
-        fig = draw(J,xJ)
+        fig = draw(J,xJ,disp=False)
         fig[0].suptitle(f'{src_space} {src_img} input')
         fig[0].savefig(to_input_out+f'{src_space}_{src_img}_input.jpg')
 
-        fig = draw(AphiI,xJ)
+        fig = draw(AphiI,xJ,disp=False)
         fig[0].suptitle(f'{dest_space} {dest_img} to {src_space}')
         fig[0].savefig(to_input_out+f'{dest_space}_{dest_img}_to_{src_space}.jpg')
     else:
@@ -2245,11 +2250,11 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
             os.makedirs(to_src_space_out)
         print(f'output dir is {to_src_space_out}')
 
-        fig = draw(AphiI,xJ)
+        fig = draw(AphiI,xJ,disp=False)
         fig[0].suptitle(f'{dest_space} {dest_img} to {src_space}')
         fig[0].savefig(to_src_space_out+f'{dest_space}_{dest_img}_to_{src_space}.jpg')
 
-        fig = draw(J,xJ)
+        fig = draw(J,xJ,disp=False)
         fig[0].suptitle(f'{src_space} {src_img} Original')
         fig[0].savefig(to_src_space_out+f'{src_space}_{src_img}_original.jpg')
 
@@ -2285,7 +2290,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         Xs[...,1:] = (A2d[:,None,None,:2,:2]@XR[...,1:,None])[...,0] + A2d[:,None,None,:2,-1]
         Xs = Xs.permute(3,0,1,2)
         Jr = interp(xJ,J,Xs)
-        fig = draw(Jr,xr)
+        fig = draw(Jr,xr,disp=False)
         fig[0].suptitle(f'{src_space} {src_img} Registered')
         to_registered_out = os.path.join(output_dir,f'{src_space}_REGISTERED/{dest_space}_to_{src_space}_REGISTERED/qc/')
         if not os.path.isdir(to_registered_out):
@@ -2301,7 +2306,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
 
         # transform image
         AphiI = interp(xI,I,phiiAi)       
-        fig = draw(AphiI,xr)
+        fig = draw(AphiI,xr,disp=False)
         fig[0].suptitle(f'{dest_space} {dest_img} to {src_space} Registered')
         fig[0].savefig(to_registered_out + f'{dest_space}_{dest_img}_to_{src_space}_registered.jpg')
     else:
@@ -2333,11 +2338,11 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
             os.makedirs(to_dest_space_out)
         print(f'output dir is {to_dest_space_out}')
 
-    fig = draw(phiiAiJ,xI)
+    fig = draw(phiiAiJ,xI,disp=False)
     fig[0].suptitle(f'{src_space} {src_img} to {dest_space}')
     fig[0].savefig(to_dest_space_out+f'{src_space}_{src_img}_to_{dest_space}.jpg')
 
-    fig = draw(I,xI)
+    fig = draw(I,xI,disp=False)
     fig[0].suptitle(f'{dest_space} {dest_img} Original')
     fig[0].savefig(to_dest_space_out+f'{dest_space}_{dest_img}_original.jpg')
 
@@ -2351,7 +2356,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         R = (AphiS%mods[0])/mods[0]
         G = (AphiS%mods[1])/mods[1]
         B = (AphiS%mods[2])/mods[2]
-        fig = draw(np.stack((R,G,B)),xr)
+        fig = draw(np.stack((R,G,B)),xr,disp=False)
 
         # also outlines
         M = np.zeros_like(AphiS)
@@ -2390,7 +2395,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
             ax.set_xticks([])
             ax.set_yticks([])
             f.savefig(os.path.join(to_registered_out,f'{dest_space}_{dest_img}_to_{src_space}_REGISTERED_{slice_names[i]}.jpg'))
-
+        plt.close(f)
 
 class Transform():    
     '''
@@ -3063,7 +3068,7 @@ if __name__ == '__main__':
             S = S.astype(np.int32) # with int32 should be supported by torch
             print('Finished reading label image')
             print('Starting to write qc outputs')
-            write_qc_outputs(args.output,output,xI,I,xJ,J,xS=xI,S=S)
+            write_qc_outputs(args.output,output,xI,I,xJ,J,xS=xI,S=S) # TODO: qrite_qc_outputs input format has changed
             print('Finished writing qc outputs')
             
             
