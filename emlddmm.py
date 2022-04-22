@@ -58,6 +58,13 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         An array of matplotlib subplot axes containing each image.
 
 
+    Example
+    -------
+    Here is an example::
+
+       >>> example test
+
+
     """
     if type(J) == torch.Tensor:
         J = J.detach().clone().cpu()
