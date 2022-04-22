@@ -39,10 +39,6 @@ def add_edge(adj, spaces, src_space, dest_space, out, slice_matching=False):
     out: str
         path to registration outputs
 
-    Returns
-    -------
-    None
-
     Example
     -------
     >>> spaces = {'HIST': 0, 'MRI': 1, 'CCF': 2, 'CT': 3}
@@ -130,6 +126,7 @@ def BFS(adj, src, dest, v, pred, dist):
                     return True
   
     return False
+  
   
 def find_shortest_path(adj, src, dest, v):
     """ Find Shortest Path
@@ -241,8 +238,8 @@ def reg(dest, source, registration, config, out, labels=None):
         path to destination image
     source: str
         path to source image or series of images
-    registration: list of strings
-        List of two strings, giving source space name and destination space name.
+    registration: list
+        List containing two lists of strings, e.g. [["src_space","src_img"],["dest_space","dest_img"]].
         These are used for naming output files.
     config: str
         path to JSON configuration file specifying registration parameters
@@ -251,9 +248,15 @@ def reg(dest, source, registration, config, out, labels=None):
     labels: str
         path to labels image used for qc
 
-    Returns
+    Example
     -------
-    None
+    >>> dest = 'average_template_50.vtk'
+    >>> source = 'HR_NIHxCSHL_50um_14T_M1_masked.vtk'
+    >>> registration = [['MRI','masked'], ['CCF','average_template_50']]
+    >>> config = 'configMD816_MR_to_CCF.json'
+    >>> out = 'outputs/example_output'
+
+    >>> reg(dest, source, registration, config, out)
 
     """
     src_path = source
@@ -330,20 +333,9 @@ def reg(dest, source, registration, config, out, labels=None):
     #if 'sigmaM' in config:
     #    config['sigmaM'][0] /= normJ
 
-    # add black borders for extrapolation
-    # Note this feature may be removed
-    I[:,:2] = 0.0
-    I[:,-2:] = 0.0
-    I[:,:,0:2] = 0.0
-    I[:,:,-2:] = 0.0
-    I[:,:,:,:2] = 0.0
-    I[:,:,:,-2:] = 0.0
-    
     device = 'cuda:0'
     # device = 'cpu'
-    if 'device' not in config:
-        config['device'] = 'cpu'
-    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,full_outputs=False,**config)
+    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,device=device,full_outputs=False,**config)
     #write outputs
     print('saving transformations to ' + output_dir + '...')
     emlddmm.write_transform_outputs(output_dir, src_space, dest_space, output[-1], src_path)
@@ -361,7 +353,7 @@ def reg(dest, source, registration, config, out, labels=None):
 def run_registrations(reg_list):
     """ Run Registrations
 
-    Runs a sequence of registrations given by reg_list
+    Runs a sequence of registrations given by reg_list using reg method, which saves transformations and qc images.
 
     Parameters
     ----------
@@ -375,6 +367,24 @@ def run_registrations(reg_list):
         adjacency list of transformations between spaces
     spaces: dict
         user assigned space name strings each assigned an integer value as a key:value pair in a dictionary
+    
+    Example
+    -------
+    >>> reg_list = [{'registration':[['MRI','masked'],['CCF','average_template_50']],
+                     'source': 'HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+                     'dest': 'average_template_50.vtk',
+                     'config': 'configMD816_MR_to_CCF.json',
+                     'output': 'outputs/example_output'},
+                    {'registration':[['HIST','Nissl'],['MRI','masked']],
+                     'source': 'MD816_STIF',
+                     'dest': 'HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+                     'config': 'configMD816_Nissl_to_MR.json',
+                     'output': 'outputs/example_output'}]
+    >>> adj, spaces = run_registrations(reg_list)
+    >>> print(adj)
+    
+    >>> print(spaces)
+    {0:'MRI', 1:'CCF', 2:'HIST'}
 
     """
     # input: list of dicts of sources, targets, labels, configs, and the output dir 
@@ -421,7 +431,7 @@ def run_registrations(reg_list):
     return adj, spaces
 
 
-def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path='', **kwargs):
+def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path=''):
     """ Apply Transformation
 
     Applies affine matrix and velocity field transforms to map dest points to src points. Saves displacement field from dest points to src points
@@ -445,22 +455,17 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         path to source image (image to be sampled on transformed points)
     dest_path: str
         path to destination image (image whos points are to be transformed)
-    **kwargs: optionally input xJ, J, xI, and I instead of loading images from files.
     
     Returns
     -------
     None
 
     """
+    # input: image to be transformed (src_path or I), img space to to which the source image will be matched (dest_path, J), adjacency list and spaces dict from run_registration, source and destination space names
+    # return: transfromed image
     
     # load source image
-    if 'xJ' and 'J' in kwargs.keys():
-        xJ = kwargs['xJ']
-
-        J = kwargs['J']
-        J_title = ''
-    else:
-        xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
+    xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
     J = J.astype(float)
     J = torch.as_tensor(J,dtype=dtype,device=device)
     xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
@@ -521,12 +526,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         return
 
     # load destination image
-    if 'xI' and 'I' in kwargs.keys():
-        xI = kwargs['xI']
-        I = kwargs['I']
-        I_title = ''
-    else:
-        xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
+    xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
     I = I.astype(float)
     I = torch.as_tensor(I, dtype=dtype, device=device)
     xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
@@ -830,7 +830,7 @@ def main():
             src_path = sip[src_space][src_img]
             dest_path = sip[dest_space][dest_img]
 
-            reg_list.append({'registration': registrations[i], # registrsation is a list of strings: [src_space, dest_space],
+            reg_list.append({'registration': registrations[i], # registrsation format [[src_space, src_img], [dest_space, dest_img]]
                             'source': src_path,
                             'dest': dest_path,
                             'config': configs[i],
