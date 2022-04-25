@@ -184,6 +184,11 @@ def load_slices(target_name):
     Document describing dataset format here: TODO XXXXX
     documented XXXX
     
+    Raises
+    ------
+    Exception
+        If the first image is not present in the image series.
+
     """
     print('loading target images')
     fig,ax = plt.subplots()
@@ -363,6 +368,11 @@ def downsample_ax(I,down,ax,W=None):
     -------
     Id : array like
         The downsampled image.
+    
+    Raises
+    ------
+    Exception
+        If a mask (W) is included and ax == 0. 
     '''
     nd = list(I.shape)        
     nd[ax] = nd[ax]//down
@@ -489,6 +499,11 @@ def downsample_image_domain(xI,I,down,W=None):
         New voxel locations in the same format as xI
     Id : numpy array
         Downsampled image.
+    
+    Raises
+    ------
+    Exception
+        If the length of down and xI are not equal.
     '''
     if len(xI) != len(down):
         raise Exception('Length of down and xI must be equal')
@@ -683,6 +698,17 @@ def emlddmm(**kwargs):
     out : dict
         Returns a dictionary of outputs storing computing transforms. if full_outputs==True, 
         then more data is output including figures.
+    
+    Raises
+    ------
+    Exception
+        If the initial velocity does not have three components.
+    Exception
+        Local contrast transform requires either order = 1, or order > 1 and 1D atlas.
+    Exception
+        If order > 1. Local contrast transform not implemented yet except for linear.
+    Exception
+        Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale).
     
     
     '''
@@ -1578,10 +1604,11 @@ def write_vtk_data(fname,x,out,title,names=None):
         Name of the dataset
     names : list of str or None
         List of names for each dataset or None to use a default.        
-    
-    Returns
-    -------
-    None
+
+    Raises
+    ------
+    Exception
+        If out is not the right size.
     
     '''
     
@@ -1669,7 +1696,27 @@ def read_vtk_data(fname,endian='b'):
     images : numpy array
         Image with last three axes corresponding to spatial dimensions.  If 4D,
         first axis is channel.  If 5D, first axis is time, and second is xyz 
-        component of vector field.    
+        component of vector field.
+
+    Raises
+    ------
+    Exception
+        The first line should include vtk DataFile Version X.X
+    Exception
+        If the file contains data type other than BINARY.
+    Exception
+        If the dataset type is not STRUCTURED_POINTS.
+    Exception
+        If the dataset does not have either 3 or 4 axes.
+    Exception
+        If dataset does not contain POINT_DATA
+    Exception
+        If the file does not contain scalars or vectors.
+    
+    Warns
+    -----
+    If data not written in big endian
+        Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian="l" if you want little
     '''
     # TODO support skipping blank lines
     big = not (endian=='l')
@@ -1823,6 +1870,15 @@ def read_data(fname,**kwargs):
     names : list of str
         Names of each dataset (channel or time point)
     
+    Raises
+    ------
+    Exception
+        If file type is nrrd.
+    Exception
+        If data is a single slice, json reader does not support it.
+    Exception
+        If opening with Nibabel and the affine matrix is not diagonal.
+    
     '''
     # find the extension
     # if no extension use slice reader
@@ -1937,6 +1993,21 @@ def read_data(fname,**kwargs):
         
     return x,images,title,names
 def write_data(fname,x,out,title,names=None):
+    """ 
+    Write data
+
+    Raises
+    ------
+    Exception
+        If data is in .nii format, it must be grayscale.
+    Exception
+        If output is not .vtk or .nii/.nii.gz format.
+
+    Warns
+    -----
+    If data to be written uses extension .nii or .nii.gz
+        Writing image in nii fomat, no title or names saved
+    """
     base,ext = os.path.splitext(fname)
     if ext == '.gz':
         base,ext_ = os.path.splitext(base)
@@ -2476,6 +2547,20 @@ class Transform():
     '''
     A simple class for storing and applying transforms
     TODO: add another type for series of 2D transforms
+
+    Raise
+    -----
+    Exception
+        If transform is not a txt or vtk file.
+    Exception
+        if direction is not 'f' or 'b'.
+    Exception
+        When inputting a velocity field, if the domain is not included.
+    Exception
+        When inputting a matrix, if its shape is not 3x3 or 4x4.
+    Exception
+        When specifying a mapping, if the direction is 'b' (backward).
+
     '''
     def __init__(self,data,direction='f',domain=None,dtype=torch.float,device='cpu'):
         if type(data) == str:
@@ -2516,7 +2601,7 @@ class Transform():
             else:
                 # assum this is a velocity field and integrate it
                 if self.domain is None:
-                    raise Exception('Domain is required when inputting veloctiy field')
+                    raise Exception('Domain is required when inputting velocity field')
                 if self.direction == 'b':
                     self.data = v_to_phii(self.domain,self.data)
                 else:
@@ -2584,7 +2669,15 @@ def compose_sequence(transforms,Xin,direction='f'):
     Otherwise, the input must be a list.  It can be a list of strings, or transforms, or string-direction tuples.
     
     What if it is a list of length 1?
-    
+
+    Raises
+    ------
+    Exception
+        Transforms must be either output directory,
+        or list of objects, or list of filenames,
+        or list of tuples storing filename/direction.
+    Exception
+
     '''
     
     print(f'starting to compose sequence with transforms {transforms}')    
@@ -2672,6 +2765,11 @@ def apply_transform_int(x,I,Xout,double=True,**kwargs):
     There is an issue with numpy integer arrays, I'll have two functions
     
     Note that we often require double precision when converting to floats and back
+
+    Raises
+    ------
+    Exception
+        If mode is not 'nearest' for ints.
     '''
     if type(I) == np.array:
         isnumpy = True
@@ -2735,6 +2833,11 @@ def write_outputs_for_pair(output_dir,outputs,
         Target image
     names : str
         Names of spaces;images otherwise will use default
+    
+    Raises
+    ------
+    Exception
+        If not slice_matching.
     
     '''
     if atlas_space_name is None:
@@ -2998,6 +3101,20 @@ def map_image(emlddmm_path, root_dir, from_space_name, to_space_name,
     -------
     phiI : array
         Transformed image
+    
+    Raises
+    ------
+    Exception
+        If use_detjac set to True for 3D to 2D mapping. Detjac not currently supported for 3D to 2D.
+    Exception
+        2D to 3D not implemented yet, may not get implemented.
+    Exception
+        Jacobian not implemented yet for 2D slices.
+
+    Warns
+    -----
+    DetJac is ignored if mapping is 2D to 2D.
+
     '''
     
     from os.path import split,join,splitext
@@ -3060,7 +3177,7 @@ def map_image(emlddmm_path, root_dir, from_space_name, to_space_name,
     # apply the transform to the image
     # if desired calculate jacobian
     if use_detjac:
-        raise Exception('Jacobian not implemented yet for with 2D slices')
+        raise Exception('Jacobian not implemented yet for 2D slices')
         
     # todo, implement when I is int
     phiI = interp(xI,I,phi,**kwargs)    
@@ -3142,7 +3259,20 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
         Same connectivity entries as loaded data
     connectivity_type : str
         Same connectivity type as loaded data
-        
+    
+    Raises
+    ------
+    Exception
+        3D to 2D mapping is not implemented for points.
+    Exception
+        If use_detjac set to True for 2D to 3D mapping. Detjac not currently supported for 2D to 3D
+    Exception
+        If use_detjac set to True. Jacobian is not implemented yet.
+    Exception
+        If attempting to map points from 3D to 2D. 
+    Warns
+    -----
+    DetJac is ignored if mapping is 2D to 2D.    
     '''
     
     from os.path import split,join,splitext
@@ -3253,6 +3383,30 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
         
 # now we'll start building an interface
 if __name__ == '__main__':
+    """
+    Raises
+    ------
+    Exception
+        If mode is 'register' and 'config' argument is None.
+    Exception
+        If mode is 'register' and atlas name is not specified.
+    Exception
+        If atlas image is not 3D.
+    Exception
+        If mode is 'register' and target name is not specified.
+    Exception
+        If target image is not a directory (series of slices), and it is not 3D.
+    Exception
+        If mode is 'transform' and the transform does not include direction ('f' or 'b').
+    Exception
+        If transform direction is not f or b.
+    Exception
+        If mode is 'transform' and neither atlas name nor label name is specified.
+    Exception
+        If mode is 'transform' and target name is not specified.
+    
+
+    """
     # set up command line args
     # we will either calculate mappings or apply mappings
     parser = argparse.ArgumentParser(description='Calculate or apply mappings, or run a specified pipeline.', epilog='Enjoy')
@@ -3298,7 +3452,7 @@ if __name__ == '__main__':
     if args.mode == 'register':   
         print('Starting register pipeline')    
         if args.config is None:
-            raise Exception('Config file option be set to run registration')
+            raise Exception('Config file option must be set to run registration')
         
         print(f'Making output directory {args.output}')
         if not os.path.isdir(args.output):
