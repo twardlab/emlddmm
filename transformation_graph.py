@@ -153,9 +153,9 @@ def find_shortest_path(adj, src, dest, v):
     Example
     -------
     >>> adj = [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')},
-               {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
-               {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
-               {}]
+    ...        {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+    ...        {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
+    ...        {}]
     >>> path = find_shortest_path(adj, 0, 2, 4)
     Shortest path length is: 2
 
@@ -211,9 +211,9 @@ def get_transformation(adj, path):
     Example
     -------
     >>> adj = [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')},
-               {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
-               {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
-               {}]
+    ...        {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+    ...        {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
+    ...        {}]
     >>> path = [0,1,2]
     >>> transformation = get_transformation(adj, path)
     >>> print(transformation)
@@ -333,9 +333,10 @@ def reg(dest, source, registration, config, out, labels=None):
     #if 'sigmaM' in config:
     #    config['sigmaM'][0] /= normJ
 
-    device = 'cuda:0'
-    # device = 'cpu'
-    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,device=device,full_outputs=False,**config)
+    if 'device' not in config:
+        config['device'] = 'cuda:0'
+        # config['device'] = 'cpu'
+    output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,full_outputs=False,**config)
     #write outputs
     print('saving transformations to ' + output_dir + '...')
     emlddmm.write_transform_outputs(output_dir, src_space, dest_space, output[-1], src_path)
@@ -382,9 +383,12 @@ def run_registrations(reg_list):
                      'output': 'outputs/example_output'}]
     >>> adj, spaces = run_registrations(reg_list)
     >>> print(adj)
-    
+    [{1: ('outputs/example_output/CCF/MRI_to_CCF/', 'f'), 2: ('outputs/example_output/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+     {0: ('outputs/example_output/CCF/MRI_to_CCF/', 'b')},
+     {0: ('outputs/example_output/MRI/HIST_REGISTERED_to_MRI/', 'f')}]
+
     >>> print(spaces)
-    {0:'MRI', 1:'CCF', 2:'HIST'}
+    {'MRI': 0, 'CCF': 1, 'HIST': 2}
 
     """
     # input: list of dicts of sources, targets, labels, configs, and the output dir 
@@ -431,7 +435,7 @@ def run_registrations(reg_list):
     return adj, spaces
 
 
-def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path=''):
+def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path, dest_path):
     """ Apply Transformation
 
     Applies affine matrix and velocity field transforms to map dest points to src points. Saves displacement field from dest points to src points
@@ -456,10 +460,14 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
     dest_path: str
         path to destination image (image whos points are to be transformed)
     
-    Returns
+    Example
     -------
-    None
-
+    >>> adj = [{1: ('outputs/example_output/CCF/MRI_to_CCF/', 'f'), 2: ('outputs/example_output/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+    ... {0: ('outputs/example_output/CCF/MRI_to_CCF/', 'b')},
+    ... {0: ('outputs/example_output/MRI/HIST_REGISTERED_to_MRI/', 'f')}]
+    >>> spaces = {'MRI': 0, 'CCF': 1, 'HIST': 2}
+    >>> apply_transformation(adj, spaces, 'MRI', 'masked', 'CCF', 'outputs/example_output',
+    ... 'HR_NIHxCSHL_50um_14T_M1_masked.vtk', 'average_template_50.vtk')
     """
     # input: image to be transformed (src_path or I), img space to to which the source image will be matched (dest_path, J), adjacency list and spaces dict from run_registration, source and destination space names
     # return: transfromed image
@@ -750,9 +758,13 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
 
 def main():
-    """ 
+    """ Main
 
     Main function for parsing input arguments, calculating registrations and applying transformations.
+
+    Example
+    -------
+    $ python transformation_graph.py --infile GDMInput.json
 
     """
 
