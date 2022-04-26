@@ -667,9 +667,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
         # write out determinant of jacobian (detjac) of the transformed coordinates
         dv = [(x[1]-x[0]).to('cpu') for x in xI]
-        jacobian = lambda X,dv : np.stack((np.stack(np.gradient(X[0,0], dv[0], dv[1], dv[2]), axis=-1), 
-                                           np.stack(np.gradient(X[0,1], dv[0], dv[1], dv[2]), axis=-1),
-                                           np.stack(np.gradient(X[0,2], dv[0], dv[1], dv[2]), axis=-1)), axis=-1)
+        jacobian = lambda disp,dv : np.stack(np.gradient(disp[0], dv[0],dv[1],dv[2], axis=(1,2,3))).transpose(2,3,4,0,1)
         J = jacobian(X,dv)
         detjac = np.linalg.det(J)
         if J_title == 'slice_dataset':
