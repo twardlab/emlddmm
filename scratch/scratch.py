@@ -768,5 +768,5 @@ img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
 xJ, J, title, name = emlddmm.read_data(img)
 
 draw(J,xJ)[0].savefig('outputs/savefig_test')
-# f = draw(J,xJ, fig)
+
 # %%

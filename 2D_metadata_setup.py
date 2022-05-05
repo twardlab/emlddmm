@@ -11,6 +11,30 @@ from PIL import Image
 
 
 def downsample_slices(subject_dir, output_dir, slice_downfactor=None, image_downfactor=None):
+    """ Downsample Slices
+
+    Copy a subset of optionally downsampled 2D images to the output directory.
+
+    Parameters
+    ----------
+    subject_dir: str
+        Path to image series
+    output_dir: str
+        Output path
+    slice_downfactor: int
+        Specifies n, where every nth image will be copied to the output folder.
+    image_downfactor: int
+        Image downsampling factor.
+
+    Example
+    -------
+    
+
+    Raises
+    ------
+
+
+    """
     try:
         fnames = os.listdir(subject_dir)
     except FileNotFoundError:
@@ -46,6 +70,7 @@ def downsample_slices(subject_dir, output_dir, slice_downfactor=None, image_down
     fpaths_down = [os.path.join(subject_dir,x) for x in fnames_down]
 
     for i in range(len(fpaths_down)):
+        # downsample images if specified
         if image_downfactor:
             img = plt.imread(fpaths_down[i])
             img_resized = resize(img, (img.shape[0] // image_downfactor, img.shape[1] // image_downfactor),\
@@ -56,6 +81,22 @@ def downsample_slices(subject_dir, output_dir, slice_downfactor=None, image_down
 
 
 def make_samples_tsv(subject_dir, max_slice=None):
+    """ Make 'samples.tsv' file
+    
+    Saves a tsv file listing the images in the folder.
+
+    Parameters
+    ----------
+    subject_dir: path
+        Path to the dataset.
+    
+    Example
+    -------
+    
+    Raises
+    ------
+    
+    """
     # create list of files from source directory (subject_dir) in order of slice number
     try:
         fnames = os.listdir(subject_dir)
@@ -102,6 +143,30 @@ def make_samples_tsv(subject_dir, max_slice=None):
 # Set up metadata JSON file
 # Need Pixel Size, field of view, thickness, offset
 def generate_sidecars(subject_dir, max_slice=None, dtype='uint8', dv=[14.72,14.72,10.], slice_downfactor=None):
+    """ Generate Sidecar Files
+    
+    Saves out JSON format sidecare files for each image in the dataset.
+
+    Parameters
+    ----------
+    subject_dir: str
+        Path to image series
+    max_slice: int
+        Number of slices in the original dataset (used to calcuate spatial information for the slices).
+    dtype: str
+        Image data type
+    dv: list of float
+        voxel spacing in microns (ordered: row, col, slice)
+    slice_downfactor: int
+        Factor used to reduce the number of images from the original dataset. 
+
+    Example
+    -------
+
+    Raises
+    ------
+
+    """
     try:
         fnames = os.listdir(subject_dir)
     except FileNotFoundError:
