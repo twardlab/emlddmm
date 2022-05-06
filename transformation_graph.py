@@ -443,7 +443,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
     Parameters
     ----------
-    adj : list of dicts
+    adj: list of dicts
         adjacency list of transformations between spaces
     spaces: dict
         user assigned space name strings each assigned an integer value as a key:value pair in a dictionary
@@ -476,7 +476,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
     xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
     J = J.astype(float)
     J = torch.as_tensor(J,dtype=dtype,device=device)
-    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
+    xJ = [torch.as_tensor(np.copy(x),dtype=dtype,device=device) for x in xJ]
 
     '''in the special case of transforming an image series to the same space, e.g. [[HIST, nissl], [HIST, nissl]], we output HIST_INPUT_to_HIST_REGISTERED images.
         TODO: in the future, we should be able to align different histology stains, e.g. [[HIST, myelin], [HIST, nissl]]. In this case two rigid transformations are needed,
@@ -537,7 +537,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
     xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
     I = I.astype(float)
     I = torch.as_tensor(I, dtype=dtype, device=device)
-    xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
+    xI = [torch.as_tensor(np.copy(x),dtype=dtype,device=device) for x in xI]
 
     slice_matching = 'slice_dataset' in [I_title, J_title]
     # if slice_matching then construct the reconstructed space XR
@@ -613,7 +613,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
     # get displacement
     if I_title == 'slice_dataset':
         # for input disp we need to apply compose_sequence to  A2di @ X_series to get Xin and then input_disp = Xin - X_series
-        input_disp = (Xin - X_series.permute(3,0,1,2).cpu())[None] #TODO: check on this, I'm still not sure.
+        input_disp = (Xin - X_series.permute(3,0,1,2).cpu())[None]
         registered_disp = (X - XR.permute(3,0,1,2).cpu())[None]
         
         # save out displacement from input and from registered space
@@ -667,16 +667,16 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
         # write out determinant of jacobian (detjac) of the transformed coordinates
         dv = [(x[1]-x[0]).to('cpu') for x in xI]
-        jacobian = lambda disp,dv : np.stack(np.gradient(disp[0], dv[0],dv[1],dv[2], axis=(1,2,3))).transpose(2,3,4,0,1)
-        J = jacobian(X,dv)
-        detjac = np.linalg.det(J)
+        jacobian = lambda X,dv : np.stack(np.gradient(X, dv[0],dv[1],dv[2], axis=(1,2,3))).transpose(2,3,4,0,1)
+        jac = jacobian(X,dv)
+        detjac = np.linalg.det(jac)
         if J_title == 'slice_dataset':
             output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_REGISTERED_detjac.vtk')
             title = f'{dest_space}_to_{src_space}_REGISTERED_detjac'
         else:
             output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_detjac.vtk')
             title = f'{dest_space}_to_{src_space}_detjac'
-        emlddmm.write_vtk_data(output_name, xI, detjac, title)
+        emlddmm.write_vtk_data(output_name, xI, detjac[None], title)
 
     # now apply transformation to image
     # if slice_matching and the source is 2d series, then use xr and Jr
