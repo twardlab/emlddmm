@@ -1808,7 +1808,7 @@ def read_vtk_data(fname,endian='b'):
                 raise Exception(f'Only scalars or vectors supported but this file contains {S_V}')        
             
             if '(b)' not in name and big: 
-                warnings.warn(f'Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian="l" if you want little')
+                warn(f'Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian="l" if you want little')
                             
             dtype_numpy = dtypes_reverse[dtype]
             if big:
@@ -2028,7 +2028,7 @@ def write_data(fname,x,out,title,names=None):
         affine[:3,-1] = np.array((x[0][0],x[1][0],x[2][0]))
         img = nibabel.Nifti1Image(out, affine)
         nibabel.save(img, fname)  
-        warnings.warn('Writing image in nii fomat, no title or names saved')
+        warn('Writing image in nii fomat, no title or names saved')
 
         
     else:

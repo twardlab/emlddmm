@@ -217,6 +217,7 @@
 
 
 # %%
+from ssl import ALERT_DESCRIPTION_BAD_CERTIFICATE_HASH_VALUE
 import numpy as np
 import emlddmm
 import torch
@@ -621,6 +622,7 @@ transformation = transformation_graph.get_transformation(adj, path)
 print(transformation)
 # %%
 # reg example
+import transformation_graph
 
 dest = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
 source  = '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
@@ -635,7 +637,7 @@ transformation_graph.reg(dest, source, registration, config, out)
 import torch
 import numpy as np
 
-def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
+def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,**kwargs):    
     """ Draw 3D imaging data.
     
     Images are shown by sampling slices along 3 orthogonal axes.
@@ -758,15 +760,153 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
     axs.append(axsi)
     
     fig.subplots_adjust(wspace=0,hspace=0)
-    plt.close(fig)  
+    if not disp:
+        plt.close(fig)
+
     return fig,axs
 # %%
 import emlddmm
 import matplotlib.pyplot as plt
-
+import numpy as np
 img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
 xJ, J, title, name = emlddmm.read_data(img)
+J = J.astype('float64')
+print(J.dtype)
+print(type(J))
+vmin = np.quantile(J,0.001,axis=(-1,-2,-3))
+vmax = np.quantile(J,0.999,axis=(-1,-2,-3))
+vmin = np.array(vmin)
+vmax = np.array(vmax)
+print(vmax.dtype)
+print(type(vmax))
+vmax = np.array([0.0])
+J -= vmin[:,None,None,None]
+J /= (vmax[:,None,None,None] - vmin[:,None,None,None])
+#%%
+# fig = draw(J,xJ,disp=False)
+f,ax = plt.subplots()
+ax.cla()
+ax.imshow(J[0][132])
+plt.close()
+# plt.close()
+# fig[0].savefig('outputs/savefig_test')
+# f = draw(J,xJ, fig)
+# %%
+import transformation_graph
 
-draw(J,xJ)[0].savefig('outputs/savefig_test')
+# run_registration example
 
+reg_list = [{'registration':[['MRI','masked'],['CCF','average_template_50']],
+             'source': '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+             'dest': '/home/brysongray/data/MD816_mini/average_template_50.vtk',
+             'config': 'examples/configMD816_MR_to_CCF.json',
+             'output': 'outputs/example_output'},
+            {'registration':[['HIST','Nissl'],['MRI','masked']],
+             'source': '/home/brysongray/data/MD816_mini/MD816_STIF_mini',
+             'dest': '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+             'config': 'examples/configMD816_Nissl_to_MR.json',
+             'output': 'outputs/example_output'}]
+adj,spaces = transformation_graph.run_registrations(reg_list)
+# %%
+import emlddmm
+import numpy as np
+
+img = '/home/brysongray/data/MD816_mini/HR_NIHxCSHL_50um_14T_M1_masked.vtk'
+# img = '/home/brysongray/data/MD816_mini/average_template_50.vtk'
+disp_path = '/home/brysongray/emlddmm/outputs/transformation_graph_4-6_outputs/MRI/CCF_to_MRI/transforms/MRI_to_CCF_displacement.vtk'
+xI, I, name, title = emlddmm.read_data(img)
+_,disp,_,_ = emlddmm.read_data(disp_path)
+
+dv = [(x[1]-x[0]) for x in xI]
+
+
+#%%
+grad = np.gradient(disp[0,0], dv[0],dv[1],dv[2])#, axis=(-1,-2,-3))
+print([x.shape for x in grad])
+
+# %%
+# jacobian = lambda disp,dv : np.stack((np.stack(np.gradient(disp[0,0], dv[0], dv[1], dv[2]), axis=-1), 
+#                                       np.stack(np.gradient(disp[0,1], dv[0], dv[1], dv[2]), axis=-1),
+#                                       np.stack(np.gradient(disp[0,2], dv[0], dv[1], dv[2]), axis=-1)), axis=-1)
+
+# J = jacobian(disp,dv)
+
+jacobian2 = lambda X,dv : np.stack(np.gradient(X, dv[2],dv[1],dv[0], axis=(1,2,3))).transpose(2,3,4,0,1)
+
+J2 = jacobian2(disp[0],dv)
+detjac = np.linalg.det(J2)
+# print(np.allclose(J,J2))
+
+#%%
+import emlddmm
+import nibabel as nib
+import nibabel.processing
+import skimage
+import numpy as np
+#%%
+target_f = '/home/brysongray/emlddmm/tests/194062_red_mm_SLA.nii.gz'
+template_f = '/home/brysongray/emlddmm/tests/average_template_25_mm_ASL.nii.gz'
+J_ = nib.load(target_f)
+J = J_.get_fdata()
+I_ = nib.load(template_f)
+I = I_.get_fdata()
+
+
+#%%
+d = 8
+Jd = skimage.transform.resize(J, (J.shape[0]//d, J.shape[1]//d, J.shape[2]//d), anti_aliasing=True)
+Id = skimage.transform.resize(I, (I.shape[0]//d, I.shape[1]//d, I.shape[2]//d), anti_aliasing=True)
+#%%
+Jdiv = np.array([J.shape[0]/Jd.shape[0], J.shape[1]/Jd.shape[1], J.shape[2]/Jd.shape[2]])
+Idiv = np.array([I.shape[0]/Id.shape[0], I.shape[1]/Id.shape[1], I.shape[2]/Id.shape[2]])
+J_.header["pixdim"][1:4] = J_.header["pixdim"][1:4] * Jdiv
+I_.header["pixdim"][1:4] = I_.header["pixdim"][1:4] * Idiv
+#%%
+Jout = nib.Nifti1Image(Jd, J_.affine, J_.header)
+Iout = nib.Nifti1Image(Id, I_.affine, I_.header)
+nib.save(Jout, '/home/brysongray/emlddmm/tests/194062_red_mm_SLA_down.nii' )
+nib.save(Iout, '/home/brysongray/emlddmm/tests/average_template_25_mm_ASL_down.nii')
+
+#%%
+target_f = '/home/brysongray/emlddmm/tests/194062_red_mm_SLA_down.nii'
+template_f = '/home/brysongray/emlddmm/tests/average_template_25_mm_ASL_down.nii'
+Jd_ = nib.load(target_f)
+Id_ = nib.load(template_f)
+Jd = Jd_.get_fdata()
+# %%
+nib.save(Jd_, '/home/brysongray/emlddmm/tests/194062_red_mm_SLA_down.nii.gz' )
+nib.save(Id_, '/home/brysongray/emlddmm/tests/average_template_25_mm_ASL_down.nii.gz')
+# %%
+import emlddmm
+import numpy as np
+#%%
+ni = 120
+nj = 120
+nk = 120
+xI = [np.arange(ni)-(ni-1)/2,np.arange(nj)-(nj-1)/2,np.arange(nk)-(nk-1)/2]
+XI = np.stack(np.meshgrid(xI[0],xI[1],xI[2], indexing='ij'))
+# condition is the surface of an ellipsoid with axes a, b, c
+condition = lambda x,a,b,c : x[0]**2 / a**2 + x[1]**2 / b**2 + x[2]**2 / c**2
+a = 15
+b = 30
+c = 20
+v = np.where(condition(XI,a,b,c) <= 1.0, 1.0, 0.0)
+#%%
+import time
+# write out ellipsoid image
+fname = '/home/brysongray/emlddmm/tests/ellipsoid_img.vtk'
+title = 'ellipsoid'
+emlddmm.write_vtk_data(fname, xI, v[None], title)
+writetime = os.path.getmtime('/home/brysongray/emlddmm/tests/ellipsoid_img.vtk')
+print(round(writetime, 0)==round(time.time(),0))
+# %%
+import matplotlib.pyplot as plt
+fname = '/home/brysongray/emlddmm/tests/ellipsoid_img.vtk'
+
+xI, I, _,_ = emlddmm.read_vtk_data(fname)
+fig = plt.figure(figsize=(10,10))
+emlddmm.draw(I,xI,fig, n_slices=8, cmap='gray')
+
+# %%
+print(np.allclose(I,v[None]))
 # %%
