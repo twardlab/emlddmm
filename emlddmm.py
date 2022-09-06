@@ -18,7 +18,7 @@ from warnings import warn
 import tifffile as tf # for 16 bit tiff
 
 # display
-def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):    
+def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,**kwargs):    
     """ Draw 3D imaging data.
     
     Images are shown by sampling slices along 3 orthogonal axes.
@@ -34,7 +34,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         along axis i.  Note these are assumed to be uniformly spaced. The default
         is voxels of size 1.0.
     fig : matplotlib figure
-        A figure in which to draw pictures. Contents of hte figure will be cleared.
+        A figure in which to draw pictures. Contents of the figure will be cleared.
         Default is None, which creates a new figure.
     n_slices : int
         An integer denoting how many slices to draw along each axis. Default 5.
@@ -46,6 +46,8 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         A maximum value for windowing imaging data. Can also be a list of size C for
         windowing each channel separately. Defaults to None, which corresponds 
         to tha 0.999 quantile on each channel.
+    disp : bool
+        Figure display toggle
     kwargs : dict
         Other keywords will be passed on to the matplotlib imshow function. For example
         include cmap='gray' for a gray colormap
@@ -98,7 +100,7 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         J[J>1] = 1
         vmin = 0.0
         vmax = 1.0
-    # I will only sohw the first 3 channels
+    # I will only show the first 3 channels
     if J.shape[0]>3:
         J = J[:3]
     if J.shape[0]==2:
@@ -147,7 +149,10 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,**kwargs):
         axsi.append(ax)
     axs.append(axsi)
     
-    fig.subplots_adjust(wspace=0,hspace=0)  
+    fig.subplots_adjust(wspace=0,hspace=0)
+    if not disp:
+        plt.close(fig)
+
     return fig,axs
     
     
@@ -179,6 +184,11 @@ def load_slices(target_name):
     Document describing dataset format here: TODO XXXXX
     documented XXXX
     
+    Raises
+    ------
+    Exception
+        If the first image is not present in the image series.
+
     """
     print('loading target images')
     fig,ax = plt.subplots()
@@ -358,6 +368,11 @@ def downsample_ax(I,down,ax,W=None):
     -------
     Id : array like
         The downsampled image.
+    
+    Raises
+    ------
+    Exception
+        If a mask (W) is included and ax == 0. 
     '''
     nd = list(I.shape)        
     nd[ax] = nd[ax]//down
@@ -484,6 +499,11 @@ def downsample_image_domain(xI,I,down,W=None):
         New voxel locations in the same format as xI
     Id : numpy array
         Downsampled image.
+    
+    Raises
+    ------
+    Exception
+        If the length of down and xI are not equal.
     '''
     if len(xI) != len(down):
         raise Exception('Length of down and xI must be equal')
@@ -679,6 +699,17 @@ def emlddmm(**kwargs):
         Returns a dictionary of outputs storing computing transforms. if full_outputs==True, 
         then more data is output including figures.
     
+    Raises
+    ------
+    Exception
+        If the initial velocity does not have three components.
+    Exception
+        Local contrast transform requires either order = 1, or order > 1 and 1D atlas.
+    Exception
+        If order > 1. Local contrast transform not implemented yet except for linear.
+    Exception
+        Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale).
+    
     
     '''
     # required arguments are
@@ -699,7 +730,7 @@ def emlddmm(**kwargs):
     xJ = kwargs['xJ']
     
     ##########################################################################################################
-    # everything else is optinal, defaults are below
+    # everything else is optional, defaults are below
     defaults = {'nt':5,
                 'eA':1e5,
                 'ev':2e3,
@@ -1579,10 +1610,11 @@ def write_vtk_data(fname,x,out,title,names=None):
         Name of the dataset
     names : list of str or None
         List of names for each dataset or None to use a default.        
-    
-    Returns
-    -------
-    None
+
+    Raises
+    ------
+    Exception
+        If out is not the right size.
     
     '''
     
@@ -1670,7 +1702,27 @@ def read_vtk_data(fname,endian='b'):
     images : numpy array
         Image with last three axes corresponding to spatial dimensions.  If 4D,
         first axis is channel.  If 5D, first axis is time, and second is xyz 
-        component of vector field.    
+        component of vector field.
+
+    Raises
+    ------
+    Exception
+        The first line should include vtk DataFile Version X.X
+    Exception
+        If the file contains data type other than BINARY.
+    Exception
+        If the dataset type is not STRUCTURED_POINTS.
+    Exception
+        If the dataset does not have either 3 or 4 axes.
+    Exception
+        If dataset does not contain POINT_DATA
+    Exception
+        If the file does not contain scalars or vectors.
+    
+    Warns
+    -----
+    If data not written in big endian
+        Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian="l" if you want little
     '''
     # TODO support skipping blank lines
     big = not (endian=='l')
@@ -1762,7 +1814,7 @@ def read_vtk_data(fname,endian='b'):
                 raise Exception(f'Only scalars or vectors supported but this file contains {S_V}')        
             
             if '(b)' not in name and big: 
-                warnings.warn(f'Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian="l" if you want little')
+                warn(f'Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian="l" if you want little')
                             
             dtype_numpy = dtypes_reverse[dtype]
             if big:
@@ -1823,6 +1875,15 @@ def read_data(fname,**kwargs):
         Title of the dataset (read from vtk files)        
     names : list of str
         Names of each dataset (channel or time point)
+    
+    Raises
+    ------
+    Exception
+        If file type is nrrd.
+    Exception
+        If data is a single slice, json reader does not support it.
+    Exception
+        If opening with Nibabel and the affine matrix is not diagonal.
     
     '''
     # find the extension
@@ -1938,6 +1999,21 @@ def read_data(fname,**kwargs):
         
     return x,images,title,names
 def write_data(fname,x,out,title,names=None):
+    """ 
+    Write data
+
+    Raises
+    ------
+    Exception
+        If data is in .nii format, it must be grayscale.
+    Exception
+        If output is not .vtk or .nii/.nii.gz format.
+
+    Warns
+    -----
+    If data to be written uses extension .nii or .nii.gz
+        Writing image in nii fomat, no title or names saved
+    """
     base,ext = os.path.splitext(fname)
     if ext == '.gz':
         base,ext_ = os.path.splitext(base)
@@ -1958,7 +2034,7 @@ def write_data(fname,x,out,title,names=None):
         affine[:3,-1] = np.array((x[0][0],x[1][0],x[2][0]))
         img = nibabel.Nifti1Image(out, affine)
         nibabel.save(img, fname)  
-        warnings.warn('Writing image in nii fomat, no title or names saved')
+        warn('Writing image in nii fomat, no title or names saved')
 
         
     else:
@@ -2313,11 +2389,11 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         if not os.path.isdir(to_input_out):
             os.makedirs(to_input_out)
         print(f'output dir is {to_input_out}')
-        fig = draw(J,xJ)
+        fig = draw(J,xJ,disp=False)
         fig[0].suptitle(f'{src_space} {src_img} input')
         fig[0].savefig(to_input_out+f'{src_space}_{src_img}_input.jpg')
 
-        fig = draw(AphiI,xJ)
+        fig = draw(AphiI,xJ,disp=False)
         fig[0].suptitle(f'{dest_space} {dest_img} to {src_space}')
         fig[0].savefig(to_input_out+f'{dest_space}_{dest_img}_to_{src_space}.jpg')
     else:
@@ -2326,11 +2402,11 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
             os.makedirs(to_src_space_out)
         print(f'output dir is {to_src_space_out}')
 
-        fig = draw(AphiI,xJ)
+        fig = draw(AphiI,xJ,disp=False)
         fig[0].suptitle(f'{dest_space} {dest_img} to {src_space}')
         fig[0].savefig(to_src_space_out+f'{dest_space}_{dest_img}_to_{src_space}.jpg')
 
-        fig = draw(J,xJ)
+        fig = draw(J,xJ,disp=False)
         fig[0].suptitle(f'{src_space} {src_img} Original')
         fig[0].savefig(to_src_space_out+f'{src_space}_{src_img}_original.jpg')
 
@@ -2366,7 +2442,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         Xs[...,1:] = (A2d[:,None,None,:2,:2]@XR[...,1:,None])[...,0] + A2d[:,None,None,:2,-1]
         Xs = Xs.permute(3,0,1,2)
         Jr = interp(xJ,J,Xs)
-        fig = draw(Jr,xr)
+        fig = draw(Jr,xr,disp=False)
         fig[0].suptitle(f'{src_space} {src_img} Registered')
         to_registered_out = os.path.join(output_dir,f'{src_space}_REGISTERED/{dest_space}_to_{src_space}_REGISTERED/qc/')
         if not os.path.isdir(to_registered_out):
@@ -2382,7 +2458,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
 
         # transform image
         AphiI = interp(xI,I,phiiAi)       
-        fig = draw(AphiI,xr)
+        fig = draw(AphiI,xr,disp=False)
         fig[0].suptitle(f'{dest_space} {dest_img} to {src_space} Registered')
         fig[0].savefig(to_registered_out + f'{dest_space}_{dest_img}_to_{src_space}_registered.jpg')
     else:
@@ -2414,11 +2490,11 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
             os.makedirs(to_dest_space_out)
         print(f'output dir is {to_dest_space_out}')
 
-    fig = draw(phiiAiJ,xI)
+    fig = draw(phiiAiJ,xI,disp=False)
     fig[0].suptitle(f'{src_space} {src_img} to {dest_space}')
     fig[0].savefig(to_dest_space_out+f'{src_space}_{src_img}_to_{dest_space}.jpg')
 
-    fig = draw(I,xI)
+    fig = draw(I,xI,disp=False)
     fig[0].suptitle(f'{dest_space} {dest_img} Original')
     fig[0].savefig(to_dest_space_out+f'{dest_space}_{dest_img}_original.jpg')
 
@@ -2432,7 +2508,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         R = (AphiS%mods[0])/mods[0]
         G = (AphiS%mods[1])/mods[1]
         B = (AphiS%mods[2])/mods[2]
-        fig = draw(np.stack((R,G,B)),xr)
+        fig = draw(np.stack((R,G,B)),xr,disp=False)
 
         # also outlines
         M = np.zeros_like(AphiS)
@@ -2471,12 +2547,26 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
             ax.set_xticks([])
             ax.set_yticks([])
             f.savefig(os.path.join(to_registered_out,f'{dest_space}_{dest_img}_to_{src_space}_REGISTERED_{slice_names[i]}.jpg'))
-
+        plt.close(f)
 
 class Transform():    
     '''
     A simple class for storing and applying transforms
     TODO: add another type for series of 2D transforms
+
+    Raise
+    -----
+    Exception
+        If transform is not a txt or vtk file.
+    Exception
+        if direction is not 'f' or 'b'.
+    Exception
+        When inputting a velocity field, if the domain is not included.
+    Exception
+        When inputting a matrix, if its shape is not 3x3 or 4x4.
+    Exception
+        When specifying a mapping, if the direction is 'b' (backward).
+
     '''
     def __init__(self,data,direction='f',domain=None,dtype=torch.float,device='cpu'):
         if type(data) == str:
@@ -2517,7 +2607,7 @@ class Transform():
             else:
                 # assume this is a velocity field and integrate it
                 if self.domain is None:
-                    raise Exception('Domain is required when inputting veloctiy field')
+                    raise Exception('Domain is required when inputting velocity field')
                 if self.direction == 'b':
                     self.data = v_to_phii(self.domain,self.data)
                 else:
@@ -2585,7 +2675,15 @@ def compose_sequence(transforms,Xin,direction='f'):
     Otherwise, the input must be a list.  It can be a list of strings, or transforms, or string-direction tuples.
     
     What if it is a list of length 1?
-    
+
+    Raises
+    ------
+    Exception
+        Transforms must be either output directory,
+        or list of objects, or list of filenames,
+        or list of tuples storing filename/direction.
+    Exception
+
     '''
     
     #print(f'starting to compose sequence with transforms {transforms}')    
@@ -2673,6 +2771,11 @@ def apply_transform_int(x,I,Xout,double=True,**kwargs):
     There is an issue with numpy integer arrays, I'll have two functions
     
     Note that we often require double precision when converting to floats and back
+
+    Raises
+    ------
+    Exception
+        If mode is not 'nearest' for ints.
     '''
     if type(I) == np.array:
         isnumpy = True
@@ -2752,6 +2855,11 @@ def write_outputs_for_pair(output_dir,outputs,
     Get determinant of jacobian.
     
         
+    
+    Raises
+    ------
+    Exception
+        If not slice_matching.
     
     '''
     print(atlas_image_name,target_image_name)    
@@ -3083,6 +3191,20 @@ def map_image(emlddmm_path, root_dir, from_space_name, to_space_name,
     -------
     phiI : array
         Transformed image
+    
+    Raises
+    ------
+    Exception
+        If use_detjac set to True for 3D to 2D mapping. Detjac not currently supported for 3D to 2D.
+    Exception
+        2D to 3D not implemented yet, may not get implemented.
+    Exception
+        Jacobian not implemented yet for 2D slices.
+
+    Warns
+    -----
+    DetJac is ignored if mapping is 2D to 2D.
+
     '''
     
     from os.path import split,join,splitext
@@ -3145,7 +3267,7 @@ def map_image(emlddmm_path, root_dir, from_space_name, to_space_name,
     # apply the transform to the image
     # if desired calculate jacobian
     if use_detjac:
-        raise Exception('Jacobian not implemented yet for with 2D slices')
+        raise Exception('Jacobian not implemented yet for 2D slices')
         
     # todo, implement when I is int
     phiI = interp(xI,I,phi,**kwargs)    
@@ -3227,7 +3349,20 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
         Same connectivity entries as loaded data
     connectivity_type : str
         Same connectivity type as loaded data
-        
+    
+    Raises
+    ------
+    Exception
+        3D to 2D mapping is not implemented for points.
+    Exception
+        If use_detjac set to True for 2D to 3D mapping. Detjac not currently supported for 2D to 3D
+    Exception
+        If use_detjac set to True. Jacobian is not implemented yet.
+    Exception
+        If attempting to map points from 3D to 2D. 
+    Warns
+    -----
+    DetJac is ignored if mapping is 2D to 2D.    
     '''
     
     from os.path import split,join,splitext
@@ -3338,6 +3473,30 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
         
 # now we'll start building an interface
 if __name__ == '__main__':
+    """
+    Raises
+    ------
+    Exception
+        If mode is 'register' and 'config' argument is None.
+    Exception
+        If mode is 'register' and atlas name is not specified.
+    Exception
+        If atlas image is not 3D.
+    Exception
+        If mode is 'register' and target name is not specified.
+    Exception
+        If target image is not a directory (series of slices), and it is not 3D.
+    Exception
+        If mode is 'transform' and the transform does not include direction ('f' or 'b').
+    Exception
+        If transform direction is not f or b.
+    Exception
+        If mode is 'transform' and neither atlas name nor label name is specified.
+    Exception
+        If mode is 'transform' and target name is not specified.
+    
+
+    """
     # set up command line args
     # we will either calculate mappings or apply mappings
     parser = argparse.ArgumentParser(description='Calculate or apply mappings, or run a specified pipeline.', epilog='Enjoy')
@@ -3383,7 +3542,7 @@ if __name__ == '__main__':
     if args.mode == 'register':   
         print('Starting register pipeline')    
         if args.config is None:
-            raise Exception('Config file option be set to run registration')
+            raise Exception('Config file option must be set to run registration')
         
         print(f'Making output directory {args.output}')
         if not os.path.isdir(args.output):
@@ -3521,7 +3680,7 @@ if __name__ == '__main__':
             S = S.astype(np.int32) # with int32 should be supported by torch
             print('Finished reading label image')
             print('Starting to write qc outputs')
-            write_qc_outputs(args.output,output,xI,I,xJ,J,xS=xI,S=S)
+            write_qc_outputs(args.output,output,xI,I,xJ,J,xS=xI,S=S) # TODO: qrite_qc_outputs input format has changed
             print('Finished writing qc outputs')
             
             

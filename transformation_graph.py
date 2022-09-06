@@ -39,10 +39,22 @@ def add_edge(adj, spaces, src_space, dest_space, out, slice_matching=False):
     out: str
         path to registration outputs
 
-    Returns
+    Example
     -------
-    None
+    >>> spaces = {'HIST': 0, 'MRI': 1, 'CCF': 2, 'CT': 3}
+    >>> adj = [{} for i in range(len(spaces))]
 
+    >>> print(adj)
+    [{}, {}, {}, {}]
+
+    >>> add_edge(adj, spaces, 'MRI', 'CCF', 'outputs')
+    >>> print(adj)
+    [{}, {2: ('outputs/CCF/MRI_to_CCF/', 'f')}, {1: ('outputs/CCF/MRI_to_CCF/', 'b')}, {}]
+
+    >>> add_edge(adj, spaces, 'HIST', 'MRI', 'outputs', slice_matching=True)
+    >>> print(adj)
+    [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')}, {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')}, {1: ('outputs/CCF/MRI_to_CCF/', 'b')}, {}]
+    
     """ 
     if slice_matching:
         transforms_path = os.path.join(out,f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/')
@@ -73,8 +85,6 @@ def BFS(adj, src, dest, v, pred, dist):
         stores predecessor of vertex i at pred[i]
     dist: list of ints
         stores distance (by number of vertices) of vertex i from source vertex
-
-
 
     Returns
     -------
@@ -117,6 +127,7 @@ def BFS(adj, src, dest, v, pred, dist):
   
     return False
   
+  
 def find_shortest_path(adj, src, dest, v):
     """ Find Shortest Path
 
@@ -138,6 +149,22 @@ def find_shortest_path(adj, src, dest, v):
     path : list of ints
         path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.
 
+
+    Example
+    -------
+    >>> adj = [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')},
+    ...        {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+    ...        {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
+    ...        {}]
+    >>> path = find_shortest_path(adj, 0, 2, 4)
+    Shortest path length is: 2
+
+    >>> print(path)
+    [0,1,2]
+
+    >>> path = transformation_graph.find_shortest_path(adj, 0, 3, 4)
+    Given source and destination are not connected
+
     """
      
     pred=[0 for i in range(v)] # predecessor of space i in path from src to dest
@@ -145,7 +172,7 @@ def find_shortest_path(adj, src, dest, v):
   
     if (BFS(adj, src, dest, v, pred, dist) == False):
         print("Given source and destination are not connected")
-  
+        
     # path stores the shortest path
     path = []
     crawl = dest
@@ -157,8 +184,9 @@ def find_shortest_path(adj, src, dest, v):
      
     path.reverse()
 
-    # distance from source is in distance array
-    print("Shortest path length is: " + str(dist[dest]), end = '')
+    if len(path) > 1:
+        # distance from source is in distance array
+        print("Shortest path length is: " + str(dist[dest]), end = '')
 
     return path
 
@@ -180,6 +208,17 @@ def get_transformation(adj, path):
     transformation : list of strings
         list of file paths to sequence of transformations matching src to dest
 
+    Example
+    -------
+    >>> adj = [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')},
+    ...        {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+    ...        {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
+    ...        {}]
+    >>> path = [0,1,2]
+    >>> transformation = get_transformation(adj, path)
+    >>> print(transformation)
+    [('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f'), ('outputs/CCF/MRI_to_CCF/', 'f')]
+
     """
     transformation = []
     for i in range(len(path)-1):
@@ -199,8 +238,8 @@ def reg(dest, source, registration, config, out, labels=None):
         path to destination image
     source: str
         path to source image or series of images
-    registration: list of strings
-        List of two strings, giving source space name and destination space name.
+    registration: list
+        List containing two lists of strings, e.g. [["src_space","src_img"],["dest_space","dest_img"]].
         These are used for naming output files.
     config: str
         path to JSON configuration file specifying registration parameters
@@ -209,9 +248,15 @@ def reg(dest, source, registration, config, out, labels=None):
     labels: str
         path to labels image used for qc
 
-    Returns
+    Example
     -------
-    None
+    >>> dest = 'average_template_50.vtk'
+    >>> source = 'HR_NIHxCSHL_50um_14T_M1_masked.vtk'
+    >>> registration = [['MRI','masked'], ['CCF','average_template_50']]
+    >>> config = 'configMD816_MR_to_CCF.json'
+    >>> out = 'outputs/example_output'
+
+    >>> reg(dest, source, registration, config, out)
 
     """
     src_path = source
@@ -271,7 +316,7 @@ def reg(dest, source, registration, config, out, labels=None):
         A = np.array(config['A']).astype(float)
     else:
         A = np.eye(4)
-    print(A)
+    print('Initial affine: \n', A)
 
     # if 'slice_matching' not in config:
     #     # for simplicity I will add a translation manually
@@ -288,19 +333,9 @@ def reg(dest, source, registration, config, out, labels=None):
     #if 'sigmaM' in config:
     #    config['sigmaM'][0] /= normJ
 
-    # add black borders for extrapolation
-    # Note this feature may be removed
-    I[:,:2] = 0.0
-    I[:,-2:] = 0.0
-    I[:,:,0:2] = 0.0
-    I[:,:,-2:] = 0.0
-    I[:,:,:,:2] = 0.0
-    I[:,:,:,-2:] = 0.0
-    
-    device = 'cuda:0'
-    # device = 'cpu'
     if 'device' not in config:
-        config['device'] = 'cpu'
+        config['device'] = 'cuda:0'
+        # config['device'] = 'cpu'
     output = emlddmm.emlddmm_multiscale(I=I,xI=[xI],J=J,xJ=[xJ],W0=W0,full_outputs=False,**config)
     #write outputs
     print('saving transformations to ' + output_dir + '...')
@@ -319,7 +354,7 @@ def reg(dest, source, registration, config, out, labels=None):
 def run_registrations(reg_list):
     """ Run Registrations
 
-    Runs a sequence of registrations given by reg_list
+    Runs a sequence of registrations given by reg_list using reg method, which saves transformations and qc images.
 
     Parameters
     ----------
@@ -333,6 +368,27 @@ def run_registrations(reg_list):
         adjacency list of transformations between spaces
     spaces: dict
         user assigned space name strings each assigned an integer value as a key:value pair in a dictionary
+    
+    Example
+    -------
+    >>> reg_list = [{'registration':[['MRI','masked'],['CCF','average_template_50']],
+                     'source': 'HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+                     'dest': 'average_template_50.vtk',
+                     'config': 'configMD816_MR_to_CCF.json',
+                     'output': 'outputs/example_output'},
+                    {'registration':[['HIST','Nissl'],['MRI','masked']],
+                     'source': 'MD816_STIF',
+                     'dest': 'HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+                     'config': 'configMD816_Nissl_to_MR.json',
+                     'output': 'outputs/example_output'}]
+    >>> adj, spaces = run_registrations(reg_list)
+    >>> print(adj)
+    [{1: ('outputs/example_output/CCF/MRI_to_CCF/', 'f'), 2: ('outputs/example_output/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+     {0: ('outputs/example_output/CCF/MRI_to_CCF/', 'b')},
+     {0: ('outputs/example_output/MRI/HIST_REGISTERED_to_MRI/', 'f')}]
+
+    >>> print(spaces)
+    {'MRI': 0, 'CCF': 1, 'HIST': 2}
 
     """
     # input: list of dicts of sources, targets, labels, configs, and the output dir 
@@ -379,7 +435,7 @@ def run_registrations(reg_list):
     return adj, spaces
 
 
-def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path='', dest_path='', **kwargs):
+def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_path, dest_path):
     """ Apply Transformation
 
     Applies affine matrix and velocity field transforms to map dest points to src points. Saves displacement field from dest points to src points
@@ -387,7 +443,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
     Parameters
     ----------
-    adj : list of dicts
+    adj: list of dicts
         adjacency list of transformations between spaces
     spaces: dict
         user assigned space name strings each assigned an integer value as a key:value pair in a dictionary
@@ -403,25 +459,24 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         path to source image (image to be sampled on transformed points)
     dest_path: str
         path to destination image (image whos points are to be transformed)
-    **kwargs: optionally input xJ, J, xI, and I instead of loading images from files.
     
-    Returns
+    Example
     -------
-    None
-
+    >>> adj = [{1: ('outputs/example_output/CCF/MRI_to_CCF/', 'f'), 2: ('outputs/example_output/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+    ... {0: ('outputs/example_output/CCF/MRI_to_CCF/', 'b')},
+    ... {0: ('outputs/example_output/MRI/HIST_REGISTERED_to_MRI/', 'f')}]
+    >>> spaces = {'MRI': 0, 'CCF': 1, 'HIST': 2}
+    >>> apply_transformation(adj, spaces, 'MRI', 'masked', 'CCF', 'outputs/example_output',
+    ... 'HR_NIHxCSHL_50um_14T_M1_masked.vtk', 'average_template_50.vtk')
     """
+    # input: image to be transformed (src_path or I), img space to to which the source image will be matched (dest_path, J), adjacency list and spaces dict from run_registration, source and destination space names
+    # return: transfromed image
     
     # load source image
-    if 'xJ' and 'J' in kwargs.keys():
-        xJ = kwargs['xJ']
-
-        J = kwargs['J']
-        J_title = ''
-    else:
-        xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
+    xJ, J, J_title, _ = emlddmm.read_data(src_path) # the image to be transformed
     J = J.astype(float)
     J = torch.as_tensor(J,dtype=dtype,device=device)
-    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
+    xJ = [torch.as_tensor(np.copy(x),dtype=dtype,device=device) for x in xJ]
 
     '''in the special case of transforming an image series to the same space, e.g. [[HIST, nissl], [HIST, nissl]], we output HIST_INPUT_to_HIST_REGISTERED images.
         TODO: in the future, we should be able to align different histology stains, e.g. [[HIST, myelin], [HIST, nissl]]. In this case two rigid transformations are needed,
@@ -479,15 +534,10 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         return
 
     # load destination image
-    if 'xI' and 'I' in kwargs.keys():
-        xI = kwargs['xI']
-        I = kwargs['I']
-        I_title = ''
-    else:
-        xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
+    xI, I, I_title, _ = emlddmm.read_data(dest_path) # the space to transform into
     I = I.astype(float)
     I = torch.as_tensor(I, dtype=dtype, device=device)
-    xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
+    xI = [torch.as_tensor(np.copy(x),dtype=dtype,device=device) for x in xI]
 
     slice_matching = 'slice_dataset' in [I_title, J_title]
     # if slice_matching then construct the reconstructed space XR
@@ -563,7 +613,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
     # get displacement
     if I_title == 'slice_dataset':
         # for input disp we need to apply compose_sequence to  A2di @ X_series to get Xin and then input_disp = Xin - X_series
-        input_disp = (Xin - X_series.permute(3,0,1,2).cpu())[None] #TODO: check on this, I'm still not sure.
+        input_disp = (Xin - X_series.permute(3,0,1,2).cpu())[None]
         registered_disp = (X - XR.permute(3,0,1,2).cpu())[None]
         
         # save out displacement from input and from registered space
@@ -615,18 +665,18 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
         emlddmm.write_vtk_data(output_name, xI, disp, title)
 
-        # write out determinant of jacobian (detjac) of displacement
+        # write out determinant of jacobian (detjac) of the transformed coordinates
         dv = [(x[1]-x[0]).to('cpu') for x in xI]
-        grad = np.stack(np.gradient(disp[0], 1, dv[0], dv[1], dv[2]), axis=-1)
-        grad = np.reshape(grad, grad.shape[:-1]+(2,2))
-        detjac = np.linalg.det(grad)
+        jacobian = lambda X,dv : np.stack(np.gradient(X, dv[0],dv[1],dv[2], axis=(1,2,3))).transpose(2,3,4,0,1)
+        jac = jacobian(X,dv)
+        detjac = np.linalg.det(jac)
         if J_title == 'slice_dataset':
             output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_REGISTERED_detjac.vtk')
             title = f'{dest_space}_to_{src_space}_REGISTERED_detjac'
         else:
             output_name = os.path.join(transform_dir, f'{dest_space}_to_{src_space}_detjac.vtk')
             title = f'{dest_space}_to_{src_space}_detjac'
-        emlddmm.write_vtk_data(output_name, xI, detjac, title)
+        emlddmm.write_vtk_data(output_name, xI, detjac[None], title)
 
     # now apply transformation to image
     # if slice_matching and the source is 2d series, then use xr and Jr
@@ -708,9 +758,13 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
 
 def main():
-    """ 
+    """ Main
 
     Main function for parsing input arguments, calculating registrations and applying transformations.
+
+    Example
+    -------
+    $ python transformation_graph.py --infile GDMInput.json
 
     """
 
@@ -788,7 +842,7 @@ def main():
             src_path = sip[src_space][src_img]
             dest_path = sip[dest_space][dest_img]
 
-            reg_list.append({'registration': registrations[i], # registrsation is a list of strings: [src_space, dest_space],
+            reg_list.append({'registration': registrations[i], # registrsation format [[src_space, src_img], [dest_space, dest_img]]
                             'source': src_path,
                             'dest': dest_path,
                             'config': configs[i],
