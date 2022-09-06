@@ -874,10 +874,10 @@ def emlddmm(**kwargs):
     # I'll put it a bit bigger than xi
     dv = dI*v_res_factor # we want this to be independent of the I downsampling, 
     # feb 4, 2022, I want it to be isotropic though
-    print(f'dv {dv}')
+    #print(f'dv {dv}')
     if a is None:
         a = dv[0]*2.0 # so this is also independent of the I downsampling amount
-    print(f'a scale is {a}')
+    #print(f'a scale is {a}')
     x0v = [x[0] - (x[-1]-x[0])*v_expand_factor for x in xI]
     x1v = [x[-1] + (x[-1]-x[0])*v_expand_factor for x in xI]
     xv = [torch.arange(x0,x1,d,device=device,dtype=dtype) for x0,x1,d in zip(x0v,x1v,dv)]
@@ -1000,6 +1000,7 @@ def emlddmm(**kwargs):
         # use tensor, not as_tensor, to make a copy
         A = torch.tensor(A,device=device,dtype=dtype).detach().clone()
         A.requires_grad = True
+
         
     if slice_matching:
         if A2d is None:
@@ -1143,7 +1144,10 @@ def emlddmm(**kwargs):
                     # multiply by weight
                     B__ = B_*(WM*W0).reshape(-1)[...,None]
                     # feb 2, 2022 converted from inv to solve and used double
-                    coeffs = torch.linalg.solve((B__.T@B_).double(), (B__.T@(J.reshape(J.shape[0],-1).T)).double() ).to(dtype)
+                    # august 2022 add id a small constnat times identity, but I'll set it to zero for now so no change
+                    small = 1e-2*0
+                    coeffs = torch.linalg.solve((B__.T@B_).double() + torch.eye(B__.shape[1],device=device,dtype=torch.float64)*small, 
+                                                (B__.T@(J.reshape(J.shape[0],-1).T)).double() ).to(dtype)
                 fAphiI = ((B_@coeffs).T).reshape(J.shape) # there are unnecessary transposes here, probably slowing down, to fix later
             else:
                 # local contrast estimation using refactoring
@@ -1316,6 +1320,7 @@ def emlddmm(**kwargs):
 
         
         if n_draw and (not it%n_draw or it==n_iter-1):
+            #print(A)
             axE[0].cla()
             axE[0].plot(np.array(Esave)[:,0])
             axE[0].plot(np.array(Esave)[:,1])
@@ -1447,7 +1452,8 @@ def emlddmm(**kwargs):
 
         if not it%10:
             # todo print other info
-            print(f'Finished iteration {it}')
+            #print(f'Finished iteration {it}')
+            pass
             
     # outputs
     out = {'A':A.detach().clone(),
@@ -2598,7 +2604,7 @@ class Transform():
                 # if it is a displacement field we cannot invert it, so we should throw an error if you use the wrong f,b
                 pass
             else:
-                # assum this is a velocity field and integrate it
+                # assume this is a velocity field and integrate it
                 if self.domain is None:
                     raise Exception('Domain is required when inputting velocity field')
                 if self.direction == 'b':
@@ -2679,7 +2685,7 @@ def compose_sequence(transforms,Xin,direction='f'):
 
     '''
     
-    print(f'starting to compose sequence with transforms {transforms}')    
+    #print(f'starting to compose sequence with transforms {transforms}')    
     
     
     # check special case for a list of length 1 but the input is a directory
@@ -2830,8 +2836,24 @@ def write_outputs_for_pair(output_dir,outputs,
         Location of voxels in target
     J : numpy array
         Target image
-    names : str
-        Names of spaces;images otherwise will use default
+    atlas_space_name : str
+        Name of atlas space (default 'atlas')
+    target_space_name : str
+        Name of target space (default 'target')
+    atlas_image_name : str
+        Name of atlas image (default 'atlasimage')
+    target_image_name : str
+        Name of target image (default 'targetimage')
+        
+    TODO
+    ----
+    Implement QC figures.
+    
+    Check device more carefully, probably better to put everything on cpu.
+    
+    Get determinant of jacobian.
+    
+        
     
     Raises
     ------
@@ -2839,6 +2861,7 @@ def write_outputs_for_pair(output_dir,outputs,
         If not slice_matching.
     
     '''
+    print(atlas_image_name,target_image_name)    
     if atlas_space_name is None:
         atlas_space_name = 'atlas'
     if target_space_name is None:
@@ -2847,8 +2870,7 @@ def write_outputs_for_pair(output_dir,outputs,
         atlas_image_name = 'atlasimage'
     if target_image_name is None:
         target_image_name = 'targetimage'
- 
-        
+           
         
     if 'A2d' in outputs:
         slice_matching = True
@@ -2876,16 +2898,83 @@ def write_outputs_for_pair(output_dir,outputs,
     write_data(os.path.join(images_dir,f'{atlas_space_name}_{atlas_image_name}_to_{atlas_space_name}.vtk'),
                xI,torch.tensor(I,dtype=torch.float32),'atlas')
     
-    if not slice_matching:
-        raise Exception('not implemented yet')
+    if not slice_matching:        
         # to atlas space from target space    
         from_space_name = target_space_name
         from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir, exist_ok=exist_ok)
         # to atlas space from target space transforms    
         transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
-        os.makedirs(transforms_dir)
-        # write out the atlas to target transform as a displacement field
+        os.makedirs(transforms_dir,exist_ok=exist_ok)
+        # need atlas to target displacement
+        # this is A phi - x
+        XV = torch.stack(torch.meshgrid(outputs['xv'],indexing='ij'),0)
+        phi = v_to_phii(outputs['xv'],-1*torch.flip(outputs['v'],dims=(0,))).cpu()
+        XI = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xI],indexing='ij'),0)
+        phiXI = interp([x.cpu() for x in outputs['xv']],phi.cpu()-XV.cpu(),XI.cpu()) + XI.cpu()
+        AphiXI = ((outputs['A'].cpu()[:3,:3]@phiXI.permute(1,2,3,0)[...,None])[...,0] + outputs['A'][:3,-1].cpu()).permute(-1,0,1,2)    
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xI,(AphiXI-XI)[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
+        # now detjac
+        dxI = [x[1] - x[0] for x in xI] 
+        detjac = torch.linalg.det(
+            torch.stack(
+                torch.gradient(AphiXI,spacing=dxI,dim=(1,2,3))
+            ).permute(2,3,4,0,1)
+        )
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_detjac.vtk'),
+                   xI,detjac[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_detjac')
+        # now we need the target to atlas image
+        images_dir = os.path.join(from_space_dir,IMAGES)
+        os.makedirs(images_dir,exist_ok=exist_ok)
+        # this is generated form the target with AphiXI (make sure on same device, cpu)
+        phiiAiJ = interp(xJ,J,AphiXI.cpu(),padding_mode='zeros')
+        write_data(os.path.join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
+                   xI,phiiAiJ.to(torch.float32),f'{from_space_name}_{target_image_name}_to_{to_space_name}')
+        
+        # qc? TODO
+        # now to target space
+        to_space_name = target_space_name
+        to_space_dir = os.path.join(output_dir,to_space_name)
+        os.makedirs(to_space_dir,exist_ok=exist_ok)
+        # from target space (i.e identity)
+        from_space_name = target_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir,exist_ok=exist_ok)
+        # target image
+        images_dir = os.path.join(from_space_dir,IMAGES)
+        os.makedirs(images_dir, exist_ok=exist_ok)
+        # write out the target (in single)
+        write_data(os.path.join(images_dir,f'{target_space_name}_{target_image_name}_to_{target_space_name}.vtk'),
+                   xJ,torch.tensor(J,dtype=torch.float32),'atlas')
+        # now from atlas space
+        from_space_name = atlas_space_name
+        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        os.makedirs(from_space_dir,exist_ok=exist_ok)
+        # to target space from atlas space transforms        
+        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        os.makedirs(transforms_dir,exist_ok=exist_ok)
+        phii = v_to_phii(outputs['xv'],outputs['v'])
+        XJ = torch.stack(torch.meshgrid([torch.tensor(x,device=phii.device,dtype=phii.dtype) for x in xJ],indexing='ij'),0)
+        Ai = torch.linalg.inv(outputs['A'])
+        AiXJ = ((Ai[:3,:3]@XJ.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1]).permute(-1,0,1,2)
+        phiiAiXJ = interp([x.cpu() for x in outputs['xv']],(phii-XV).cpu(),AiXJ.cpu()) + AiXJ.cpu()
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xJ,(phiiAiXJ.cpu()-XJ.cpu())[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
+        dxJ = [x[1] - x[0] for x in xJ] 
+        detjac = torch.linalg.det(
+            torch.stack(
+                torch.gradient(phiiAiXJ,spacing=dxI,dim=(1,2,3))
+            ).permute(2,3,4,0,1)
+        )
+        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_detjac.vtk'),
+                   xJ,detjac[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_detjac')
+        # atlas image
+        images_dir = os.path.join(from_space_dir,IMAGES)
+        os.makedirs(images_dir,exist_ok=exist_ok)
+        AphiI = interp([torch.as_tensor(x).cpu() for x in xI],torch.as_tensor(I).cpu(),phiiAiXJ.cpu(),padding_mode='zeros')
+        write_data(os.path.join(images_dir,f'{atlas_space_name}_{atlas_image_name}_to_{target_space_name}.vtk'),
+                   xJ,torch.tensor(J,dtype=torch.float32),f'{atlas_space_name}_{atlas_image_name}_to_{target_space_name}')
+        # TODO qc   
+        
     else: # if slice matching
         # to atlas space from registered target space
         from_space_name = 'registered_' + target_space_name
@@ -3048,6 +3137,7 @@ def write_outputs_for_pair(output_dir,outputs,
         fig.suptitle('RAphiI')
         fig.savefig(os.path.join(qc_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
 
+        # TODO: double check this is done
         
 def pad(xI,I,n,**kwargs):
     '''
