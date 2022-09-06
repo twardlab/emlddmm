@@ -1542,8 +1542,7 @@ def emlddmm_multiscale(**kwargs):
             params['sigmaB'] = np.ones(kwargs['J'].shape[0])*2.0
         if 'sigmaA' not in params:
             params['sigmaA'] = np.ones(kwargs['J'].shape[0])*5.0
-        output = emlddmm(v_res_factor=3.0,      
-                        **params)
+        output = emlddmm(**params)
         # I should save an output at each iteration
         outputs.append(output)
 
