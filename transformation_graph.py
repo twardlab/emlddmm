@@ -490,7 +490,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         space = dest_space # src_space = dest_space = space
 
         x_series = xJ
-        X_series = torch.stack(torch.meshgrid(x_series), -1)
+        X_series = torch.stack(torch.meshgrid(x_series, indexing='ij'), -1)
         transforms = os.path.join(out, f'{space}_REGISTERED/{space}_INPUT_to_{space}_REGISTERED/transforms')
         transforms_ls = sorted(os.listdir(transforms), key=lambda x: x.split('_matrix.txt')[0][-4:])
 
@@ -515,7 +515,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
         xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
         xr = x_series[0], xr0, xr1
-        XR = torch.stack(torch.meshgrid(xr), -1)
+        XR = torch.stack(torch.meshgrid(xr,indexing='ij'), -1)
         # reconstruct 2d series
         Xs = torch.clone(XR)
         Xs[..., 1:] = (A2d[:, None, None, :2, :2] @ XR[..., 1:, None])[..., 0] + A2d[:, None, None, :2, -1]
@@ -552,7 +552,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         transforms_ls = sorted(transforms_ls, key=lambda x: x.split('_matrix.txt')[0][-4:])
         # determine which image is constructed from a 2d series, I or J.
         x_series = xI if I_title=='slice_dataset' else xJ
-        X_series = torch.stack(torch.meshgrid(x_series),-1)
+        X_series = torch.stack(torch.meshgrid(x_series, indexing='ij'),-1)
 
         A2d = []
         for t in transforms_ls:
@@ -575,7 +575,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
         xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
         xr = x_series[0], xr0, xr1
-        XR = torch.stack(torch.meshgrid(xr), -1)
+        XR = torch.stack(torch.meshgrid(xr, indexing='ij'), -1)
         # reconstruct 2d series
         Xs = torch.clone(XR)
         Xs[..., 1:] = (A2d[:, None, None, :2, :2] @ XR[..., 1:, None])[..., 0] + A2d[:, None, None, :2, -1]
@@ -606,7 +606,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
         for i in reversed(range(len(transformation_seq))):
             Xin = emlddmm.compose_sequence([transformation_seq[i]], Xin)
     else:
-        X = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
+        X = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI], indexing='ij'))
     for i in reversed(range(len(transformation_seq))):
         X = emlddmm.compose_sequence([transformation_seq[i]], X)
 
@@ -647,7 +647,7 @@ def apply_transformation(adj, spaces, src_space, src_img, dest_space, out, src_p
 
     else:
         # save out 3d displacement
-        disp = (X - torch.stack(torch.meshgrid(xI)).to('cpu'))[None]
+        disp = (X - torch.stack(torch.meshgrid(xI, indexing='ij')).to('cpu'))[None]
         
         if J_title == 'slice_dataset':
             transform_dir = os.path.join(out, f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/transforms/')

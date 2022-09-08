@@ -605,7 +605,7 @@ def v_to_phii(xv,v):
         and space on the last 3. Note that the whole timeseries is not output.
     
     '''
-    XV = torch.stack(torch.meshgrid(xv))
+    XV = torch.stack(torch.meshgrid(xv,indexing='ij'))
     phii = torch.clone(XV)
     dt = 1.0/v.shape[0]
     for t in range(v.shape[0]):
@@ -872,7 +872,7 @@ def emlddmm(**kwargs):
     
     # set up a domain for xv    
     # I'll put it a bit bigger than xi
-    dv = dI*v_res_factor # we want this to be independent of the I downsampling, 
+    dv = dI*torch.tensor(v_res_factor,dtype=dtype,device=device) # we want this to be independent of the I downsampling, 
     # feb 4, 2022, I want it to be isotropic though
     #print(f'dv {dv}')
     if a is None:
@@ -882,7 +882,7 @@ def emlddmm(**kwargs):
     x1v = [x[-1] + (x[-1]-x[0])*v_expand_factor for x in xI]
     xv = [torch.arange(x0,x1,d,device=device,dtype=dtype) for x0,x1,d in zip(x0v,x1v,dv)]
     nv = torch.tensor([len(x) for x in xv],device=device,dtype=dtype)
-    XV = torch.stack(torch.meshgrid(xv))
+    XV = torch.stack(torch.meshgrid(xv,indexing='ij'))
     #print(f'velocity size is {nv}')
     
     
@@ -903,8 +903,8 @@ def emlddmm(**kwargs):
     vmaxJ = [np.quantile(J_.cpu().numpy(),0.999) for J_ in J]
     
         
-    XI = torch.stack(torch.meshgrid(xI))
-    XJ = torch.stack(torch.meshgrid(xJ))
+    XI = torch.stack(torch.meshgrid(xI,indexing='ij'))
+    XJ = torch.stack(torch.meshgrid(xJ,indexing='ij'))
     
     
     # build an affine metric for 3D affine
@@ -955,7 +955,7 @@ def emlddmm(**kwargs):
             
     # build energy operator for velocity
     fv = [torch.arange(n,device=device,dtype=dtype)/d/n for n,d in zip(nv,dv)]
-    FV = torch.stack(torch.meshgrid(fv))
+    FV = torch.stack(torch.meshgrid(fv,indexing='ij'))
 
     LL = (1.0 - 2.0*a**2 * 
               ( (torch.cos(2.0*np.pi*FV[0]*dv[0]) - 1)/dv[0]**2  
@@ -986,10 +986,10 @@ def emlddmm(**kwargs):
             v = torch.tensor(v,device=device,dtype=dtype) 
             v.requires_grad = True
         else:
-            if v[1] != vsize[1]:
+            if v.shape[1] != vsize[1]:
                 raise Exception('Initial velocity must have 3 components')
             # resample it
-            v = sinc_resample_numpy(v,vsize)
+            v = sinc_resample_numpy(v.cpu(),vsize)
             v = torch.as_tensor(v,device=device,dtype=dtype)
             v.requires_grad = True
             
@@ -998,7 +998,12 @@ def emlddmm(**kwargs):
         A = torch.eye(4,requires_grad=True, device=device, dtype=dtype)
     else:
         # use tensor, not as_tensor, to make a copy
-        A = torch.tensor(A,device=device,dtype=dtype).detach().clone()
+        # A = torch.tensor(A,device=device,dtype=dtype)
+        # This is only to bypass the warning message. Gray, Sep. 2022
+        if type(A) == torch.Tensor:
+            A = A.detach().clone()
+        else:
+            A = torch.tensor(A,device=device,dtype=dtype)
         A.requires_grad = True
 
         
@@ -1008,7 +1013,12 @@ def emlddmm(**kwargs):
             A2d.requires_grad = True
         else:
             # use tensor not as tensor to make a copy
-            A2d = torch.tensor(A2d, device=device, dtype=dtype).detach().clone()
+            # A2d = torch.tensor(A2d, device=device, dtype=dtype)
+            # This is only to bypass the warning message. Gray, Sep. 2022
+            if type(A2d) == torch.Tensor:
+                A2d = A2d.detach().clone()
+            else:
+                A2d = torch.tensor(A2d, device=device, dtype=dtype)
             A2d.requires_grad = True
         # if slice matching is on we want to add xy translation in A to A2d
         with torch.no_grad():
@@ -2362,7 +2372,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
     # print(f'output dir is {output_dir}')
     
     # first, lets see the transformed atlas and target    
-    XJ = torch.stack(torch.meshgrid(xJ))    
+    XJ = torch.stack(torch.meshgrid(xJ,indexing='ij'))    
     if slice_matching:
         A2di = torch.inverse(A2d)        
         XJ_ = torch.clone(XJ)            
@@ -2373,7 +2383,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
     # sample points for affine
     Xs = ((Ai[:3,:3]@XJ_.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
     # for diffeomorphism
-    XV = torch.stack(torch.meshgrid(xv))
+    XV = torch.stack(torch.meshgrid(xv,indexing='ij'))
     phii = v_to_phii(xv,v)
     phiiAi = interp(xv,phii-XV,Xs) + Xs
 
@@ -2422,7 +2432,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
     # because they may be shifted out of their original volumes
     # to do this we'll apply A2di to the corners of each slice
     # and get the min and max
-    XJ = torch.stack(torch.meshgrid(xJ),-1)
+    XJ = torch.stack(torch.meshgrid(xJ,indexing='ij'),-1)
     if slice_matching:
         A2di = torch.inverse(A2d)
         points = (A2di[:,None,None,:2,:2]@XJ[...,1:,None])[...,0]
@@ -2435,7 +2445,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         xr0 = torch.arange(float(m0),float(M0),dJ[1],device=m0.device,dtype=m0.dtype)
         xr1 = torch.arange(float(m1),float(M1),dJ[2],device=m0.device,dtype=m0.dtype)
         xr = xJ[0],xr0,xr1
-        XR = torch.stack(torch.meshgrid(xr),-1)
+        XR = torch.stack(torch.meshgrid(xr,indexing='ij'),-1)
         # now we have to sample J at A Xr
         Xs = torch.clone(XR)
         Xs[...,1:] = (A2d[:,None,None,:2,:2]@XR[...,1:,None])[...,0] + A2d[:,None,None,:2,-1]
@@ -2452,7 +2462,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         # sample points for affine
         Xs = ((Ai[:3,:3]@XR[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
         # for diffeomorphism
-        XV = torch.stack(torch.meshgrid(xv))
+        XV = torch.stack(torch.meshgrid(xv,indexing='ij'))
         phiiAi = interp(xv,phii-XV,Xs) + Xs
 
         # transform image
@@ -2469,7 +2479,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
     #fig[0].suptitle('Recon space')
     
     # and atlas space
-    XI = torch.stack(torch.meshgrid(xI))
+    XI = torch.stack(torch.meshgrid(xI,indexing='ij'))
     phi = v_to_phii(xv,-v.flip(0))
     #A = LT_to_A(L.detach(),T.detach())
     Aphi = ((A[:3,:3]@phi.permute((1,2,3,0))[...,None])[...,0] + A[:3,-1]).permute((3,0,1,2))
@@ -2639,7 +2649,7 @@ class Transform():
             # then it is a mapping, we need interp
             # recall all components are stored on the first axis,
             # but for sampling they need to be on the last axis
-            ID = torch.stack(torch.meshgrid(self.domain))
+            ID = torch.stack(torch.meshgrid(self.domain,indexing='ij'))
             # print(f'ID shape {ID.shape}')
             # print(f'X shape {X.shape}')
             # print(f'data shape {self.data.shape}')
@@ -3007,7 +3017,7 @@ def write_outputs_for_pair(output_dir,outputs,
         images_dir = os.path.join(from_space_dir,IMAGES)
         os.makedirs(images_dir, exist_ok=exist_ok)
         # to get these images I first need to map them to registered
-        XJ = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xJ]))
+        XJ = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xJ], indexing='ij'))
         R = outputs['A2d']
         RXJ = ((R[:,None,None,:2,:2]@(XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + R[:,None,None,:2,-1]).permute(-1,0,1,2)
         RXJ = torch.cat((XJ[0][None],RXJ))
@@ -3685,12 +3695,12 @@ if __name__ == '__main__':
             
         # transform imaging data
         # transform target back to atlas
-        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
+        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI],indexing='ij'))
         Xout = compose_sequence(args.output,Xin)
         Jt = apply_transform_float(xJ,J,Xout)
         
         # transform atlas to target
-        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ]))
+        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ],indexing='ij'))
         Xout = compose_sequence(args.output,Xin,direction='b')
         It = apply_transform_float(xI,I,Xout)
         if args.label is not None:
@@ -3753,7 +3763,7 @@ if __name__ == '__main__':
         
         # to transform an image we start with Xin, and compute Xout
         # Xin will be the grid of points in target
-        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ]))
+        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ],indexing='ij'))
         Xout = compose_sequence([(x,d) for x,d  in zip(args.xform,args.direction) ], Xin)
         if args.atlas is not None:
             It = apply_transform_float(xI,I,Xout)
