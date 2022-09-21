@@ -1,3 +1,4 @@
+from turtle import pd
 import emlddmm
 import numpy as np
 import torch
@@ -6,6 +7,7 @@ from argparse import RawTextHelpFormatter
 import json
 import os
 import pickle
+import re
 
 class Graph:
     """
@@ -127,6 +129,19 @@ def graph_reconstruct(graph, spaceA, spaceB, image):
     pass
 
 
+def _fnames_from_dir(path):
+    samples_tsv = os.path.join(path, "samples.tsv")
+    fnames = []
+    with open(samples_tsv,'rt') as f:
+        for count,line in enumerate(f):
+            line = line.strip()
+            key = '\t' if '\t' in line else '    '
+            if count == 0:
+                continue
+            fnames.append(os.path.splitext(re.split(key,line)[0])[0])
+    return fnames
+
+
 def run_registrations(reg_list):
     """ Run Registrations
 
@@ -142,14 +157,14 @@ def run_registrations(reg_list):
     Example
     -------
     >>> reg_list = [{'registration':[['CCF','average_template_50'],['MRI','masked']],
-                     'source': 'average_template_50.vtk',
-                     'target': 'HR_NIHxCSHL_50um_14T_M1_masked.vtk',
-                     'config': 'configMD816_MR_to_CCF.json',
+                     'source': '/path/to/average_template_50.vtk',
+                     'target': '/path/to/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+                     'config': '/path/to/configMD816_MR_to_CCF.json',
                      'output': 'outputs/example_output'},
                     {'registration':[['MRI','masked'], ['HIST','Nissl']],
-                     'source': 'HR_NIHxCSHL_50um_14T_M1_masked.vtk',
-                     'target': 'MD816_STIF',
-                     'config': 'configMD816_Nissl_to_MR.json',
+                     'source': '/path/to/HR_NIHxCSHL_50um_14T_M1_masked.vtk',
+                     'target': '/path/to/MD816_STIF',
+                     'config': '/path/to/configMD816_Nissl_to_MR.json',
                      'output': 'outputs/example_output'}]
     >>> run_registrations(reg_list)
 
@@ -160,7 +175,7 @@ def run_registrations(reg_list):
         target = r['target']
         registration = r['registration']
         config = r['config']
-        out = r['output']
+        outdir = r['output']
         print(f"registering {source} to {target}")
         with open(config) as f:
             config = json.load(f)
@@ -196,6 +211,12 @@ def run_registrations(reg_list):
             1) Save rigid transforms in {source}_input/{target}_to_{source}_input
         '''
         if I.image_type == 'series' and J.image_type == 'series':
+            A2d_names = []
+            source_fnames = _fnames_from_dir(source)
+            target_fnames = _fnames_from_dir(target)
+            for i in range(len(source_fnames)):
+                print()
+            emlddmm.write_transform_outputs(outdir, output, A2d_names=A2d_names)
             pass
         elif J.image_type == 'series':
             pass
@@ -298,7 +319,7 @@ def main():
             pickle.dump(graph, f)
 
     if "transform_all" in input_dict and input_dict["transform_all"] == True:
-
+        print() # TODO
     if "transforms" in input_dict:
         transforms = input_dict["transforms"]
         # this requires a graph which can be output from run_registrations or included in input json
@@ -310,14 +331,13 @@ def main():
             img_name = t[i][0][1]
             spaceB = t[i][1][0]
             img_path = sip[spaceA][img_name]
-            image =  Image(spaceA, img_name, img_path) # TODO: does this require mask=True?
+            image =  Image(spaceA, img_name, img_path)
             fI, disp, detjac = graph_reconstruct(graph, spaceA, spaceB, image)
             # TODO: write out reconstruction
 
     # for each registration save out the transforms (A, v), and qc images
 
     return
-
 
 
 '''
@@ -328,8 +348,6 @@ def main():
  4) load configuration parameters
  5) register images
  6) write out transforms & construct graph
-    a) if 3D to 3D write out A.txt and velocity.vtk
-    b) if 2D to 3D write ou
  7) write out graph
  8) Reconstruct images by composing transforms according to shortest paths on the graph
  9) Save images and jacobians of composed transforms

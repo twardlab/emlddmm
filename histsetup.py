@@ -141,7 +141,8 @@ def make_samples_tsv(subject_dir, ext, max_slice=None, sep='_',fnumidx=-1):
 
     # make samples.tsv file
     with open(os.path.join(subject_dir, 'samples.tsv'), 'w') as f:
-        f.write('sample_id    participant_id    species    status\n')
+        # f.write('sample_id    participant_id    species    status\n')
+        f.write('sample_id\tparticipant_id\tspecies\tstatus\n')
         status = 'present'
         # j = 0
         for i in range(len(fnames)):
@@ -150,7 +151,9 @@ def make_samples_tsv(subject_dir, ext, max_slice=None, sep='_',fnumidx=-1):
         #         j += 1
         #     else:
         #         status = 'present' 
-            f.write('{0}    {1}    Mus Musculus    {2}\n'.format(fnames[i], fnames[i][:5], status))
+            # f.write('{0}    {1}    Mus Musculus    {2}\n'.format(fnames[i], fnames[i][:5], status))
+            f.write('{0}\t{1}\tMus Musculus\t{2}\n'.format(fnames[i], fnames[i][:5], status))
+
 
 
 # Set up metadata JSON file
