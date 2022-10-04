@@ -1,4 +1,3 @@
-from turtle import pd
 import emlddmm
 import numpy as np
 import torch
@@ -7,7 +6,12 @@ from argparse import RawTextHelpFormatter
 import json
 import os
 import pickle
-import re
+
+if torch.cuda.is_available():
+    device = 'cuda:0'
+else:
+    device = 'cpu'
+dtype = torch.float
 
 class Graph:
     """
@@ -21,77 +25,226 @@ class Graph:
        list of dictionaries holding the transforms needed to map between connecting spaces.
     """
 
-    def __init__(self, nodes={}, edges=[]):
-        self.nodes = nodes
-        self.edges = edges
-        pass
+    def __init__(self, adj=[], spaces={}):
+        self.adj = adj
+        self.spaces = spaces
 
-    def add_segment(self):
-        """
-        Add an edge to the graph.
+    # def add_edge(self, src_space, target_space, out, slice_matching=False):
+    #     """ Add edge between two vertices in registration adjacency list.
+
+    #     Adds the key:value pair, src_space:('path/to/tranforms', 'direction') to the dict corresponding to target space in the adjacency list.
+    #     The adjacency list (adj) has the form [{target_space_1 dict}, ..., {target_space_n dict}] for n target spaces.
+    #     Each target space dict has the form {src_space_1: ('path/to/transforms_1', 'direction'), ..., src_space_n: ('path/to/transforms_n', 'direction}
+    #     which indicates the spaces to which the target space were registered, and the location of transforms corresponding to that registration.
+    #     For each registration both the forward and backward transformation is recorded in the list. e.g. [{space_1: ('space_0_to_space_1/transforms', 'f')}, {space_0: ('space_0_to_space_1/transforms', 'b')}
+
+    #     Parameters
+    #     ----------
+    #     adj : list of dicts
+    #         adjacency list of transformations between spaces
+    #     spaces: dict
+    #         user assigned space name strings each assigned an integer value as a key:value pair in a dictionary
+    #     target_space: str
+    #         user assigned target space name
+    #     src_space: str
+    #         user assigned source space name
+    #     out: str
+    #         path to registration outputs
+
+    #     Example
+    #     -------
+    #     >>> graph.spaces = {'HIST': 0, 'MRI': 1, 'CCF': 2, 'CT': 3}
+    #     >>> graph.adj = [{} for i in range(len(spaces))]
+
+    #     >>> print(graph.adj)
+    #     [{}, {}, {}, {}]
+
+    #     >>> graph.add_edge('MRI', 'CCF', 'outputs')
+    #     >>> print(graph.adj)
+    #     [{}, {2: ('outputs/CCF/MRI_to_CCF/', 'f')}, {1: ('outputs/CCF/MRI_to_CCF/', 'b')}, {}]
+
+    #     >>> graph.add_edge('HIST', 'MRI', 'outputs', slice_matching=True)
+    #     >>> print(graph.adj)
+    #     [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')}, {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')}, {1: ('outputs/CCF/MRI_to_CCF/', 'b')}, {}]
+        
+    #     """ 
+    #     if slice_matching:
+    #         transforms_path = os.path.join(out,f'{src_space}/{target_space}_registered_to_{src_space}/')
+    #     else:
+    #         transforms_path = os.path.join(out,f'{src_space}/{target_space}_to_{src_space}/')
+
+    #     self.adj[self.spaces[target_space]][self.spaces[src_space]] = (transforms_path, 'f')
+    #     self.adj[self.spaces[src_space]][self.spaces[target_space]] = (transforms_path, 'b')
+    
+    def add_edge(self, transforms, src_space, target_space):
+
+        self.adj[self.spaces[src_space]][self.spaces[target_space]] = transforms
+        transforms_backward = []
+        for t in transforms[::-1]:
+            t = emlddmm.Transform(t.data, 'b')
+            transforms_backward.append(t)
+        self.adj[self.spaces[target_space]][self.spaces[src_space]] = transforms_backward
+
+    def BFS(self, target, src, v, pred, dist):
+        """ Breadth first search
+
+        a modified version of BFS that stores predecessor
+        of each vertex in array pred and its distance from source in array dist
 
         Parameters
         ----------
+        target: int
+            int value given by corresponding target in spaces dict
+        src: int 
+            int value given by corresponding src in spaces dict
+        v: int
+            length of spaces dict
+        pred: list of ints
+            stores predecessor of vertex i at pred[i]
+        dist: list of ints
+            stores distance (by number of vertices) of vertex i from source vertex
 
         Returns
         -------
+        bool
+            True if a path from target to src is found and False otherwise
 
         """
-        pass
+    
 
-    def shortest(self, a, b):
-        """
-        Find the shortest path between two nodes.
+        queue = []
+    
+        visited = [False for i in range(v)]
+        # for each space we initialize the distance from target to be a large number and the predecessor to be -1
+        for i in range(v):
+    
+            dist[i] = 1000000
+            pred[i] = -1
+        
+        # visit source first. Distance from source to itself is 0
+        visited[target] = True
+        dist[target] = 0
+        queue.append(target)
+    
+        # BFS algorithm
+        while (len(queue) != 0):
+            u = queue[0]
+            queue.pop(0)
+            for i in range(len(self.adj[u])):
+            
+                if (visited[list(self.adj[u])[i]] == False):
+                    visited[list(self.adj[u])[i]] = True
+                    dist[list(self.adj[u])[i]] = dist[u] + 1
+                    pred[list(self.adj[u])[i]] = u
+                    queue.append(list(self.adj[u])[i])
+    
+                    # We stop BFS when we find
+                    # destination.
+                    if (list(self.adj[u])[i] == src):
+                        return True
+    
+        return False
+
+    def shortest_path(self, src, target):
+        """ Find Shortest Path
+
+        Finds the shortest path between target and src in the adjacency list and prints its length
 
         Parameters
         ----------
-        spaceA : str
-        spaceB : str
+        src: int 
+            src value given by corresponding source in spaces dict
+        target: int
+            int value given by corresponding source in spaces dict
 
         Returns
         -------
-        path : list
-            list of nodes connecting spaceA to spaceB
-        transforms : list
-            list of inputs to compose_sequence, each being a list of two Transform objects
+        path : list of ints
+            path from target to src using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.
+
+
+        Example
+        -------
+        >>> adj = [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')},
+        ...        {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+        ...        {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
+        ...        {}]
+        >>> path = find_shortest_path(adj, 0, 2, 4)
+        Shortest path length is: 2
+
+        >>> print(path)
+        [0,1,2]
+
+        >>> path = transformation_graph.find_shortest_path(adj, 0, 3, 4)
+        Given target and source are not connected
+
         """
-        pass
-
-
-class Image:
-    def __init__(self, space, name, fpath, mask=None):
-        self.space = space
-        self.name = name
-        self.x, self.data, self.title, self.names = emlddmm.read_data(fpath)
-        self.data = self.data.astype(float)
-        self.mask = mask
-        if 'mask' in self.names:
-            maskind = self.names.index('mask')
-            self.mask = self.data[maskind]
-            self.data = self.data[np.arange(self.data.shape[0])!=maskind]
-        elif mask == True: # only initialize mask array if mask arg is True
-            self.mask = np.ones_like(self.data[0])
-        if self.title == 'slice_dataset':
-            self.image_type = 'series'
-        else:
-            self.image_type = 'volume'
+        v = len(self.spaces)
+        
+        pred=[0 for i in range(v)] # predecessor of space i in path from target to src
+        dist=[0 for i in range(v)] # distance of vertex i by number of vertices from target
     
-    def normalize(self, norm='mean'):
-        if norm == 'mean':
-            self.data /= np.mean(np.abs(self.data))
+        if (self.BFS(target, src, v, pred, dist) == False):
+            print("Given target and source are not connected")
+            
+        # path stores the shortest path
+        path = []
+        crawl = src
+        path.append(crawl)
+        
+        while (pred[crawl] != -1):
+            path.append(pred[crawl])
+            crawl = pred[crawl]
+        
+        path.reverse()
+
+        if len(path) > 1:
+            # distance from source is in distance array
+            print("Shortest path length is: " + str(dist[src]), end = '')
+
+        return path
+
+    # def get_transformation(self, path):
+    #     """ Get Transformation
+
+    #     Gets file path or paths to the transforms needed to match src to dest
+
+    #     Parameters
+    #     ----------
+    #     adj : list of dicts
+    #         adjacency list of transformations between spaces
+    #     path : list of ints
+    #         path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.
+
+    #     Returns
+    #     -------
+    #     transformation : list of strings
+    #         list of file paths to sequence of transformations matching src to dest
+
+    #     Example
+    #     -------
+    #     >>> adj = [{1: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f')},
+    #     ...        {2: ('outputs/CCF/MRI_to_CCF/', 'f'), 0: ('outputs/MRI/HIST_REGISTERED_to_MRI/', 'b')},
+    #     ...        {1: ('outputs/CCF/MRI_to_CCF/', 'b')},
+    #     ...        {}]
+    #     >>> path = [0,1,2]
+    #     >>> transformation = get_transformation(adj, path)
+    #     >>> print(transformation)
+    #     [('outputs/MRI/HIST_REGISTERED_to_MRI/', 'f'), ('outputs/CCF/MRI_to_CCF/', 'f')]
+
+    #     """
+    #     transformation = []
+    #     for i in range(len(path)-1):
+    #         transformation.append(self.adj[path[i]][path[i+1]])
+
+    #     return transformation
     
-    def downsample(self, down):
-        self.x, self.data = emlddmm.downsample_image_domain(self.x, self.data, down)
-        if self.mask is not None:
-            self.mask = emlddmm.downsample(self.mask,down)
+    def transforms(self, path):
+        transforms = []
+        for i in range(len(path)-1):
+            transforms =  transforms + self.adj[path[i]][path[i+1]]
 
-
-def write_transform_outputs():
-    pass
-
-
-def write_qc_outputs():
-    pass
+        return transforms
 
 
 def read_graph():
@@ -101,21 +254,30 @@ def read_graph():
 def write_graph():
     pass
 
+# TODO
+# def reconstruct(transforms, Xin, image):
+#     Xout = emlddmm.compose_sequence(transforms, Xin)
+#     I = emlddmm.apply_transform_float(image.x, image.data, Xout=Xout)
+#     # TODO: construct displacement and detjac
+#     disp = None
+#     detjac = None
+#     return I, disp, detjac
 
-def reconstruct(transforms, Xin, image):
-    Xout = emlddmm.compose_sequence(transforms, Xin)
-    I = emlddmm.apply_transform_float(image.x, image.data, Xout=Xout)
-    # TODO: construct displacement and detjac
-    disp = None
-    detjac = None
-    return I, disp, detjac
 
 # TODO
-def graph_reconstruct(graph, spaceA, spaceB, image):
-    ''' Reconstruct image in desired space
-    
+def graph_reconstruct(graph, out, I, J):
+    ''' Apply Transformation
+
+    Applies affine matrix and velocity field transforms to map source points to target points. Saves displacement field from source points to target points
+    (i.e. difference between transformed coordinates and input coordinates), and determinant of Jacobian for 3d source spaces. Also saves transformed image in vtk format.
+
     Parameters
     ----------
+    graph : emlddmm Graph
+    out: str
+        path to registration outputs root
+    I : emlddmm Image   
+    J : emlddmm Image
 
     Returns
     -------
@@ -126,20 +288,453 @@ def graph_reconstruct(graph, spaceA, spaceB, image):
     detjac : array
         determinant of Jacobian of the displacement field
     '''
-    pass
+    # forward transform
+    path = graph.shortest_path(graph.spaces[I.space], graph.spaces[J.space]) # shortest_path transforms points from src space to target space
+    transforms = graph.transforms(path)
+    XI = torch.stack(torch.meshgrid(I.x, indexing='ij'))
+    fXI = emlddmm.compose_sequence(transforms, XI)
+    fJ = emlddmm.interp(J.x, J.data, fXI)
 
+    # backward transform
+    path = graph.shortest_path(graph.spaces[J.space], graph.spaces[I.space])
+    transforms = graph.transforms(path)
+    XJ = torch.stack(torch.meshgrid(J.x, indexing='ij'))
+    fXJ = emlddmm.compose_sequence(transforms, XJ)
+    fI = emlddmm.interp(I.x, I.data, fXJ)
 
-def _fnames_from_dir(path):
-    samples_tsv = os.path.join(path, "samples.tsv")
-    fnames = []
-    with open(samples_tsv,'rt') as f:
-        for count,line in enumerate(f):
-            line = line.strip()
-            key = '\t' if '\t' in line else '    '
-            if count == 0:
-                continue
-            fnames.append(os.path.splitext(re.split(key,line)[0])[0])
-    return fnames
+    '''
+    Three cases:
+
+    1) series to series
+        Save reconstructions of each slice in the other space.
+        Requires applying A2d (forward transforms) to I points and resampling J, 
+        then apply A2di to J points and resampling I.
+    2) volume to series
+        A) Save out input to registered images
+            Apply A2d to I points and resample J, then save each slice.
+        B) Save volume to registered images in {J.space}_registered/{I.space}_{I.name}_to_{J.space}_registered/images/,
+         and volume to input images in {J.space}_input/{I.space}_{I.name}_to_{J.space}_input/images/
+        C) Save series to volume image in {I.space}/{J.space}_{J.name}_input_to_{I.space}/images/
+        D) Save series to volume detjac and displacement in {I.space}/{J.space}_{J.name}_registered_to_{I.space}/transforms/
+    3) volume to volume 
+        A) Save out I to J image in {J.space}/{I.space}_to_{J.space}/images, and J to I image in {I.space}/{J.space}_to_{I.space}/images/
+        B) Save out I to J detjac and displacement in {J.space}/{I.space}_to_{J.space}/transforms/
+        and J to I detjac and displacement in {I.space}/{J.space}_to_{I.space}/transforms/
+    '''
+
+    if I.title == 'slice_matching' and J.title == 'slice_matching':
+        # series to series
+        # Assumes J and I have the same space dimensions
+        J_to_I_out = os.path.join(out, f'{I.space}_input/{J.space}_input_to_{I.space}_input/images/')
+        if not os.path.exists(J_to_I_out):
+            os.makedirs(J_to_I_out)
+        I_to_J_out = os.path.join(out, f'{J.space}_input/{I.space}_input_to_{J.space}_input/images/')
+        if not os.path.exists(I_to_J_out):
+            os.makedirs(I_to_J_out)
+        for i in range(J.data.shape[1]):
+            x = [torch.tensor([I.x[0][i], I.x[0][i]+10]), I.x[1], I.x[2]]
+            # first J to I
+            img = fJ[:, i, None, ...]
+            title = f'{J.space}_input_{J.fnames()[i]}_to_{I.space}_input_{I.fnames()[i]}'
+            emlddmm.write_vtk_data(os.path.join(J_to_I_out, f'{J.space}_input_{J.fnames()[i]}_to_{I.space}_input_{I.fnames()[i]}.vtk'), x, img, title)
+            # now I to J
+            img = fI[:, i, None, ...]
+            title = f'{I.space}_input_{I.fnames()[i]}_to_{J.space}_input_{J.fnames()[i]}'
+            emlddmm.write_vtk_data(os.path.join(I_to_J_out, f'{I.space}_input_{I.fnames()[i]}_to_{J.space}_input_{J.fnames()[i]}.vtk'), x, img, title)
+
+    elif J.title == 'slice_matching':
+        # we need I transformed to J registered space
+        path = graph.shortest_path(graph.spaces[J.space], graph.spaces[I.space])
+        # omit the first transform which takes points from input to registered
+        transforms = graph.transforms(path)[1:]
+        fXJ = emlddmm.compose_sequence(transforms, XJ)
+        fIr = emlddmm.interp(I.x, I.data, fXJ)
+        # J input to J registered space
+        path = graph.shortest_path(graph.spaces[I.space], graph.spaces[J.space])
+        # get the last transform which takes points from registered to input
+        transforms = graph.transforms(path)[-1]
+        fXJ = emlddmm.compose_sequence(transforms, XJ)
+        fJr = emlddmm.interp(J.x, J.data, fXJ)
+
+        I_to_Ji_out = os.path.join(out, f'{J.space}_input/{I.space}_{I.name}_to_{J.space}_input/images/')
+        if not os.path.exists(I_to_Ji_out):
+            os.makedirs(I_to_Ji_out)
+        I_to_Jr_out = os.path.join(out, f'{J.space}_registered/{I.space}_{I.name}_to_{J.space}_registered/images/')
+        if not os.path.exists(I_to_Jr_out):
+            os.makedirs(I_to_Jr_out)
+        Ji_to_Jr_out = os.path.join(out, f'{J.space}_registered/{J.space}_input_to_{J.space}_registered/images/')
+        J_to_I_out = os.path.join(out, f'{I.space}/{J.space}_{J.name}_input_to_{I.space}/images/')
+        for i in range(J.data.shape[1]):
+            x = [torch.tensor([J.x[0][i], J.x[0][i]+10]), J.x[1], J.x[2]]
+            # volume to input series
+            img = fI[:, i, None, ...]
+            title = f'{I.space}_{I.name}_to_{J.space}_input_{J.fnames()[i]}'
+            emlddmm.write_vtk_data(os.path.join(I_to_Ji_out, f'{I.space}_{I.name}_to_{J.space}_input_{J.fnames()[i]}.vtk'), x, img, title)
+            # volume to registered series
+            img = fIr[:, i, None, ...]
+            title = f'{I.space}_{I.name}_to_{J.space}_registered_{J.fnames()[i]}'
+            emlddmm.write_vtk_data(os.path.join(I_to_Jr_out, f'{I.space}_{I.name}_to_{J.space}_registered_{J.fnames()[i]}.vtk'), x, img, title)
+            # input to registered images
+            img = fJr[:, i, None, ...]
+            title = f'{J.space}_input_{J.fnames()[i]}_to_{J.space}_registered_{J.fnames()[i]}'
+            emlddmm.write_vtk_data(os.path.join(Ji_to_Jr_out, f'{J.space}_input_{J.fnames()[i]}_to_{J.space}_registered_{J.fnames()[i]}.vtk'), x, img, title)
+
+        # J to I
+        img = fJ
+        title = f'{I.space}/{J.space}_{J.name}_input_to_{I.space}'
+        emlddmm.write_vtk_data(os.path.join(J_to_I_out, f'{I.space}/{J.space}_{J.name}_input_to_{I.space}.vtk'), I.x, img, title)    
+
+        pass
+
+def registered_domain(x,A2d):
+    '''Construct a new domain that fits all rigidly aligned slices.
+
+    Parameters
+    ----------
+    x : list of arrays
+        list of numpy arrays containing voxel positions along each axis.
+    A2d : numpy array
+        Nx3x3 array of affine transformations
+    
+    Returns
+    -------
+    xr : list of arrays
+        new list of numpy arrays containing voxel positions along each axis
+
+    '''
+    X = torch.stack(torch.meshgrid(x, indexing='ij'), -1)
+    A2di = torch.inverse(A2d)
+    points = (A2di[:, None, None, :2, :2] @ X[..., 1:, None])[..., 0] 
+    m0 = torch.min(points[..., 0])
+    M0 = torch.max(points[..., 0])
+    m1 = torch.min(points[..., 1])
+    M1 = torch.max(points[..., 1])
+    # construct a recon domain
+    dJ = [x[1] - x[0] for x in x]
+    # print('dJ shape: ', [x.shape for x in dJ])
+    xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
+    xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
+    xr = x[0], xr0, xr1
+
+    return xr
+
+def graph_reconstruct(graph, out, I, J):
+    """ Apply Transformation
+
+    Applies affine matrix and velocity field transforms to map source points to target points. Saves displacement field from source points to target points
+    (i.e. difference between transformed coordinates and input coordinates), and determinant of Jacobian for 3d source spaces. Also saves transformed image in vtk format.
+
+    Parameters
+    ----------
+    graph : emlddmm Graph
+    out: str
+        path to registration outputs root
+    I : emlddmm Image   
+    J : emlddmm Image
+    
+    Example
+    -------
+    >>> graph.adj = [{1: ('outputs/example_output/CCF/MRI_to_CCF/', 'f'), 2: ('outputs/example_output/MRI/HIST_registered_to_MRI/', 'b')},
+    ... {0: ('outputs/example_output/CCF/MRI_to_CCF/', 'b')},
+    ... {0: ('outputs/example_output/MRI/HIST_registered_to_MRI/', 'f')}]
+    >>> graph.spaces = {'MRI': 0, 'CCF': 1, 'HIST': 2}
+    >>> apply_transformation(graph.adj, graph.spaces, 'MRI', 'masked', 'CCF', 'outputs/example_output',
+    ... 'HR_NIHxCSHL_50um_14T_M1_masked.vtk', 'average_template_50.vtk')
+    """
+    # input: image to be transformed (target_path or I), img space to which the source image will be matched (src_path i.e. J), adjacency list and spaces dict from run_registration, source and source space names
+    # return: transfromed image
+
+    src_space = I.space
+    src_path = I.path
+    target_space = J.space
+    target_img = J.name
+    target_path = J.path
+    
+    # load source image
+    xJ, J, J_title, _ = emlddmm.read_data(target_path) # the image to be transformed
+    J = J.astype(float)
+    J = torch.as_tensor(J,dtype=dtype,device=device)
+    xJ = [torch.as_tensor(np.copy(x),dtype=dtype,device=device) for x in xJ]
+
+    # if rigidly registering histology with different contrasts, reconstruct each in the other space
+    if J_title == 'slice_dataset' and I.title == 'slice_dataset':
+        pass
+
+    if J_title == 'slice_dataset' and src_space == target_space:
+        # get image slice names for naming output images
+        src_slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
+        src_slice_names = sorted(src_slice_names, key=lambda x: x[-4:])
+        target_slice_names = [os.path.splitext(x)[0] for x in os.listdir(target_path) if x[-4:] == 'json']
+        target_slice_names = sorted(target_slice_names, key=lambda x: x[-4:])
+        space = src_space # target_space = src_space = space
+
+        x_series = xJ
+        X_series = torch.stack(torch.meshgrid(x_series, indexing='ij'), -1)
+        transforms = os.path.join(out, f'{space}_registered/{space}_input_to_{space}_registered/transforms')
+        transforms_ls = sorted(os.listdir(transforms), key=lambda x: x.split('_matrix.txt')[0][-4:])
+
+        A2d = []
+        for t in transforms_ls:
+            A2d_ = np.genfromtxt(os.path.join(transforms, t), delimiter=',')
+            # note that there are nans at the end if I have commas at the end
+            if np.isnan(A2d_[0, -1]):
+                A2d_ = A2d_[:, :A2d_.shape[1] - 1]
+            A2d.append(A2d_)
+
+        A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
+        A2di = torch.inverse(A2d)
+        points = (A2di[:, None, None, :2, :2] @ X_series[..., 1:, None])[..., 0] 
+        m0 = torch.min(points[..., 0])
+        M0 = torch.max(points[..., 0])
+        m1 = torch.min(points[..., 1])
+        M1 = torch.max(points[..., 1])
+        # construct a recon domain
+        dJ = [x[1] - x[0] for x in x_series]
+        # print('dJ shape: ', [x.shape for x in dJ])
+        xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
+        xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
+        xr = x_series[0], xr0, xr1
+        XR = torch.stack(torch.meshgrid(xr,indexing='ij'), -1)
+        # reconstruct 2d series
+        Xs = torch.clone(XR)
+        Xs[..., 1:] = (A2d[:, None, None, :2, :2] @ XR[..., 1:, None])[..., 0] + A2d[:, None, None, :2, -1]
+        Xs = Xs.permute(3, 0, 1, 2)
+        Jr = emlddmm.interp(xJ, J, Xs)
+
+        # save transformed 2d images   
+        img_out = os.path.join(out, f'{space}_registered/{space}_input_to_{space}_registered/images')
+        if not os.path.exists(img_out):
+            os.makedirs(img_out)
+        for i in range(Jr.shape[1]):
+            Jr_ = Jr[:, i, None, ...]
+            xr_ = [torch.tensor([xr[0][i], xr[0][i]+10]), xr[1], xr[2]]
+            title = f'{space}_input_{target_slice_names[i]}_to_{space}_registered_{src_slice_names[i]}'
+            emlddmm.write_vtk_data(os.path.join(img_out, f'{space}_input_{target_slice_names[i]}_to_{space}_registered_{src_slice_names[i]}.vtk'), xr_, Jr_, title)
+
+        return
+
+    # load source image
+    xI, I, I_title, _ = emlddmm.read_data(src_path) # the space to transform into
+    I = I.astype(float)
+    I = torch.as_tensor(I, dtype=dtype, device=device)
+    xI = [torch.as_tensor(np.copy(x),dtype=dtype,device=device) for x in xI]
+
+    slice_matching = 'slice_dataset' in [I_title, J_title]
+    # if slice_matching then construct the reconstructed space XR
+    if slice_matching:
+        if I_title=='slice_dataset': # then the last transform in transformation_seq should contain A2d files
+            # transforms = os.path.join(transformation_seq[-1][0], 'transforms')
+            transforms = os.path.join(out, f'{src_space}_registered/{src_space}_input_to_{src_space}_registered/transforms')
+        else: # otherwise the first transform in transformation_seq should contain A2d filess
+            # transforms = os.path.join(transformation_seq[0][0], 'transforms')
+            transforms = os.path.join(out, f'{target_space}_registered/{target_space}_input_to_{target_space}_registered/transforms') 
+        transforms_ls = [f for f in os.listdir(transforms) if 'vtk' not in f and 'A.txt' not in f]
+        transforms_ls = sorted(transforms_ls, key=lambda x: x.split('_matrix.txt')[0][-4:])
+        # determine which image is constructed from a 2d series, I or J.
+        x_series = xI if I_title=='slice_dataset' else xJ
+        X_series = torch.stack(torch.meshgrid(x_series, indexing='ij'),-1)
+
+        A2d = []
+        for t in transforms_ls:
+            A2d_ = np.genfromtxt(os.path.join(transforms, t), delimiter=',')
+            # note that there are nans at the end if I have commas at the end
+            if np.isnan(A2d_[0, -1]):
+                A2d_ = A2d_[:, :A2d_.shape[1] - 1]
+            A2d.append(A2d_)
+
+        A2d = torch.as_tensor(np.stack(A2d),dtype=dtype,device=device)
+        A2di = torch.inverse(A2d)
+        points = (A2di[:, None, None, :2, :2] @ X_series[..., 1:, None])[..., 0] # reconstructed space needs to be created from the 2d series coordinates
+        m0 = torch.min(points[..., 0])
+        M0 = torch.max(points[..., 0])
+        m1 = torch.min(points[..., 1])
+        M1 = torch.max(points[..., 1])
+        # construct a recon domain
+        dJ = [x[1] - x[0] for x in x_series]
+        # print('dJ shape: ', [x.shape for x in dJ])
+        xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
+        xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
+        xr = x_series[0], xr0, xr1
+        XR = torch.stack(torch.meshgrid(xr, indexing='ij'), -1)
+        # reconstruct 2d series
+        Xs = torch.clone(XR)
+        Xs[..., 1:] = (A2d[:, None, None, :2, :2] @ XR[..., 1:, None])[..., 0] + A2d[:, None, None, :2, -1]
+        Xs = Xs.permute(3, 0, 1, 2)
+
+    path = graph.find_shortest_path(graph.adj, graph.spaces[target_space], graph.spaces[src_space], len(graph.spaces))
+    if len(path) < 2:
+        return
+    print("\nPath is:")
+
+    # printing path as sequence of space names
+    for i in path:
+        for key, value in graph.spaces.items():
+            if i == value:
+                print(key, end=' ')
+
+    transformation_seq = graph.get_transformation(graph.adj, path)
+    print('\nTransformation sequence: ', transformation_seq)
+
+    # if slice_matching and the source is 2d series, then X = XR
+    if I_title == 'slice_dataset':
+        X = torch.clone(XR.permute(3,0,1,2)) # the reconstructed registered domain
+
+        # we will also need the input domain for getting to_input displacement and images later
+        Xin = torch.clone(X_series) # note that coordinates are on the last dimension e.g. (i,j,k,3)           
+        Xin[..., 1:] = ((A2di[:,None,None,:2,:2] @ (Xin[..., 1:][..., None]))[...,0] + A2di[:,None,None,:2,-1])
+        Xin = Xin.permute(3,0,1,2) # (3,i,j,k)
+        for i in reversed(range(len(transformation_seq))):
+            Xin = emlddmm.compose_sequence([transformation_seq[i]], Xin)
+    else:
+        X = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI], indexing='ij'))
+    for i in reversed(range(len(transformation_seq))):
+        X = emlddmm.compose_sequence([transformation_seq[i]], X)
+
+    # get displacement
+    if I_title == 'slice_dataset':
+        # for input disp we need to apply compose_sequence to  A2di @ X_series to get Xin and then input_disp = Xin - X_series
+        input_disp = (Xin - X_series.permute(3,0,1,2).cpu())[None]
+        registered_disp = (X - XR.permute(3,0,1,2).cpu())[None]
+        
+        # save out displacement from input and from registered space
+        input_dir = os.path.join(out, f'{src_space}_input/{target_space}_to_{src_space}_input/transforms/')
+        if not os.path.isdir(input_dir):
+            os.makedirs(input_dir)
+        
+        registered_dir = os.path.join(out, f'{src_space}_registered/{target_space}_to_{src_space}_registered/transforms/')
+        if not os.path.isdir(registered_dir):
+            os.makedirs(registered_dir)
+
+        # get image names of slices for naming outputs
+        slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
+        slice_names = sorted(slice_names, key=lambda x: x[-4:])
+
+        for i in range(input_disp.shape[2]):
+            x_series_ = [x_series[0][i], x_series[1], x_series[2]]
+            x_series_[0] = torch.tensor([x_series_[0], x_series_[0] + 10])
+            xr_ = [xr[0][i], xr[1], xr[2]]
+            xr_[0] = torch.tensor([xr_[0], xr_[0] + 10])
+            # write out input to src displacement
+            output_name = os.path.join(input_dir, f'{src_space}_input_{slice_names[i]}_to_{target_space}_displacement.vtk')
+            title = f'{src_space}_input_{slice_names[i]}_to_{target_space}_displacement'
+            emlddmm.write_vtk_data(output_name, x_series_, input_disp[:,:, i, None, ...], title)
+            # write out registered to src displacement
+            output_name = os.path.join(registered_dir, f'{src_space}_registered_{slice_names[i]}_to_{target_space}_displacement.vtk')
+            title = f'{src_space}_registered_{slice_names[i]}_to_{target_space}_displacement'
+            emlddmm.write_vtk_data(output_name, xr_, registered_disp[:,:, i, None, ...], title)
+
+            # TODO: write out detjac for 2d displacements
+
+    else:
+        # save out 3d displacement
+        disp = (X - torch.stack(torch.meshgrid(xI, indexing='ij')).to('cpu'))[None]
+        
+        if J_title == 'slice_dataset':
+            transform_dir = os.path.join(out, f'{src_space}/{target_space}_registered_to_{src_space}/transforms/')
+            if not os.path.exists(transform_dir):
+                os.makedirs(transform_dir)
+            output_name = os.path.join(transform_dir, f'{src_space}_to_{target_space}_registered_displacement.vtk')
+            title = f'{src_space}_to_{target_space}_registered_displacement'
+
+        else:
+            transform_dir = os.path.join(out, f'{src_space}/{target_space}_to_{src_space}/transforms/')
+            if not os.path.isdir(transform_dir):
+                os.makedirs(transform_dir)  
+            output_name = os.path.join(transform_dir, f'{src_space}_to_{target_space}_displacement.vtk')
+            title = f'{src_space}_to_{target_space}_displacement'
+
+        emlddmm.write_vtk_data(output_name, xI, disp, title)
+
+        # write out determinant of jacobian (detjac) of the transformed coordinates
+        dv = [(x[1]-x[0]).to('cpu') for x in xI]
+        jacobian = lambda X,dv : np.stack(np.gradient(X, dv[0],dv[1],dv[2], axis=(1,2,3))).transpose(2,3,4,0,1)
+        jac = jacobian(X,dv)
+        detjac = np.linalg.det(jac)
+        if J_title == 'slice_dataset':
+            output_name = os.path.join(transform_dir, f'{src_space}_to_{target_space}_registered_detjac.vtk')
+            title = f'{src_space}_to_{target_space}_registered_detjac'
+        else:
+            output_name = os.path.join(transform_dir, f'{src_space}_to_{target_space}_detjac.vtk')
+            title = f'{src_space}_to_{target_space}_detjac'
+        emlddmm.write_vtk_data(output_name, xI, detjac[None], title)
+
+    # now apply transformation to image
+    # if slice_matching and the source is 2d series, then use xr and Jr
+    if J_title == 'slice_dataset':
+        # register 2d series
+        Jr = emlddmm.interp(xJ, J, Xs)
+        # apply transform to registered image
+        AphiI = emlddmm.apply_transform_float(xr, Jr, X.to(device))
+    else:
+        AphiI = emlddmm.apply_transform_float(xJ, J, X.to(device))
+    
+    # visualize
+    if I_title == 'slice_dataset': # if the source is 2d series
+        x = xr
+    else:
+        x = xI
+    # fig = emlddmm.draw(AphiI, x)
+    # fig[0].suptitle(f'transformed {target_space} {target_img} to {src_space}')
+    # fig[0].canvas.draw()
+    # plt.show()
+
+    # save transformed images
+    if I_title == 'slice_dataset':
+        # first save out images of target space to registered slices
+        registered_out = os.path.join(out, f'{src_space}_registered/{target_space}_to_{src_space}_registered/images/')
+        if not os.path.exists(registered_out):
+            os.makedirs(registered_out)
+        for i in range(AphiI.shape[1]):
+            AphiI_ = AphiI[:, i, None, ...]
+            x_ = [torch.tensor([x[0][i], x[0][i]+10]), x[1], x[2]]
+            emlddmm.write_vtk_data(os.path.join(registered_out, f'{target_space}_{target_img}_to_{src_space}_registered_{slice_names[i]}.vtk'), x_, AphiI_, f'{target_space}_{target_img}_to_{src_space}_registered_{slice_names[i]}')
+
+        # now save images of target space to slices in input space
+        AphiI_to_input = emlddmm.apply_transform_float(xJ, J, Xin.to(device))
+        input_out = os.path.join(out, f'{src_space}_input/{target_space}_to_{src_space}_input/images/')
+        if not os.path.exists(input_out):
+            os.makedirs(input_out)
+        for i in range(AphiI_to_input.shape[1]):
+            AphiI_to_input_ = AphiI_to_input[:, i, None, ...]
+            xI_ = [torch.tensor([xI[0][i], xI[0][i]+10]), xI[1], xI[2]]
+            emlddmm.write_vtk_data(os.path.join(input_out, f'{target_space}_{target_img}_to_{src_space}_input_{slice_names[i]}.vtk'), xI_, AphiI_to_input_, f'{target_space}_{target_img}_to_{src_space}_input_{slice_names[i]}')
+        
+    else:
+        if J_title == 'slice_dataset':
+            img_out = os.path.join(out, f'{src_space}/{target_space}_input_to_{src_space}/images/')
+            if not os.path.exists(img_out):
+                os.makedirs(img_out)
+
+        else:
+            img_out = os.path.join(out, f'{src_space}/{target_space}_to_{src_space}/images/')
+            if not os.path.exists(img_out):
+                os.makedirs(img_out)
+        emlddmm.write_vtk_data(os.path.join(img_out, f'{target_space}_{target_img}_to_{src_space}.vtk'), x, AphiI, f'{target_space}_{target_img}_to_{src_space}')
+
+    # save text file of transformation order
+    if I_title == "slice_dataset":
+        # save transformation sequence to input directory
+        with open(os.path.join(out, f'{src_space}_input/{target_space}_to_{src_space}_input/{target_space}_to_{src_space}_transform_seq.txt'), 'w') as f:
+            for transform in reversed(transformation_seq[1:]):
+                f.write(str(transform) + ', ')
+            f.write(str(transformation_seq[0]))
+        # save transformation sequence to RECONSTRUCTED directory
+            with open(os.path.join(out, f'{src_space}_registered/{target_space}_to_{src_space}_registered/{target_space}_to_{src_space}_transform_seq.txt'), 'w') as f:
+                for transform in reversed(transformation_seq[1:]):
+                    f.write(str(transform) + ', ')
+                f.write(str(transformation_seq[0]))
+
+    else:
+        if J_title == 'slice_dataset':
+            output_name = os.path.join(out, f'{src_space}/{target_space}_registered_to_{src_space}/{target_space}_registered_{target_img}_to_{src_space}_transform_seq.txt')
+        else:
+            output_name = os.path.join(out, f'{src_space}/{target_space}_to_{src_space}/{target_space}_{target_img}_to_{src_space}_transform_seq.txt')
+        with open(output_name, 'w') as f:
+            for transform in reversed(transformation_seq[1:]):
+                f.write(str(transform) + ', ')
+            f.write(str(transformation_seq[0]))
+
+    return
 
 
 def run_registrations(reg_list):
@@ -153,6 +748,10 @@ def run_registrations(reg_list):
     reg_list : list of dicts
         each dict in reg_list specifies the source image path, target image path,
         source and target space names, registration configuration settings, and output directory.
+    
+    Returns
+    -------
+    reg_graph : emlddmm graph
 
     Example
     -------
@@ -170,26 +769,39 @@ def run_registrations(reg_list):
 
     """
 
+    # initialize graph
+    spaces = {}
+    v = 0
+    for i in reg_list:
+        for j in [i['registration'][0][0], i['registration'][1][0]]: # for src and target space names in each registration
+            if j not in spaces:
+                spaces[j] = v
+                v += 1
+    adj = [{}]*len(spaces)
+    graph = Graph(adj, spaces)
+
+    # perform registrations
     for r in reg_list:
         source = r['source']
         target = r['target']
         registration = r['registration']
         config = r['config']
-        outdir = r['output']
+        output_dir = r['output']
         print(f"registering {source} to {target}")
         with open(config) as f:
             config = json.load(f)
-        I = Image(space=registration[0][0], name=registration[0][1], fpath=source)
-        J = Image(space=registration[1][0], name=registration[1][1], fpath=target, mask=True)
-        I.normalize(norm='mean')
-        J.normalize(norm='mean')
+        I = emlddmm.Image(space=registration[0][0], name=registration[0][1], fpath=source)
+        if I.title == 'slice_dataset': # if series to series, both images must share the same coordinate grid
+            J = emlddmm.Image(space=registration[1][0], name=registration[1][1], fpath=target, mask=True, x=I.x)
+        else:
+            J = emlddmm.Image(space=registration[1][0], name=registration[1][1], fpath=target, mask=True)
         # initial downsampling
         downIs = config['downI']
         downJs = config['downJ']
         mindownI = np.min(np.array(downIs),0)
         mindownJ = np.min(np.array(downJs),0)
-        I.downsample(mindownI)
-        J.downsample(mindownJ)
+        I.x, I.data, I.mask = I.downsample(mindownI)
+        J.x, J.data, J.mask = J.downsample(mindownJ)
         downIs = [ list((np.array(d)/mindownI).astype(int)) for d in downIs]
         downJs = [ list((np.array(d)/mindownJ).astype(int)) for d in downJs]
         # update our config variable
@@ -197,39 +809,34 @@ def run_registrations(reg_list):
         config['downJ'] = downJs
         # registration
         output = emlddmm.emlddmm_multiscale(I=I.data,xI=[I.x],J=J.data,xJ=[J.x],W0=J.mask,full_outputs=False,**config)
-        # save transforms
         '''
-        for volume to volume:
-            1) Save A.txt and velocity.vtk in {source}/{target}_to_{source}
-
-        for volume (source) to series (target):
-            1) Save rigid transforms (R_i) in {target}_registered/{target}_input_to_registered.
-            2) A.txt and velocity.vtk map points in source to match target, which are
-            used to resmaple target images in source space. Save them in {source}/{target}_to_{source}
-    
         for series to series:
             1) Save rigid transforms in {source}_input/{target}_to_{source}_input
+            2) Save  qc source input and target to source_input in {source}_input/{target}_to_{source}_input/qc/
+            3) Save qc target input and source to target_input in {target}_input/{source}_to_{target}_input/qc/
+
+        for volume (source) to series (target):
+            1) Save rigid transforms (R) in {target}_registered/{target}_input_to_registered/transforms/
+            2) A.txt and velocity.vtk map points in source to match target, which are
+            used to resmaple target images in source space. Save them in {source}/{target}_registered_to_{source}/transforms/
+            3) Save qc source original and target to source in {source}/{target}_registered_to_{source}/qc/
+            4) Save qc target_input and source to target_input in {target}_input/{source}_to_{target}_input/qc/
+            5) Save qc target_registered and source to target_registered in {target}_registered/{source}_to_{target}_registered/qc/
+
+        for volume to volume:
+            1) Save A.txt and velocity.vtk in {source}/{target}_to_{source}/transforms/
         '''
-        if I.image_type == 'series' and J.image_type == 'series':
-            A2d_names = []
-            source_fnames = _fnames_from_dir(source)
-            target_fnames = _fnames_from_dir(target)
-            for i in range(len(source_fnames)):
-                print()
-            emlddmm.write_transform_outputs(outdir, output, A2d_names=A2d_names)
-            pass
-        elif J.image_type == 'series':
-            pass
-        else:
-            pass
-        # TODO: Save displacement, determinant of Jacobian, and reconstructed images for each registration
-        fI, disp, detjac = reconstruct(transforms, Xin, image)
-        # build graph
-        reg_graph = Graph()
-        for i in range(len(reg_list)):
-            reg_graph.add_segment() # TODO
-        
-        return reg_graph
+        emlddmm.write_transform_outputs(output_dir, output[-1], I, J)
+        emlddmm.write_qc_outputs(output_dir, output[-1], I, J)
+
+        A = emlddmm.Transform(output[-1]['A'], 'f')        
+        phi = emlddmm.Transform(output[-1]['v'], 'f')
+        if 'A2d' in output[-1]:
+            A2d = emlddmm.Transform(output[-1]['A2d'], 'f')
+        transforms = [phi, A, A2d]
+        graph.add_edge(transforms, I.space, J.space)
+
+    return graph
 
 
 def main():
@@ -339,6 +946,8 @@ def main():
 
     return
 
+if __name__ == "__main__":
+    main()
 
 '''
 

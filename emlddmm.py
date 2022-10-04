@@ -167,7 +167,7 @@ def load_slices(target_name, xJ=None):
     ----------
     target_name : string
         Name of a directory containing slice dataset.
-    xJ : list (optional)
+    xJ : list, optional
         list of numpy arrays containing voxel positions along each axis.
         Images will be resampled by interpolation on this 3D grid.
 
@@ -228,55 +228,60 @@ def load_slices(target_name, xJ=None):
     # now we will loop through the files and get the sizes 
     nJ_ = np.zeros((data.shape[0],3),dtype=int)
     origin = np.zeros((data.shape[0],3),dtype=float)
+    slice_status = data[:,3]
     J_ = []
     for i in range(data.shape[0]):
+        if not slice_status[i] == 'present':
+            # if i == 0:
+            #     raise Exception('First image is not present')
+            # J_.append(np.array([[[0.0,0.0,0.0]]]))
+            continue
         namekey = data[i,0]
         searchstring = os.path.join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')
         jsonfile = glob.glob(searchstring)
-        present = data[i,3] == 'present'
-        if not present:
-            if i == 0:
-                raise Exception('First image is not present')
-            J_.append(np.array([[[0.0,0.0,0.0]]]))
-            continue
         with open(jsonfile[0]) as f:
             jsondata = json.load(f)
         #nJ_[i] = np.array(jsondata['Sizes'])
 
 
         # this should contain an image and a json    
-        if 'DataFile' in jsondata:
-            image_name = jsondata['DataFile']
+        image_name = jsondata['DataFile']
         try:
             J__ = plt.imread(os.path.join(target_name,image_name))
         except:
             J__ = plt.imread(image_name)
+        
         if J__.dtype == np.uint8:
             J__ = J__.astype(float)/255.0
-
-        J__ = J__[...,:3] # no alpha
+            J__ = J__[...,:3] # no alpha
+            if not i%20:
+                ax[0].cla()
+                ax[0].imshow(J__)
+                fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
+                fig.canvas.draw()    
+        else:
+            J__ = J__[...,:3].astype(float)
+            if not i%20:
+                ax[0].cla()
+                ax[0].imshow(J__)
+                fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
+                fig.canvas.draw()
+            J__ = J__ / np.mean(np.abs(J__.reshape(-1, J__.shape[-1])), axis=0)
 
         nJ_[i] = np.array(J__.shape)
 
         J_.append(J__)
 
-        if not i%20:
-            ax[0].cla()
-            ax[0].imshow(J__)
-
-
-            fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
-            fig.canvas.draw()
 
         # the domain
         # if this is the first file we want to set up a 3D volume
-        if i == 0:
+        if 'dJ' not in locals():
             dJ = np.diag(np.array(jsondata['SpaceDirections'][1:]))[::-1]
         # note the order needs to be reversed
         origin[i] = np.array(jsondata['SpaceOrigin'])
+        x0 = origin[:,2] # z coordinates of slices
     if xJ == None:
         # build 3D coordinate grid
-        x0 = origin[:,2] # z coordinates of slices
         nJ0 = np.array(int((np.max(x0) - np.min(x0))//dJ[0]) + 1) # length of z axis on the grid (there may be missing slices)
         nJm = np.max(nJ_,0)
         nJm = (np.quantile(nJ_,0.95,axis=0)*1.01).astype(int) # this will look for outliers when there are a small number, really there just shouldn't be outliers
@@ -284,72 +289,43 @@ def load_slices(target_name, xJ=None):
         # get the minimum coordinate on each axis
         xJmin = [-(n-1)*d/2.0 for n,d in zip(nJ[1:],dJ[1:])]
         xJmin.insert(0,np.min(x0))
-        xJ = [(np.arange(n)*d + o).astype('float32') for n,d,o in zip(nJ,dJ,xJmin)]
+        # xJ = [(np.arange(n)*d + o).astype('float32') for n,d,o in zip(nJ,dJ,xJmin)]
+        xJ = [(np.arange(n)*d + o) for n,d,o in zip(nJ,dJ,xJmin)]
     XJ = np.stack(np.meshgrid(*xJ, indexing='ij'))
 
-    slice_status = []
-    i = 0
-    j = 0
-    while i < len(xJ[0]):
-        status = xJ[0][i] == x0[j]
-        if status == False:
-            i += 1
-        else:
-            i += 1
-            j += 1
-        slice_status.append(status)
+    # get the presence of a slice at z axis grid points. This is used for loading into a 3D volume. 
+    # slice_status = []
+    # i = 0
+    # j = 0
+    # while i < len(xJ[0]):
+    #     if j == len(x0):
+    #         slice_status = slice_status + [False]*(len(xJ[0])-i)
+    #         break
+    #     status = xJ[0][i] == x0[j]
+    #     if status == False:
+    #         i += 1
+    #     else:
+    #         i += 1
+    #         j += 1
+    #     slice_status.append(status)
 
     # resample slices on 3D grid
     # first interpolate each slice in 2D and stack
-    J = np.zeros((nJ[0], nJ[1], nJ[2], 3)).astype("float32")
-    W0 = np.zeros(nJ).astype("float32")
+    J = np.zeros(XJ.shape[1:] + tuple([3]))
+    W0 = np.zeros(XJ.shape[1:])
     i = 0
-    for j in range(nJ[0]):
-        if slice_status[j] == False:
+    for j in range(XJ.shape[1]):
+        # if slice_status[j] == False:
+        if slice_status[j] == 'missing':
             continue
         xJ_ = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(J_[i].shape[:-1], dJ[1:])]
-        J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="zeros"), (1,2,0))
+        J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="border"), (1,2,0))
         W0_ = np.zeros(W0.shape[1:])
         W0_[J[i,...,0] > 0.0] = 1.0
         W0[i] = W0_
         i += 1
+    J = np.transpose(J,(3,0,1,2))
 
-    # # resample slices
-    # J_resampled = []
-    # for i in range(len(J_)):
-    #     xJ_ = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(J_[i].shape[:-1], dJ[1:])]
-    #     J_resampled.append(np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True), (1,2,0)))
-    #     del J_[i] # conserve memory
-    # J = np.stack(J_resampled)
-
-    # print('padding and assembling into 3D volume')
-    # J = np.zeros((len(data),nJm[0],nJm[1],3))
-    # W0 = np.zeros((len(data),nJm[0],nJm[1]))
-    # for i in range(len(J_)):
-    #     J__ = J_[i]
-    #     topad = nJm - np.array(nJ_[i])
-    #     # just pad on the left and I'll fill it in
-    #     topad = np.array(((topad[0]//2,0),(topad[1]//2,0),(0,0)))
-    #     # if there are any negative values I need to crop, I'll just crop on the right
-    #     if np.any(np.array(topad)<0):
-    #         if topad[0][0] < 0:
-    #             J__ = J__[:J.shape[1]]
-    #             topad[0][0] = 0
-    #         if topad[1][0] < 0:
-    #             J__ = J__[:,:J.shape[2]]
-    #             topad[1][0] = 0
-    #     Jp = np.pad(J__,topad,constant_values=np.nan)
-    #     W0_ = np.logical_not(np.isnan(Jp[...,0]))
-    #     Jp[np.isnan(Jp)] = 0
-    #     W0[i,:W0_.shape[0],:W0_.shape[1]] = W0_
-    #     J[i,:W0_.shape[0],:W0_.shape[1],:] = Jp
-    # J = np.transpose(J,(3,0,1,2))    
-    # nJ = np.array(J.shape)
-    # xJ = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(nJ[1:],dJ)]
-    # W0 = W0 * np.logical_not(np.all(J==0.0,0))
-    # W0 = W0 * np.logical_not(np.all(J==1.0,0))
-    # # free up memory, not sure if this is necessary inside a function
-    # del J_
     return xJ,J,W0
     
 
@@ -1034,7 +1010,10 @@ def emlddmm(**kwargs):
         if torch.all(torch.as_tensor(v.shape,device=device,dtype=dtype)==torch.as_tensor(vsize,device=device,dtype=dtype)):
             # note as_tensor will not do a copy if it is the same dtype and device
             # torch.tensor will always copy
-            v = torch.tensor(v,device=device,dtype=dtype) 
+            if type(v) == torch.Tensor:
+                v = v.detach().clone()
+            else:
+                v = torch.tensor(v,device=device,dtype=dtype) 
             v.requires_grad = True
         else:
             if v.shape[1] != vsize[1]:
@@ -1903,10 +1882,11 @@ def read_vtk_data(fname,endian='b'):
             images.append(data)
             count += 1
         images = np.stack(images) # stack on axis 0
+        images = images / np.mean(np.abs(images)) # nomarlize
     return x,images,title,names
     
     
-def read_data(fname,**kwargs):
+def read_data(fname, x=None, **kwargs):
     '''
     Read array data from several file types.
     
@@ -1919,6 +1899,8 @@ def read_data(fname,**kwargs):
     fname : str
         Filename (full path or relative) of array data to load. Can be .vtk or 
         nibabel supported formats (e.g. .nii)
+    x : list of arrays, optional
+        Coordinates for 2D series space
     **kwargs : dict
         Keyword parameters that are passed on to the loader function
     
@@ -1958,8 +1940,7 @@ def read_data(fname,**kwargs):
     #print(f'Found extension {ext}')
     
     if ext == '':
-        xJ,J,W0 = load_slices(fname)
-        x = xJ
+        x,J,W0 = load_slices(fname, xJ=x)
         images = np.concatenate((J,W0[None]))
         # set the names, I will separate out mask later
         names = ['red','green','blue','mask']
@@ -2018,7 +1999,7 @@ def read_data(fname,**kwargs):
             images = images.astype(float)/255.0
         else:
             images = images.astype(float) # this may do nothing if it is already float
-        
+            images = images / np.mean(np.abs(images.reshape(-1, images.shape[-1])), axis=0) # normalize by the mean of each channel
         # add leading dimensions and reshape, note offset may be none in dims 1 and 2.
         images = images[None].transpose(-1,0,1,2)
         nI = images.shape[1:]
@@ -2053,6 +2034,7 @@ def read_data(fname,**kwargs):
             if A[i,i] < 0:
                 x[i] = x[i][::-1]
                 images = np.array(np.flip(images,axis=i+1))
+        images = images / np.mean(np.abs(images)) # normalize
             
         title = ''
         names = ['']
@@ -2310,9 +2292,140 @@ def read_vtk_polydata(fname):
                 
     
     return np.stack(points),connectivity,connectivity_type,name
+
+
+class Image:
+    '''
+
+    Attributes
+    ----------
+    space : string
+        name of the image space
+    name : string
+        image name. This is provided when instantiating an Image object.
+    x : list of numpy arrays
+        image voxel coordinates
+    data : numpy array
+        image data
+    title : string
+        image title passed by the read_data function
+    names : list of strings
+        information about image data dimensions
+    mask : array
+        image mask
+    path : string
+        path to image file or directory containing the 2D image series
+    
+    Methods
+    -------
+    normalize(norm='mean', q=0.99)
+        normalize image
+    downsample(down)
+        downsample image, image coordinated, and mask
+    fnames()
+        get filenames of 2D images in a series, or return the single filename of an image volume
+    
+    '''
+    def __init__(self, space, name, fpath, mask=None, x=None):
+        '''
+        Parameters
+        ----------
+        space : string
+            Name for image space
+        name : string
+            Name for image
+        fpath : string
+            Path to image file or directory containing the 2D image series
+        mask : numpy array, optional
+        x : list of numpy arrays
+            Space coordinates for 2D series
+
+        '''
+        self.space = space
+        self.name = name
+        self.x, self.data, self.title, self.names = read_data(fpath, x=x)
+        self.data = self.data.astype(float)
+        self.mask = mask
+        self.path = fpath
+        if 'mask' in self.names:
+            maskind = self.names.index('mask')
+            self.mask = self.data[maskind]
+            self.data = self.data[np.arange(self.data.shape[0])!=maskind]
+        elif mask == True: # only initialize mask array if mask arg is True
+            self.mask = np.ones_like(self.data[0])
+    
+    # normalize is now performed during data loading
+    # def normalize(self, norm='mean', q=0.99):
+    #     ''' Normalize image
+
+    #     Parameters
+    #     ----------
+    #     norm : string
+    #         Takes the values 'mean', or 'quantile'. Default is 'mean'
+    #     q : float
+    #         Quantile used for normalization if norm is set to 'quantile'
+
+    #     Return
+    #     ------
+    #     numpy array
+    #         Normalized image
+    #     '''
+    #     if norm == 'mean':
+    #         return self.data / np.mean(np.abs(self.data))
+    #     if norm == 'quantile':
+    #         return self.data / np.quantile(self.data, q)
+    #     else:
+    #         warn(f'{norm} is not a valid option for the norm keyword argument.')
+    
+    def downsample(self, down):
+        ''' Downsample image
+
+        Parameters
+        ----------
+        down : list of ints
+            Factor by which to downsample along each dimension 
+
+        Returns
+        -------
+        x : list of numpy arrays
+            Pixel locations where each element of the list identifies pixel
+            locations in corresponding axis.
+        data : numpy array
+            image data
+        mask : numpy array
+            binary mask array
+        '''
+        x, data = downsample_image_domain(self.x, self.data, down)
+        mask = self.mask
+        if mask is not None:
+            mask = downsample(mask,down)
+        return x, data, mask
+
+    def fnames(self):
+        ''' Get a list of image file names for 2D series, or a single file name for volume image.
+
+        Returns
+        -------
+        fnames : list of strings
+            List of image file names
+        '''
+        if os.path.splitext(self.path)[1] == '':
+            samples_tsv = os.path.join(self.path, "samples.tsv")
+            fnames = []
+            with open(samples_tsv,'rt') as f:
+                for count,line in enumerate(f):
+                    line = line.strip()
+                    key = '\t' if '\t' in line else '    '
+                    if count == 0:
+                        continue
+                    fnames.append(os.path.splitext(re.split(key,line)[0])[0])
+        else:
+            fnames = [self.path]
+
+        return fnames
                 
 
-def write_transform_outputs(output_dir, output, A2d_names=None):
+def write_transform_outputs(output_dir, output, I, J):
     '''
     Write transforms output from emlddmm.  Velocity field, 3D affine transform,
     and 2D affine transforms for each slice if applicable.
@@ -2340,46 +2453,89 @@ def write_transform_outputs(output_dir, output, A2d_names=None):
     
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
-    output_dir = os.path.join(output_dir,'transforms/')
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
-        
-    output_name = os.path.join(output_dir, 'velocity.vtk')
-    title = 'velocity_field'
-    write_vtk_data(output_name,xv,v.cpu().numpy(),title)  
-    output_name = os.path.join(output_dir, 'A.txt')
-    write_matrix_data(output_name,A)
-    if slice_outputs:
-        if A2d_names == None: # use default file names if none are provided
-            A2d_names = []
-            for i in range(A2d.shape[0]):
-                A2d_names.append(f'A2d_{i:04d}.txt')
+
+    series_to_series = I.title == 'slice_dataset' and J.title == 'slice_dataset'
+    if series_to_series:
+        out = os.path.join(output_dir, f'{I.space}_input/{J.space}_{J.name}_input_to_{I.space}_input/transforms/')
+        if not os.path.isdir(out):
+            os.makedirs(out)
+        A2d_names = []
         for i in range(A2d.shape[0]):
-            output_name = os.path.join(output_dir, A2d_names[i])
+            A2d_names.append(f'{I.space}_input_{I.fnames()[i]}_to_{J.space}_input_{J.fnames()[i]}_matrix.txt')
+        for i in range(A2d.shape[0]):
+            output_name = os.path.join(out, A2d_names[i])
             write_matrix_data(output_name, A2d[i])
 
-def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
-    ''' 
-    Write outputs
-    TODO figure out how to do this with or without A2d
-    I still want to output per slice
+        return
+    
+    if slice_outputs:
+        out3d = os.path.join(output_dir, f'{I.space}/{J.space}_{J.name}_registered_to_{I.space}/transforms/')
+        out2d = os.path.join(output_dir, f'{J.space}_registered/{J.space}_input_to_{J.space}_registered/transforms')
+        if not os.path.isdir(out2d):
+            os.makedirs(out2d)
+    else:
+        out3d = os.path.join(output_dir, f'{I.space}/{J.space}_{J.name}_to_{I.space}/transforms/')
+
+    if not os.path.isdir(out3d):
+        os.makedirs(out3d)
+        
+    output_name = os.path.join(out3d, 'velocity.vtk')
+    title = 'velocity_field'
+    write_vtk_data(output_name,xv,v.cpu().numpy(),title)  
+    output_name = os.path.join(out3d, 'A.txt')
+    write_matrix_data(output_name,A)
+    if slice_outputs:
+        A2d_names = []
+        for i in range(A2d.shape[0]):
+            A2d_names.append(f'{J.space}_registered_{J.fnames()[i]}_to_{J.space}_input_{J.fnames()[i]}_matrix.txt')
+        for i in range(A2d.shape[0]):
+            output_name = os.path.join(out2d, A2d_names[i])
+            write_matrix_data(output_name, A2d[i])
+
+    return
+
+
+def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
+    ''' write out registration qc images
+
+    Parameters
+    ----------
+    output_dir : string
+        Path to output parent directory
+    output : dict
+        Output dictionary from emlddmm algorithm
+    I : emlddmm image
+        source image
+    J : emlddmm image
+        target image
+    xS : list of arrays, optional
+        Label coordinates
+    S : array, optional
+        Labels
+    
+    Returns
+    -------
+    None
+
     '''
+
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+    print(f'output dir is {output_dir}')
     
     xv = [x.to('cpu') for x in output['xv']]
     v = output['v'].detach().to('cpu')
     A = output['A'].detach().to('cpu')
+    Ai = torch.inverse(A)
     print(A.device)
-    
-    
-    # 
     device = A.device
     dtype = A.dtype
     
     # to torch
-    J = torch.as_tensor(J,dtype=dtype,device=device)
-    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in xJ]
-    I = torch.as_tensor(I,dtype=dtype,device=device)
-    xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
+    Jdata = torch.as_tensor(J.data,dtype=dtype,device=device)
+    xJ = [torch.as_tensor(x,dtype=dtype,device=device) for x in J.x]
+    Idata = torch.as_tensor(I.data,dtype=dtype,device=device)
+    xI = [torch.as_tensor(x,dtype=dtype,device=device) for x in I.x]
     if S is not None: # segmentations go with atlas, they are integers
         S = torch.as_tensor(S,device=device,dtype=dtype) 
         # don't specify dtype here, you had better set it in numpy
@@ -2387,123 +2543,118 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
         if xS is not None:
             xS = [torch.as_tensor(x,dtype=dtype,device=device) for x in xI]
             
+    XJ = torch.stack(torch.meshgrid(xJ, indexing='ij'))
     slice_matching = 'A2d' in output
     if slice_matching:
         A2d = output['A2d'].detach().to('cpu')
-
-    Ai = torch.inverse(A)
-    
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
-    output_dir = os.path.join(output_dir,'qc/')
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
-    print(f'output dir is {output_dir}')
-    
-    # first, lets see the transformed atlas and target    
-    XJ = torch.stack(torch.meshgrid(xJ))    
-    if slice_matching:
-        A2di = torch.inverse(A2d)        
+        A2di = torch.inverse(A2d)
         XJ_ = torch.clone(XJ)            
         XJ_[1:] = ((A2di[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)            
+        # if registering series to series
+        if I.title=='slice_dataset' and J.title=='slice_dataset':
+            # first I to J
+            AI = interp(xI, Idata, XJ_)
+            fig = draw(AI,xJ)
+            fig[0].suptitle(f'{I.space}_{I.name}_input_to_{J.space}_input')
+            out = os.path.join(output_dir,f'{J.space}_input/{I.space}_{I.name}_input_to_{J.space}_input/qc/')
+            if not os.path.isdir(out):
+                os.makedirs(out)
+            fig[0].savefig(out + f'{I.space}_{I.name}_input_to_{J.space}_input.jpg')
+            fig = draw(Jdata, xJ)
+            fig[0].suptitle(f'{J.space}_{J.name}_input')
+            fig[0].savefig(out + f'{J.space}_{J.name}_input.jpg')
+            # now J to I
+            XI = torch.stack(torch.meshgrid(xI, indexing='ij'))
+            XI_ = torch.clone(XI)
+            XI_[1:] = ((A2d[:,None,None,:2,:2]@ (XI[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
+            AiJ = interp(xJ,Jdata,XI_)
+            fig = draw(AiJ,xI)
+            fig[0].suptitle(f'{J.space}_{J.name}_to_{I.space}_input')
+            out = os.path.join(output_dir,f'{I.space}_input/{J.space}_{J.name}_input_to_{I.space}_input/qc/')
+            if not os.path.isdir(out):
+                os.makedirs(out)
+            fig[0].savefig(out + f'{J.space}_{J.name}_input_to_{I.space}_input.jpg')
+            fig = draw(Idata,xI)
+            fig[0].suptitle(f'{I.space}_{I.name}_input')
+            fig[0].savefig(out + f'{I.space}_{I.name}_input.jpg')
+
+            return
+            
     else:
         XJ_ = XJ
 
     # sample points for affine
     Xs = ((Ai[:3,:3]@XJ_.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
     # for diffeomorphism
-    XV = torch.stack(torch.meshgrid(xv))
+    XV = torch.stack(torch.meshgrid(xv, indexing='ij'))
     phii = v_to_phii(xv,v)
     phiiAi = interp(xv,phii-XV,Xs) + Xs
-
     # transform image
-    AphiI = interp(xI,I,phiiAi)       
+    AphiI = interp(xI,Idata,phiiAi)       
 
-
-    fig = draw(AphiI,xJ)
-    fig[0].suptitle('I input')
-    fig[0].savefig(output_dir+'I_input.jpg')
-
-    fig = draw(J,xJ)
-    fig[0].suptitle('J input')
-    fig[0].savefig(output_dir+'J_input.jpg')
-
-    #fig = draw(torch.cat((AphiI,J,AphiI),0),xJ)
-    #fig[0].suptitle('Input Space')
-    
-    
-    # first we need to build the reconstructed space
-    # this is only done if there is 2D
-    # maybe I should have reorientation at least otherwise? Not yet
-    # that is, only apply the 2D transforms
-    # then I can
-    # I'll have to build an intelligent sample space
-    # because they may be shifted out of their original volumes
-    # to do this we'll apply A2di to the corners of each slice
-    # and get the min and max
-    XJ = torch.stack(torch.meshgrid(xJ),-1)
     if slice_matching:
-        A2di = torch.inverse(A2d)
-        points = (A2di[:,None,None,:2,:2]@XJ[...,1:,None])[...,0]
-        m0 = torch.min(points[...,0])
-        M0 = torch.max(points[...,0])
-        m1 = torch.min(points[...,1])
-        M1 = torch.max(points[...,1])
-        # construct a recon domain
-        dJ = [x[1]-x[0] for x in xJ]
-        xr0 = torch.arange(float(m0),float(M0),dJ[1],device=m0.device,dtype=m0.dtype)
-        xr1 = torch.arange(float(m1),float(M1),dJ[2],device=m0.device,dtype=m0.dtype)
-        xr = xJ[0],xr0,xr1
-        XR = torch.stack(torch.meshgrid(xr),-1)
-        # now we have to sample J at A Xr
-        Xs = torch.clone(XR)
-        Xs[...,1:] = (A2d[:,None,None,:2,:2]@XR[...,1:,None])[...,0] + A2d[:,None,None,:2,-1]
-        Xs = Xs.permute(3,0,1,2)
-        Jr = interp(xJ,J,Xs)
-        fig = draw(Jr,xr)
-        fig[0].suptitle('J recon')
-        fig[0].savefig(output_dir + 'J_recon.jpg')
-
+        fig = draw(AphiI,xJ)
+        fig[0].suptitle(f'{I.space}_{I.name}_to_{J.space}_input')
+        out = os.path.join(output_dir,f'{J.space}_input/{I.space}_{I.name}_to_{J.space}_input/qc/')
+        if not os.path.isdir(out):
+            os.makedirs(out)
+        fig[0].savefig(out + f'{I.space}_{I.name}_to_{J.space}_input.jpg')
+        
+        fig = draw(Jdata,xJ)
+        fig[0].suptitle(f'{J.space}_{J.name}_input')
+        fig[0].savefig(out + f'{J.space}_{J.name}_input.jpg')
+        
+        XJ_ = torch.clone(XJ)
+        XJ_[1:] = ((A2d[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
+        Jr = interp(xJ,Jdata,XJ_)
+        fig = draw(Jr,xJ)
+        fig[0].suptitle(f'{J.space}_{J.name}_registered')
+        out = os.path.join(output_dir,f'{J.space}_registered/{I.space}_{I.name}_to_{J.space}_registered/qc/')
+        if not os.path.isdir(out):
+            os.makedirs(out)
+        fig[0].savefig(out + f'{J.space}_{J.name}_registered.jpg')
+        
         # and we need atlas recon
         # sample points for affine
-        Xs = ((Ai[:3,:3]@XR[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
+        Xs = ((Ai[:3,:3]@XJ.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
         # for diffeomorphism
-        XV = torch.stack(torch.meshgrid(xv))
+        XV = torch.stack(torch.meshgrid(xv, indexing='ij'))
         phiiAi = interp(xv,phii-XV,Xs) + Xs
 
         # transform image
-        AphiI = interp(xI,I,phiiAi)       
-        fig = draw(AphiI,xr)
-        fig[0].suptitle('I recon')
-        fig[0].savefig(output_dir + 'I_recon.jpg')
+        AphiI = interp(xI,Idata,phiiAi)       
+        fig = draw(AphiI,xJ)
+        fig[0].suptitle(f'{I.space}_{I.name}_to_{J.space}_registered')
+        fig[0].savefig(out + f'{I.space}_{I.name}_to_{J.space}_registered.jpg')
     else:
-        Jr = J
-        xr = xJ
+        fig = draw(AphiI,xJ)
+        fig[0].suptitle(f'{I.space}_{I.name}_to_{J.space}')
+        out = os.path.join(output_dir,f'{J.space}/{I.space}_{I.name}_to_{J.space}/qc/')
+        if not os.path.isdir(out):
+            os.makedirs(out)
+        fig[0].savefig(out + f'{I.space}_{I.name}_to_{J.space}.jpg')
+        fig = draw(Jdata,xJ)
+        fig[0].suptitle(f'{J.space}_{J.name}')
+        fig[0].savefig(out + f'{J.space}_{J.name}.jpg')
+        Jr = Jdata
 
-
-    #fig = draw(torch.cat((AphiI,Jr,AphiI),0),xr)
-    #fig[0].suptitle('Recon space')
-    
     # and atlas space
-    XI = torch.stack(torch.meshgrid(xI))
+    XI = torch.stack(torch.meshgrid(xI, indexing='ij'))
     phi = v_to_phii(xv,-v.flip(0))
-    #A = LT_to_A(L.detach(),T.detach())
     Aphi = ((A[:3,:3]@phi.permute((1,2,3,0))[...,None])[...,0] + A[:3,-1]).permute((3,0,1,2))
     Aphi = interp(xv,Aphi,XI)
-
-
-    phiiAiJ = interp(xr,Jr,Aphi)
+    phiiAiJ = interp(xJ,Jr,Aphi)
 
     fig = draw(phiiAiJ,xI)
-    fig[0].suptitle('J atlas')
-    fig[0].savefig(output_dir+'J_atlas.jpg' )
+    fig[0].suptitle(f'{J.space}_{J.name}_to_{I.space}')
+    out = os.path.join(output_dir,f'{I.space}/{J.space}_{J.name}_registered_to_{I.space}/qc/')
+    if not os.path.isdir(out):
+        os.makedirs(out)
+    fig[0].savefig(out + f'{J.space}_{J.name}_to_{I.space}.jpg' )
 
-    fig = draw(I,xI)
-    fig[0].suptitle('I atlas')
-    fig[0].savefig(output_dir+'I_atlas.jpg')
-
-    #fig = draw(torch.cat((I,phiiAiJ,I),0),xI)
-    #fig[0].suptitle('atlas space')
+    fig = draw(Idata,xI)
+    fig[0].suptitle(f'{I.space}_{I.name}')
+    fig[0].savefig(out + f'{I.space}_{I.name}.jpg')
 
     output_slices = slice_matching and ( (xS is not None) and (S is not None))
     if output_slices:
@@ -2515,7 +2666,7 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
         R = (AphiS%mods[0])/mods[0]
         G = (AphiS%mods[1])/mods[1]
         B = (AphiS%mods[2])/mods[2]
-        fig = draw(np.stack((R,G,B)),xr)
+        fig = draw(np.stack((R,G,B)),xJ)
 
         # also outlines
         M = np.zeros_like(AphiS)
@@ -2536,13 +2687,6 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
         Jn[Jn>1] = 1
         alpha = 0.5
         show_ = Jn[0][None]*(1-M[None]*alpha) + M[None]*C*alpha
-
-
-        #fig = plt.figure(figsize=(8,10))
-        #draw(show_,n_slices=3,fig=fig)
-
-        #f,ax = plt.subplots()
-        #ax.imshow(show_[:,show.shape[1]//2].transpose(1,2,0))
         
         f,ax = plt.subplots()
         for s in range(show_.shape[1]):
@@ -2551,6 +2695,9 @@ def write_qc_outputs(output_dir,output,xI,I,xJ,J,xS=None,S=None):
             ax.set_xticks([])
             ax.set_yticks([])
             f.savefig(os.path.join(output_dir,f'slice_{s:04d}.jpg'))
+    
+    return
+
 
 class Transform():    
     '''
