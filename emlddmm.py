@@ -2355,27 +2355,27 @@ class Image:
             self.mask = np.ones_like(self.data[0])
     
     # normalize is now performed during data loading
-    # def normalize(self, norm='mean', q=0.99):
-    #     ''' Normalize image
+    def _normalize(self, norm='mean', q=0.99):
+        ''' Normalize image
 
-    #     Parameters
-    #     ----------
-    #     norm : string
-    #         Takes the values 'mean', or 'quantile'. Default is 'mean'
-    #     q : float
-    #         Quantile used for normalization if norm is set to 'quantile'
+        Parameters
+        ----------
+        norm : string
+            Takes the values 'mean', or 'quantile'. Default is 'mean'
+        q : float
+            Quantile used for normalization if norm is set to 'quantile'
 
-    #     Return
-    #     ------
-    #     numpy array
-    #         Normalized image
-    #     '''
-    #     if norm == 'mean':
-    #         return self.data / np.mean(np.abs(self.data))
-    #     if norm == 'quantile':
-    #         return self.data / np.quantile(self.data, q)
-    #     else:
-    #         warn(f'{norm} is not a valid option for the norm keyword argument.')
+        Return
+        ------
+        numpy array
+            Normalized image
+        '''
+        if norm == 'mean':
+            return self.data / np.mean(np.abs(self.data))
+        if norm == 'quantile':
+            return self.data / np.quantile(self.data, q)
+        else:
+            warn(f'{norm} is not a valid option for the norm keyword argument.')
     
     def downsample(self, down):
         ''' Downsample image
@@ -2423,7 +2423,9 @@ class Image:
             fnames = [self.path]
 
         return fnames
-                
+
+    def to_torch(self, dtype=torch.float, device='cpu'):
+        pass   
 
 def write_transform_outputs(output_dir, output, I, J):
     '''
@@ -2591,7 +2593,7 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     phiiAi = interp(xv,phii-XV,Xs) + Xs
     # transform image
     AphiI = interp(xI,Idata,phiiAi)       
-
+    # target space
     if slice_matching:
         fig = draw(AphiI,xJ)
         fig[0].suptitle(f'{I.space}_{I.name}_to_{J.space}_input')
@@ -2638,7 +2640,7 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
         fig[0].savefig(out + f'{J.space}_{J.name}.jpg')
         Jr = Jdata
 
-    # and atlas space
+    # and source space
     XI = torch.stack(torch.meshgrid(xI, indexing='ij'))
     phi = v_to_phii(xv,-v.flip(0))
     Aphi = ((A[:3,:3]@phi.permute((1,2,3,0))[...,None])[...,0] + A[:3,-1]).permute((3,0,1,2))
@@ -2647,9 +2649,14 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
 
     fig = draw(phiiAiJ,xI)
     fig[0].suptitle(f'{J.space}_{J.name}_to_{I.space}')
-    out = os.path.join(output_dir,f'{I.space}/{J.space}_{J.name}_registered_to_{I.space}/qc/')
-    if not os.path.isdir(out):
-        os.makedirs(out)
+    if slice_matching:
+        out = os.path.join(output_dir,f'{I.space}/{J.space}_{J.name}_registered_to_{I.space}/qc/')
+        if not os.path.isdir(out):
+            os.makedirs(out)
+    else:
+        out = os.path.join(output_dir,f'{I.space}/{J.space}_{J.name}_to_{I.space}/qc/')
+        if not os.path.isdir(out):
+            os.makedirs(out)
     fig[0].savefig(out + f'{J.space}_{J.name}_to_{I.space}.jpg' )
 
     fig = draw(Idata,xI)
@@ -2736,6 +2743,12 @@ class Transform():
                 x,images,title,names = read_vtk_data(data)
                 domain = x
                 data = images
+            elif extension == '':
+                transforms_ls = sorted(os.listdir(data), key=lambda x: x.split('_matrix.txt')[0][-4:])
+                data = []
+                for t in transforms_ls:
+                    A2d = read_matrix_data(t)
+                    data.append(A2d)
             else:
                 raise Exception(f'Only txt and vtk files supported but your transform is {data}')
             
@@ -2773,6 +2786,9 @@ class Transform():
                 
             if self.direction == 'b':
                 self.data = torch.inverse(self.data)
+        elif self.data.ndim == 3: # if it is a series of 2d affines
+            if self.direction == 'b':
+                self.data = torch.inverse(self.data)
         elif self.data.ndim == 4: # if it is a mapping
             if self.direction == 'b':
                 raise Exception(f'When specifying a mapping, backwards is not supported')
@@ -2786,6 +2802,10 @@ class Transform():
             # then it is a matrix
             A = self.data
             return ((A[:3,:3]@X.permute(1,2,3,0)[...,None])[...,0] + A[:3,-1]).permute(3,0,1,2)
+        elif self.data.ndim == 3:
+            A2d = self.data
+            X[1:] = ((A2d[:,None,None,:2,:2]@ (X[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
+            return X
         elif self.data.ndim == 4:
             # then it is a mapping, we need interp
             # recall all components are stored on the first axis,
@@ -2794,6 +2814,7 @@ class Transform():
             # print(f'ID shape {ID.shape}')
             # print(f'X shape {X.shape}')
             # print(f'data shape {self.data.shape}')
+
             return interp(self.domain,(self.data-ID),X) + X
             
         
