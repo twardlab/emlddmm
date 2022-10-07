@@ -2427,6 +2427,30 @@ class Image:
     def to_torch(self, dtype=torch.float, device='cpu'):
         pass   
 
+def fnames(path):
+    ''' Get a list of image file names for 2D series, or a single file name for volume image.
+
+    Returns
+    -------
+    fnames : list of strings
+        List of image file names
+    '''
+    if os.path.splitext(path)[1] == '':
+        samples_tsv = os.path.join(path, "samples.tsv")
+        fnames = []
+        with open(samples_tsv,'rt') as f:
+            for count,line in enumerate(f):
+                line = line.strip()
+                key = '\t' if '\t' in line else '    '
+                if count == 0:
+                    continue
+                fnames.append(os.path.splitext(re.split(key,line)[0])[0])
+    else:
+        fnames = [path]
+
+    return fnames
+
+
 def write_transform_outputs(output_dir, output, I, J):
     '''
     Write transforms output from emlddmm.  Velocity field, 3D affine transform,
