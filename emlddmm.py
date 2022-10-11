@@ -5,6 +5,8 @@ import torch
 from torch.nn.functional import grid_sample
 import glob
 import os
+from os.path import join,split,splitext
+from os import makedirs
 import nibabel
 import json
 import re
@@ -204,7 +206,7 @@ def load_slices(target_name):
     
     data = []
     # load the one tsv file
-    tsv_name = os.path.join(target_name, 'samples.tsv' )
+    tsv_name = join(target_name, 'samples.tsv' )
     with open(tsv_name,'rt') as f:
         for count,line in enumerate(f):
             line = line.strip()
@@ -227,7 +229,7 @@ def load_slices(target_name):
     J_ = []
     for i in range(data.shape[0]):
         namekey = data[i,0]
-        searchstring = os.path.join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')
+        searchstring = join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')
         jsonfile = glob.glob(searchstring)
         present = data[i,3] == 'present'
         if not present:
@@ -246,7 +248,7 @@ def load_slices(target_name):
         elif 'DataFIle' in jsondata:
             image_name = jsondata['DataFIle']
         try:
-            J__ = plt.imread(os.path.join(target_name,image_name))
+            J__ = plt.imread(join(target_name,image_name))
         except:
             J__ = plt.imread(image_name)
         if J__.dtype == np.uint8:
@@ -994,6 +996,9 @@ def emlddmm(**kwargs):
             v.requires_grad = True
             
             
+    # TODO: what if A is a strong because it came from a json file?
+    # should be okay, the json loader will convert it to lists of lists 
+    # and that will initialize correctly
     if A is None:
         A = torch.eye(4,requires_grad=True, device=device, dtype=dtype)
     else:
@@ -1917,7 +1922,7 @@ def read_data(fname,**kwargs):
             print('No geometry information provided')
             print('Searching for geometry information files')
             json_name = fname.replace(ext,'.json')
-            geometry_name = os.path.join(os.path.split(fname)[0],'geometry.csv')
+            geometry_name = join(os.path.split(fname)[0],'geometry.csv')
             if os.path.exists(json_name):
                 print('Found json sidecar')
                 raise Exception('json reader for single slice not implemented yet')            
@@ -2284,39 +2289,39 @@ def write_transform_outputs(output_dir, src_space, dest_space, output, src_path=
     if slice_outputs:
         slice_names = [os.path.splitext(x)[0] for x in os.listdir(src_path) if x[-4:] == 'json']
         slice_names = sorted(slice_names, key=lambda x: x[-4:])
-        registered_dir = os.path.join(output_dir, f'{src_space}_REGISTERED/{src_space}_INPUT_to_{src_space}_REGISTERED/transforms')
+        registered_dir = join(output_dir, f'{src_space}_REGISTERED/{src_space}_INPUT_to_{src_space}_REGISTERED/transforms')
         if not os.path.isdir(registered_dir):
             os.makedirs(registered_dir)
-        input_dir = os.path.join(output_dir, f'{src_space}_INPUT/{src_space}_REGISTERED_to_{src_space}_INPUT/transforms')
+        input_dir = join(output_dir, f'{src_space}_INPUT/{src_space}_REGISTERED_to_{src_space}_INPUT/transforms')
         if not os.path.isdir(input_dir):
             os.makedirs(input_dir)
         for i in range(A2d.shape[0]):
-            output_name = os.path.join(registered_dir, f'{src_space}_REGISTERED_{slice_names[i]}_to_{src_space}_INPUT_{slice_names[i]}_matrix.txt')
+            output_name = join(registered_dir, f'{src_space}_REGISTERED_{slice_names[i]}_to_{src_space}_INPUT_{slice_names[i]}_matrix.txt')
             write_matrix_data(output_name,A2d[i])
-            output_name = os.path.join(input_dir, f'{src_space}_INPUT_{slice_names[i]}_to_{src_space}_REGISTERED_{slice_names[i]}_matrix.txt')
+            output_name = join(input_dir, f'{src_space}_INPUT_{slice_names[i]}_to_{src_space}_REGISTERED_{slice_names[i]}_matrix.txt')
             write_matrix_data(output_name, torch.inverse(A2d[i]))
 
-        forward_dir = os.path.join(output_dir, f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/transforms/')
+        forward_dir = join(output_dir, f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/transforms/')
         if not os.path.isdir(forward_dir):
-            os.makedirs(forward_dir)
+            makedirs(forward_dir,exist_ok=True)
 
-        output_name = os.path.join(forward_dir, 'velocity.vtk')
+        output_name = join(forward_dir, 'velocity.vtk')
         title = 'velocity_field'
         write_vtk_data(output_name,xv,v.cpu().numpy(),title)
 
-        output_name = os.path.join(forward_dir, 'A.txt')
+        output_name = join(forward_dir, 'A.txt')
         write_matrix_data(output_name,A)
 
     else:
-        forward_dir = os.path.join(output_dir, f'{dest_space}/{src_space}_to_{dest_space}/transforms/')
+        forward_dir = join(output_dir, f'{dest_space}/{src_space}_to_{dest_space}/transforms/')
         if not os.path.isdir(forward_dir):
-            os.makedirs(forward_dir)
+            makedirs(forward_dir,exist_ok=True)
 
-        output_name = os.path.join(forward_dir, 'velocity.vtk')
+        output_name = join(forward_dir, 'velocity.vtk')
         title = 'velocity_field'
         write_vtk_data(output_name,xv,v.cpu().numpy(),title)
 
-        output_name = os.path.join(forward_dir, 'A.txt')
+        output_name = join(forward_dir, 'A.txt')
         write_matrix_data(output_name,A)
 
 def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, output, xI, I, xJ, J, src_path='', xS=None,S=None):
@@ -2357,7 +2362,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
     # TODO: clean up later
-    # output_dir = os.path.join(output_dir,'qc/')
+    # output_dir = join(output_dir,'qc/')
     # if not os.path.isdir(output_dir):
     #     os.mkdir(output_dir)
     # print(f'output dir is {output_dir}')
@@ -2385,7 +2390,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
     # print('AphiI shape: ', AphiI.shape)       
 
     if slice_matching:
-        to_input_out = os.path.join(output_dir,f'{src_space}_INPUT/{dest_space}_to_{src_space}_INPUT/qc/')
+        to_input_out = join(output_dir,f'{src_space}_INPUT/{dest_space}_to_{src_space}_INPUT/qc/')
         if not os.path.isdir(to_input_out):
             os.makedirs(to_input_out)
         print(f'output dir is {to_input_out}')
@@ -2397,7 +2402,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         fig[0].suptitle(f'{dest_space} {dest_img} to {src_space}')
         fig[0].savefig(to_input_out+f'{dest_space}_{dest_img}_to_{src_space}.jpg')
     else:
-        to_src_space_out = os.path.join(output_dir,f'{src_space}/{dest_space}_to_{src_space}/qc/')
+        to_src_space_out = join(output_dir,f'{src_space}/{dest_space}_to_{src_space}/qc/')
         if not os.path.isdir(to_src_space_out):
             os.makedirs(to_src_space_out)
         print(f'output dir is {to_src_space_out}')
@@ -2444,7 +2449,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
         Jr = interp(xJ,J,Xs)
         fig = draw(Jr,xr,disp=False)
         fig[0].suptitle(f'{src_space} {src_img} Registered')
-        to_registered_out = os.path.join(output_dir,f'{src_space}_REGISTERED/{dest_space}_to_{src_space}_REGISTERED/qc/')
+        to_registered_out = join(output_dir,f'{src_space}_REGISTERED/{dest_space}_to_{src_space}_REGISTERED/qc/')
         if not os.path.isdir(to_registered_out):
             os.makedirs(to_registered_out)
         fig[0].savefig(to_registered_out + f'{src_space}_{src_img}_registered.jpg')
@@ -2480,12 +2485,12 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
     phiiAiJ = interp(xr,Jr,Aphi)
 
     if slice_matching:
-        to_dest_space_out = os.path.join(output_dir,f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/qc/')
+        to_dest_space_out = join(output_dir,f'{dest_space}/{src_space}_REGISTERED_to_{dest_space}/qc/')
         if not os.path.isdir(to_dest_space_out):
             os.makedirs(to_dest_space_out)
         print(f'output dir is {to_dest_space_out}')
     else:
-        to_dest_space_out = os.path.join(output_dir,f'{dest_space}/{src_space}_to_{dest_space}/qc/')
+        to_dest_space_out = join(output_dir,f'{dest_space}/{src_space}_to_{dest_space}/qc/')
         if not os.path.isdir(to_dest_space_out):
             os.makedirs(to_dest_space_out)
         print(f'output dir is {to_dest_space_out}')
@@ -2546,7 +2551,7 @@ def write_qc_outputs(output_dir, src_space, src_img, dest_space, dest_img, outpu
             ax.imshow(show_[:,s].transpose(1,2,0))
             ax.set_xticks([])
             ax.set_yticks([])
-            f.savefig(os.path.join(to_registered_out,f'{dest_space}_{dest_img}_to_{src_space}_REGISTERED_{slice_names[i]}.jpg'))
+            f.savefig(join(to_registered_out,f'{dest_space}_{dest_img}_to_{src_space}_REGISTERED_{slice_names[i]}.jpg'))
         plt.close(f)
 
 class Transform():    
@@ -2708,12 +2713,12 @@ def compose_sequence(transforms,Xin,direction='f'):
         # print(transforms)
         if direction == 'b':
             # backward, first affine then deform
-            transforms = [Transform(os.path.join(transforms,'transforms','A.txt'),direction=direction),
-                          Transform(os.path.join(transforms,'transforms','velocity.vtk'),direction=direction)]
+            transforms = [Transform(join(transforms,'transforms','A.txt'),direction=direction),
+                          Transform(join(transforms,'transforms','velocity.vtk'),direction=direction)]
         elif direction == 'f':
             # forward, first deform then affine
-            transforms = [Transform(os.path.join(transforms,'transforms','velocity.vtk'),direction=direction),
-                          Transform(os.path.join(transforms,'transforms','A.txt'),direction=direction)]    
+            transforms = [Transform(join(transforms,'transforms','velocity.vtk'),direction=direction),
+                          Transform(join(transforms,'transforms','A.txt'),direction=direction)]    
         #print('printing modified transforms')
         #print(transforms)    
     elif type(transforms) == list:
@@ -2846,23 +2851,27 @@ def write_outputs_for_pair(output_dir,outputs,
     target_image_name : str
         Name of target image (default 'targetimage')
         
+    
+    
+        
     TODO
     ----
     Implement QC figures.
     
     Check device more carefully, probably better to put everything on cpu.
     
-    Get determinant of jacobian.
+    Check dtype more carefully.
+    
+    Get determinant of jacobian. (done)
+    
+    Write velocity out and affine
+    
+    
     
         
+        
     
-    Raises
-    ------
-    Exception
-        If not slice_matching.
-    
-    '''
-    print(atlas_image_name,target_image_name)    
+    '''    
     if atlas_space_name is None:
         atlas_space_name = 'atlas'
     if target_space_name is None:
@@ -2878,6 +2887,16 @@ def write_outputs_for_pair(output_dir,outputs,
     else:
         slice_matching = False
         
+    # we will make everything float and cpu
+    device = 'cpu'
+    dtype = torch.float32
+    I = torch.tensor(I,device=device,dtype=dtype)
+    xI = [torch.tensor(x,device=device,dtype=dtype) for x in xI]
+    J = torch.tensor(J,device=device,dtype=dtype)
+    if WJ is not None:
+        WJ = torch.tensor(WJ,device=device,dtype=dtype)
+    xJ = [torch.tensor(x,device=device,dtype=dtype) for x in xJ]
+        
     exist_ok=True
     IMAGES = 'images' # define some strings
     TRANSFORMS = 'transforms'
@@ -2886,26 +2905,26 @@ def write_outputs_for_pair(output_dir,outputs,
     os.makedirs(output_dir,exist_ok=exist_ok)
     # to atlas space
     to_space_name = atlas_space_name
-    to_space_dir = os.path.join(output_dir,to_space_name)
+    to_space_dir = join(output_dir,to_space_name)
     os.makedirs(to_space_dir, exist_ok=exist_ok)
     # to atlas space from atlas space 
     from_space_name = atlas_space_name
-    from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+    from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
     os.makedirs(from_space_dir, exist_ok=exist_ok)
     # to atlas space from atlas space
-    images_dir = os.path.join(from_space_dir,IMAGES)
+    images_dir = join(from_space_dir,IMAGES)
     os.makedirs(images_dir, exist_ok=exist_ok)
     # write out the atlas (in single)
-    write_data(os.path.join(images_dir,f'{atlas_space_name}_{atlas_image_name}_to_{atlas_space_name}.vtk'),
-               xI,torch.tensor(I,dtype=torch.float32),'atlas')
+    write_data(join(images_dir,f'{atlas_space_name}_{atlas_image_name}_to_{atlas_space_name}.vtk'),
+               xI,torch.tensor(I,dtype=dtype),'atlas')
     
     if not slice_matching:        
         # to atlas space from target space    
         from_space_name = target_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir, exist_ok=exist_ok)
         # to atlas space from target space transforms    
-        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        transforms_dir = join(from_space_dir,TRANSFORMS)
         os.makedirs(transforms_dir,exist_ok=exist_ok)
         # need atlas to target displacement
         # this is A phi - x
@@ -2914,75 +2933,80 @@ def write_outputs_for_pair(output_dir,outputs,
         XI = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xI],indexing='ij'),0)
         phiXI = interp([x.cpu() for x in outputs['xv']],phi.cpu()-XV.cpu(),XI.cpu()) + XI.cpu()
         AphiXI = ((outputs['A'].cpu()[:3,:3]@phiXI.permute(1,2,3,0)[...,None])[...,0] + outputs['A'][:3,-1].cpu()).permute(-1,0,1,2)    
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xI,(AphiXI-XI)[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
-        # now detjac
-        dxI = [x[1] - x[0] for x in xI] 
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xI,(AphiXI-XI)[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
+        # now detjac        
+        dxI = [ (x[1] - x[0]).item() for x in xI]         
         detjac = torch.linalg.det(
             torch.stack(
                 torch.gradient(AphiXI,spacing=dxI,dim=(1,2,3))
             ).permute(2,3,4,0,1)
         )
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_detjac.vtk'),
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_detjac.vtk'),
                    xI,detjac[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_detjac')
         # now we need the target to atlas image
-        images_dir = os.path.join(from_space_dir,IMAGES)
+        images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir,exist_ok=exist_ok)
         # this is generated form the target with AphiXI (make sure on same device, cpu)
         phiiAiJ = interp(xJ,J,AphiXI.cpu(),padding_mode='zeros')
-        write_data(os.path.join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
+        write_data(join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
                    xI,phiiAiJ.to(torch.float32),f'{from_space_name}_{target_image_name}_to_{to_space_name}')
         
         # qc? TODO
+        
         # now to target space
         to_space_name = target_space_name
-        to_space_dir = os.path.join(output_dir,to_space_name)
+        to_space_dir = join(output_dir,to_space_name)
         os.makedirs(to_space_dir,exist_ok=exist_ok)
         # from target space (i.e identity)
         from_space_name = target_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # target image
-        images_dir = os.path.join(from_space_dir,IMAGES)
+        images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir, exist_ok=exist_ok)
         # write out the target (in single)
-        write_data(os.path.join(images_dir,f'{target_space_name}_{target_image_name}_to_{target_space_name}.vtk'),
+        write_data(join(images_dir,f'{target_space_name}_{target_image_name}_to_{target_space_name}.vtk'),
                    xJ,torch.tensor(J,dtype=torch.float32),'atlas')
         # now from atlas space
         from_space_name = atlas_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # to target space from atlas space transforms        
-        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        transforms_dir = join(from_space_dir,TRANSFORMS)
         os.makedirs(transforms_dir,exist_ok=exist_ok)
         phii = v_to_phii(outputs['xv'],outputs['v'])
         XJ = torch.stack(torch.meshgrid([torch.tensor(x,device=phii.device,dtype=phii.dtype) for x in xJ],indexing='ij'),0)
         Ai = torch.linalg.inv(outputs['A'])
         AiXJ = ((Ai[:3,:3]@XJ.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1]).permute(-1,0,1,2)
         phiiAiXJ = interp([x.cpu() for x in outputs['xv']],(phii-XV).cpu(),AiXJ.cpu()) + AiXJ.cpu()
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xJ,(phiiAiXJ.cpu()-XJ.cpu())[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xJ,(phiiAiXJ.cpu()-XJ.cpu())[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
         dxJ = [x[1] - x[0] for x in xJ] 
         detjac = torch.linalg.det(
             torch.stack(
                 torch.gradient(phiiAiXJ,spacing=dxI,dim=(1,2,3))
             ).permute(2,3,4,0,1)
         )
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_detjac.vtk'),
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_detjac.vtk'),
                    xJ,detjac[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_detjac')
+        # write out velocity field
+        write_data(join(transforms_dir,f'velocity.vtk'),outputs['xv'],outputs['v'].to(torch.float32), f'{to_space_name}_to_{from_space_name}_velocity')
+        # write out affine
+        write_matrix_data(join(transforms_dir,f'A.txt'),outputs['A'])
         # atlas image
-        images_dir = os.path.join(from_space_dir,IMAGES)
+        images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir,exist_ok=exist_ok)
         AphiI = interp([torch.as_tensor(x).cpu() for x in xI],torch.as_tensor(I).cpu(),phiiAiXJ.cpu(),padding_mode='zeros')
-        write_data(os.path.join(images_dir,f'{atlas_space_name}_{atlas_image_name}_to_{target_space_name}.vtk'),
+        write_data(join(images_dir,f'{atlas_space_name}_{atlas_image_name}_to_{target_space_name}.vtk'),
                    xJ,torch.tensor(J,dtype=torch.float32),f'{atlas_space_name}_{atlas_image_name}_to_{target_space_name}')
         # TODO qc   
         
     else: # if slice matching
         # to atlas space from registered target space
         from_space_name = 'registered_' + target_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir, exist_ok=exist_ok)
         # to atlas space from registered target space transforms    
-        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        transforms_dir = join(from_space_dir,TRANSFORMS)
         os.makedirs(transforms_dir, exist_ok=exist_ok)
         # we need the atlas to registered displacement
         # this is  A phi - x
@@ -2991,7 +3015,7 @@ def write_outputs_for_pair(output_dir,outputs,
         XI = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xI],indexing='ij'),0)
         phiXI = interp(outputs['xv'],phi-XV,XI) + XI            
         AphiXI = ((outputs['A'][:3,:3]@phiXI.permute(1,2,3,0)[...,None])[...,0] + outputs['A'][:3,-1]).permute(-1,0,1,2)                
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xI,(AphiXI-XI)[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),xI,(AphiXI-XI)[None].to(torch.float32),f'{to_space_name}_to_{from_space_name}_displacement')
         
         # to atlas space from registered space images
         # nothing here because no images were acquired in this space
@@ -3000,12 +3024,12 @@ def write_outputs_for_pair(output_dir,outputs,
         
         # to atlas space from input target space
         from_space_name = 'input_' + target_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir, exist_ok=exist_ok)
         # to atlas space from input target space transforms    
         # THESE TRANSFORMS DO NOT EXIST
         # to atlas space from input target space images
-        images_dir = os.path.join(from_space_dir,IMAGES)
+        images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir, exist_ok=exist_ok)
         # to get these images I first need to map them to registered
         XJ = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xJ]))
@@ -3014,30 +3038,30 @@ def write_outputs_for_pair(output_dir,outputs,
         RXJ = torch.cat((XJ[0][None],RXJ))
         RiJ = interp([torch.tensor(x,device=RXJ.device,dtype=RXJ.dtype) for x in xJ],torch.tensor(J,device=RXJ.device,dtype=RXJ.dtype),RXJ,padding_mode='zeros')
         phiiAiRiJ = interp([torch.tensor(x,device=RXJ.device,dtype=RXJ.dtype) for x in xJ],RiJ,AphiXI,padding_mode='zeros')
-        write_data(os.path.join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
+        write_data(join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
                    xI,phiiAiRiJ.to(torch.float32),f'{from_space_name}_{target_image_name}_to_{to_space_name}')
         
         # qc in atlas space
-        qc_dir = os.path.join(to_space_dir,'qc')
+        qc_dir = join(to_space_dir,'qc')
         os.makedirs(qc_dir,exist_ok=exist_ok)        
         fig,ax = draw(phiiAiRiJ,xI)
         fig.suptitle('phiiAiRiJ')
-        fig.savefig(os.path.join(qc_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
+        fig.savefig(join(qc_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
         fig,ax = draw(I,xI)
         fig.suptitle('I')
-        fig.savefig(os.path.join(qc_dir,f'{to_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
+        fig.savefig(join(qc_dir,f'{to_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
         
     
         # now we do to registered space
         to_space_name = 'registered_' + target_space_name
-        to_space_dir = os.path.join(output_dir,to_space_name)
+        to_space_dir = join(output_dir,to_space_name)
         os.makedirs(to_space_dir,exist_ok=exist_ok)
         # from input
         from_space_name = 'input_' + target_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # transforms, registered to input
-        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        transforms_dir = join(from_space_dir,TRANSFORMS)
         os.makedirs(transforms_dir,exist_ok=exist_ok)
         #for i in range(R.shape[0]):
         #    # convert to xyz
@@ -3046,97 +3070,97 @@ def write_outputs_for_pair(output_dir,outputs,
         #    Rxyz[:,:2] = torch.flip(Rxyz[:,:2],dims=(1,))
         #    # write out
         #    with open(os.path.join(from_space_dir)):
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
                   xJ,(RXJ-XJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
         # images
-        images_dir = os.path.join(from_space_dir,IMAGES)
+        images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir,exist_ok=exist_ok)
-        write_data(os.path.join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
+        write_data(join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
                   xJ,(RiJ).to(torch.float32), f'{from_space_name}_{target_image_name}_to_{to_space_name}')
         # from atlas
         from_space_name = atlas_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # transforms, registered to atlas
         phii = v_to_phii(outputs['xv'],outputs['v'])
         Ai = torch.linalg.inv(outputs['A'])
         AiXJ = ((Ai[:3,:3]@XJ.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1]).permute(-1,0,1,2)
         phiiAiXJ = interp(outputs['xv'],phii-XV,AiXJ) + AiXJ                
-        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        transforms_dir = join(from_space_dir,TRANSFORMS)
         os.makedirs(transforms_dir,exist_ok=exist_ok)
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
                   xJ,(phiiAiXJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
         # images
         AphiI = interp(xI,torch.tensor(I,device=phiiAiXJ.device,dtype=phiiAiXJ.dtype),phiiAiXJ,padding_mode='zeros')
-        images_dir = os.path.join(from_space_dir,IMAGES)
+        images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir,exist_ok=exist_ok)
-        write_data(os.path.join(images_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.vtk'),
+        write_data(join(images_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.vtk'),
                   xJ,(AphiI).to(torch.float32), f'{from_space_name}_{atlas_image_name}_to_{to_space_name}')
         
         # a qc directory
-        qc_dir = os.path.join(to_space_dir,'qc')
+        qc_dir = join(to_space_dir,'qc')
         os.makedirs(qc_dir,exist_ok=exist_ok)
         fig,ax = draw(RiJ,xJ)
         fig.suptitle('RiJ')
-        fig.savefig(os.path.join(qc_dir,
+        fig.savefig(join(qc_dir,
                                  f'input_{target_space_name}_{target_image_name}_to_registered_{target_space_name}.jpg'))
         fig,ax = draw(AphiI,xJ)
         fig.suptitle('AphiI')
-        fig.savefig(os.path.join(qc_dir,
+        fig.savefig(join(qc_dir,
                                  f'input_{atlas_space_name}_{atlas_image_name}_to_registered_{target_space_name}.jpg'))
         
         
         # to input space
         to_space_name = 'input_' + target_space_name
-        to_space_dir = os.path.join(output_dir,to_space_name)
+        to_space_dir = join(output_dir,to_space_name)
         os.makedirs(to_space_dir,exist_ok=exist_ok)
         # input to input
         # TODO: i can write the original images here
         
         # registered to input
         from_space_name = 'registered_' + target_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # images, NONE        
         # transforms
-        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        transforms_dir = join(from_space_dir,TRANSFORMS)
         os.makedirs(transforms_dir,exist_ok=exist_ok)
         Ri = torch.linalg.inv(outputs['A2d'])
         RiXJ = ((R[:,None,None,:2,:2]@(XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + Ri[:,None,None,:2,-1]).permute(-1,0,1,2)
         RiXJ = torch.cat((XJ[0][None],RiXJ))
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
                   xJ,(RXJ-XJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
         
         
         # atlas to input
         from_space_name = atlas_space_name
-        from_space_dir = os.path.join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
+        from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # transforms
-        transforms_dir = os.path.join(from_space_dir,TRANSFORMS)
+        transforms_dir = join(from_space_dir,TRANSFORMS)
         os.makedirs(transforms_dir,exist_ok=exist_ok)
         AiRiXJ = ((Ai[:3,:3]@RiXJ.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1]).permute(-1,0,1,2)
         phiiAiRiXJ = interp(outputs['xv'],phii-XV,AiRiXJ) + AiRiXJ
-        write_data(os.path.join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
+        write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
                   xJ,(phiiAiRiXJ-XJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
         # images
-        images_dir = os.path.join(from_space_dir,IMAGES)
+        images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir,exist_ok=exist_ok)
         RAphiI = interp(xI,torch.tensor(I,device=phiiAiRiXJ.device,dtype=phiiAiRiXJ.dtype),phiiAiRiXJ,padding_mode='zeros')
-        write_data(os.path.join(images_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.vtk'),
+        write_data(join(images_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.vtk'),
                   xJ,(RAphiI).to(torch.float32), f'{from_space_name}_{atlas_image_name}_to_{to_space_name}')
         
         # input space qc        
-        qc_dir = os.path.join(to_space_dir,'qc')
+        qc_dir = join(to_space_dir,'qc')
         os.makedirs(qc_dir,exist_ok=exist_ok)
         
         fig,ax = draw(J,xJ)
         fig.suptitle('J')
-        fig.savefig(os.path.join(qc_dir,f'{to_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
+        fig.savefig(join(qc_dir,f'{to_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
         
         fig,ax = draw(RAphiI,xJ)
         fig.suptitle('RAphiI')
-        fig.savefig(os.path.join(qc_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
+        fig.savefig(join(qc_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
 
         # TODO: double check this is done
         
@@ -3529,7 +3553,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-    print(args)
+    # TODO don't print namespace because it will contain full paths
+    #print(args)
     
     if args.num_threads is not None:
         print(f'Setting numer of torch threads to {args.num_threads}')
@@ -3544,10 +3569,11 @@ if __name__ == '__main__':
         if args.config is None:
             raise Exception('Config file option must be set to run registration')
         
-        print(f'Making output directory {args.output}')
+        # don't print because it may contain full paths, don't want for web
+        #print(f'Making output directory {args.output}')
         if not os.path.isdir(args.output):
             os.mkdir(args.output)
-        print('Finished making output directory')
+        #print('Finished making output directory')
     
     
         # load config
@@ -3586,7 +3612,7 @@ if __name__ == '__main__':
         elif I.ndim < 3 or I.ndim > 4:
             raise Exception(f'3D data required but atlas image has dimension {I.ndim}')            
         output_dir = os.path.join(args.output,'inputs/')
-        if not os.path.isdir(output_dir): os.mkdir(output_dir)
+        makedirs(output_dir,exist_ok=True)
         
         
         print(f'Initial downsampling so not too much gpu memory')
@@ -3641,7 +3667,7 @@ if __name__ == '__main__':
         # draw it
         fig = draw(J,xJ)
         fig[0].suptitle('Target image')
-        fig[0].savefig(os.path.join(output_dir,'target.png'))        
+        fig[0].savefig(join(output_dir,'target.png'))        
         print('Finished loading target')
         
         # get one more qc file applying the initial affine
@@ -3658,61 +3684,37 @@ if __name__ == '__main__':
         out = interp(xI,I,Xs.transpose((3,0,1,2)))
         fig = draw(out,xJ)
         fig[0].suptitle('Initial transformed atlas')
-        fig[0].savefig(os.path.join(output_dir,'atlas_to_target_initial_affine.png'))        
+        fig[0].savefig(join(output_dir,'atlas_to_target_initial_affine.png'))        
 
         # default pipeline
         print('Starting registration pipeline')
-        output = emlddmm_multiscale(I=I/np.mean(np.abs(I)),xI=[xI],J=J/np.mean(np.abs(J)),xJ=[xJ],W0=W0,**config)
-        if type(output) == list:
+        try:
+            output = emlddmm_multiscale(I=I/np.mean(np.abs(I)),xI=[xI],J=J/np.mean(np.abs(J)),xJ=[xJ],W0=W0,**config)
+        except:
+            print('problem with registration')
+            with open('done.txt','wt') as f:
+                pass
+            
+        if isinstance(output,list):
             output = output[-1]
         print('Finished registration pipeline')
         
-        # write transforms
-        print('Starting to write transforms')
-        write_transform_outputs(args.output,output)
-        print('Finished writing transforms')
+        # write outputs      
+        try:
+            write_outputs_for_pair(
+                args.output,output,
+                xI,I,xJ,J,WJ=W0,    
+            )
+        except:
+            print(f'Problem with writing outputs')
+            with open('done.txt','wt') as f:
+                pass            
         
-        # write qc outputs
-        # this requires a segmentation image
-        if args.label is not None:
-            print('Starting to read label image for qc')
-            xS,S,title,names = read_data(args.label)            
-            S = S.astype(np.int32) # with int32 should be supported by torch
-            print('Finished reading label image')
-            print('Starting to write qc outputs')
-            write_qc_outputs(args.output,output,xI,I,xJ,J,xS=xI,S=S) # TODO: qrite_qc_outputs input format has changed
-            print('Finished writing qc outputs')
-            
-            
-        # transform imaging data
-        # transform target back to atlas
-        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xI]))
-        Xout = compose_sequence(args.output,Xin)
-        Jt = apply_transform_float(xJ,J,Xout)
+        print('Finished writing outputs')
+        with open('done.txt','wt') as f:
+            pass
         
-        # transform atlas to target
-        Xin = torch.stack(torch.meshgrid([torch.as_tensor(x) for x in xJ]))
-        Xout = compose_sequence(args.output,Xin,direction='b')
-        It = apply_transform_float(xI,I,Xout)
-        if args.label is not None:
-            St = apply_transform_int(xS,S,Xout)
-        # write
-        ext = args.output_image_format
-        if ext[0] != '.': ext = '.' + ext
             
-        atlas_output_dir = os.path.join(args.output,'to_atlas')
-        if not os.path.isdir(atlas_output_dir): os.mkdir(atlas_output_dir)
-        target_output_dir = os.path.join(args.output,'to_target')
-        if not os.path.isdir(target_output_dir): os.mkdir(target_output_dir)                
-        # output data in atlas space, use xI for voxel spacing
-        write_data(os.path.join(atlas_output_dir,'target_to_atlas'+ext),xI,Jt,'target_to_atlas')
-
-        # output data in target space, use xJ for voxel spacing
-        write_data(os.path.join(target_output_dir,'atlas_to_target'+ext),xJ,It,'atlas_to_target')
-        write_data(os.path.join(target_output_dir,'atlas_seg_to_target'+ext),xJ,St,'atlas_seg_to_target')
-
-
-        print('Finished registration pipeline')
     elif args.mode == 'transform':
         
         # now to apply transforms, every one needs a f or a b
@@ -3766,12 +3768,11 @@ if __name__ == '__main__':
         if ext[0] != '.': ext = '.' + ext                    
         if not os.path.isdir(args.output): os.mkdir(args.output)
         # name should be atlas name to target name, but without the path
-        name = os.path.splitext(os.path.split(atlas_name)[1])[0] + '_to_' + os.path.splitext(os.path.split(target_name)[1])[0]
-        write_data(os.path.join(args.output,name+ext),xJ,It,'transformed data')
+        name = splitext(os.path.split(atlas_name)[1])[0] + '_to_' + os.path.splitext(os.path.split(target_name)[1])[0]
+        write_data(join(args.output,name+ext),xJ,It,'transformed data')
         # write a text file that summarizes this
-        name = os.path.join(args.output,name+'.txt')
+        name = join(args.output,name+'.txt')
         with open(name,'wt') as f:
             f.write(str(args))
          
-    
     # also 
