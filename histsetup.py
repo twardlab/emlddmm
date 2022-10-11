@@ -8,8 +8,9 @@ import shutil
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import resize
+import h5py
 
-def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=None, image_downfactor=None):
+def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=None, image_downfactor=None, sep='_',fnumidx=-1):
     """ Downsample Slices
 
     Copy a subset of optionally downsampled 2D images to the output directory.
@@ -56,7 +57,7 @@ def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=None, image
     if len(fnames) == 0:
         print('subject directory is empty')
         sys.exit(1)
-    fnames = sorted(fnames, key=lambda x: x.split('_')[-1][:4])
+    fnames = sorted(fnames, key=lambda x: x.split(sep)[fnumidx][:4])
 
     # get the number of slices (missing slices included)
     max_slice = int(fnames[-1].split('_')[-1][:4])
@@ -84,7 +85,7 @@ def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=None, image
             shutil.copy(fpaths_down[i], output_dir)
 
 
-def make_samples_tsv(subject_dir, ext, max_slice=None):
+def make_samples_tsv(subject_dir, ext, max_slice=None, sep='_',fnumidx=-1):
     """ Make 'samples.tsv' file
     
     Saves a tsv file listing the images in the folder.
@@ -119,7 +120,7 @@ def make_samples_tsv(subject_dir, ext, max_slice=None):
     if len(fnames) == 0:
         print('subject directory is empty')
         sys.exit(1)
-    fnames = sorted(fnames, key=lambda x: x.split('_')[-1][:4])
+    fnames = sorted(fnames, key=lambda x: x.split(sep)[fnumidx][:4])
 
     # uncomment this block to include missing images in tsv file (not currently implemented for registration)
     # # get missing image numbers
@@ -154,7 +155,7 @@ def make_samples_tsv(subject_dir, ext, max_slice=None):
 
 # Set up metadata JSON file
 # Need Pixel Size, field of view, thickness, offset
-def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72,14.72,10.], slice_downfactor=None):
+def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72,14.72,10.], slice_downfactor=None, sep='_', fnumidx=-1):
     """ Generate Sidecar Files
     
     Saves out JSON format sidecare files for each image in the dataset.
@@ -217,10 +218,10 @@ def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72
             space_origin.append([geometry.iloc[i, 7], geometry.iloc[i, 8], geometry.iloc[i, 9]])
         # then remove geometry.csv from list and sort fnames
         fnames = [i for i in fnames if i.endswith(ext)]
-        fnames = sorted(fnames, key=lambda x: x.split('_')[-1][:4])
+        fnames = sorted(fnames, key=lambda x: x.split(sep)[fnumidx][:4])
     else:
         fnames = [i for i in fnames if i.endswith(ext)]
-        fnames = sorted(fnames, key=lambda x: x.split('_')[-1][:4])
+        fnames = sorted(fnames, key=lambda x: x.split(sep)[fnumidx][:4])
         if not max_slice:
             print('If there is no geometry file, the number of slices in the original volume must be entered to calculate spatial information about the slices.\n\
                   2d_metadata_setup.py -i <inputDir> -o <outputDir> -s <sliceDownFactor> -r <resolutionDownFactor> -m <maxSlice> -d <dv>')
@@ -230,7 +231,15 @@ def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72
         for i in range(len(fnames)):
             slice_num = int(fnames[i].split('_')[-1][:4])
             img_path = os.path.join(subject_dir, fnames[i])
-            img_shape = plt.imread(img_path).shape
+            try:
+                img_shape = plt.imread(img_path).shape
+            except:
+                if 'h5' in ext:
+                    with h5py.File(img_path,'r') as f:
+                        img_shape = list(f[list(f.keys())[0]][:].shape[:2])
+                        img_shape.append(1) # append 1 to represent channels
+                else:
+                    print('file type not recognized')
             x_origin = -(img_shape[1] - 1) / 2 * dx
             y_origin = -(img_shape[0] - 1) / 2 * dy
             space_origin.append([x_origin, y_origin, dz * (slice_num-1 - center)])
@@ -262,8 +271,8 @@ def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72
 
 
 def main():
-    subject_dir = ''
-    output_dir = ''
+    subject_dir = '.'
+    output_dir = '.'
     ext = ''
     slice_down = None
     res_down = None

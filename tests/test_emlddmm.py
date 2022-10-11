@@ -1,4 +1,4 @@
-'''Unit testing for the emlddmm module.
+''' test_emlddmm.py: Unit testing for the emlddmm module.
 
 This includes unit tests for methods in the emlddmm.py package.
 
@@ -17,13 +17,14 @@ import pytest
 import sys
 sys.path.insert(0, '/home/brysongray/emlddmm')
 import emlddmm
-# from ... import emlddmm
 import numpy as np
 import os
-import time
 
+# test input output functions
 
-def ellipsoid():
+# construct binary 3D ellipsoid
+@pytest.fixture
+def ellipsoid(scope="module"):
     ni = 100
     nj = 120
     nk = 110
@@ -37,48 +38,26 @@ def ellipsoid():
 
     return xI, I
 
+@pytest.mark.io
+def test_read_write_vtk_data(tmp_path, ellipsoid):
+    xI, I = ellipsoid
+    title = 'ellipsoid'
+    # write out image in vtk format
+    emlddmm.write_vtk_data(os.path.join(tmp_path,'ellipsoid.vtk'), xI, I, title)
+    _,J,_,_ = emlddmm.read_vtk_data(os.path.join(tmp_path,'ellipsoid.vtk'))
+    assert os.path.exists(os.path.join(tmp_path,'ellipsoid.vtk'))
+    assert np.allclose(J,I)
 
-class TestIO:
-    ''' Read and write data test
-
-    '''
-    # construct binary 3D ellipsoid
-    fname = '/home/brysongray/emlddmm/tests/ellipsoid1'
-    title = 'ellipsoid1'
-    xI, I = ellipsoid()
-
-    def test_write_vtk_data(self):
-        # write out image in vtk format
-        emlddmm.write_vtk_data(self.fname+'.vtk', self.xI, self.I, self.title)
-        # assert that the file is modified
-        writetime = os.path.getmtime(self.fname+'.vtk')
-        assert round(writetime, 0)==round(time.time(),0)
-
-
-    def test_read_vtk_data(self):
-        _,J,_,_ = emlddmm.read_vtk_data(self.fname+'.vtk')
-        assert np.allclose(J,self.I)
-
-
-    def test_write_data(self):
-        # write out image in nifti format
-        emlddmm.write_data(self.fname+'.nii', self.xI, self.I, self.title)
-        # assert that the file is modified
-        writetime = os.path.getmtime(self.fname+'.nii')
-        assert round(writetime, 0)==round(time.time(),0)
-
-
-    def test_read_data(self):
-        _,J,_,_ = emlddmm.read_data(self.fname+'.nii')
-        assert np.allclose(J,self.I)
-
-
-class TestEmlddmm:
-
-    def test_emlddmm(self):
-
-        pass
-
-    def test_emlddmm_multiscale(self):
-
-        pass
+@pytest.mark.io
+@pytest.mark.parametrize("ext", [
+    ".nii",
+    ".vtk"
+])
+def test_read_write_data(tmp_path, ellipsoid, ext):
+    xI, I = ellipsoid
+    title = 'ellipsoid'
+    # write out image in vtk format
+    emlddmm.write_data(os.path.join(tmp_path,'ellipsoid'+ext), xI, I, title)
+    _,J,_,_ = emlddmm.read_data(os.path.join(tmp_path,'ellipsoid'+ext))
+    assert os.path.exists(os.path.join(tmp_path,'ellipsoid'+ext))
+    assert np.allclose(J,I)
