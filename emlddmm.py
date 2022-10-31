@@ -246,27 +246,25 @@ def load_slices(target_name, xJ=None):
 
         # this should contain an image and a json    
         image_name = jsondata['DataFile']
-        try:
+        _, ext = os.path.splitext(image_name)
+        if ext == '.tif':
+            J__ = tf.imread(os.path.join(target_name, image_name))
+        else:
             J__ = plt.imread(os.path.join(target_name,image_name))
-        except:
-            J__ = plt.imread(image_name)
-        
+
         if J__.dtype == np.uint8:
             J__ = J__.astype(float)/255.0
             J__ = J__[...,:3] # no alpha
-            if not i%20:
-                ax[0].cla()
-                ax[0].imshow(J__)
-                fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
-                fig.canvas.draw()    
         else:
             J__ = J__[...,:3].astype(float)
-            if not i%20:
-                ax[0].cla()
-                ax[0].imshow(J__)
-                fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
-                fig.canvas.draw()
             J__ = J__ / np.mean(np.abs(J__.reshape(-1, J__.shape[-1])), axis=0)
+
+        if not i%20:
+            ax[0].cla()
+            toshow = (J__- np.min(J__)) / (np.max(J__)-np.min(J__))
+            ax[0].imshow(toshow)
+            fig.suptitle(f'slice {i} of {data.shape[0]}: {image_name}')
+            fig.canvas.draw()    
 
         nJ_[i] = np.array(J__.shape)
 
@@ -310,7 +308,6 @@ def load_slices(target_name, xJ=None):
     #     slice_status.append(status)
 
     # resample slices on 3D grid
-    # first interpolate each slice in 2D and stack
     J = np.zeros(XJ.shape[1:] + tuple([3]))
     W0 = np.zeros(XJ.shape[1:])
     i = 0
@@ -2423,9 +2420,7 @@ class Image:
             fnames = [self.path]
 
         return fnames
-
-    def to_torch(self, dtype=torch.float, device='cpu'):
-        pass   
+        
 
 def fnames(path):
     ''' Get a list of image file names for 2D series, or a single file name for volume image.
