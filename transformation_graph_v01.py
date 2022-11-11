@@ -331,11 +331,12 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         B) Save out I to J detjac and displacement in {target_space}/{I.space}_to_{target_space}/transforms/
     '''
     from_series = I.title == 'slice_dataset'
-    to_series = transforms[0].data.ndim == 3 # we don't have the image title so we need to look at the transforms
+    to_series = transforms[0].data.ndim == 3 or transforms[-1].data.ndim == 3 # we don't have the image title so we need to look at the transforms
     if from_series and to_series:
+        print(f'reconstructing {I.space} {I.name} in {target_space} space')
         # series to series
         # Assumes J and I have the same space dimensions
-        I_to_J_out = os.path.join(out, f'{target_space}_input/{I.space}_input_to_{target_space}_input/images/')
+        I_to_J_out = os.path.join(out, f'{target_space}_input/{I.space}_{I.name}_input_to_{target_space}_input/images/')
         if not os.path.exists(I_to_J_out):
             os.makedirs(I_to_J_out)
         for i in range(I.data.shape[1]):
@@ -346,6 +347,7 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
             emlddmm.write_vtk_data(os.path.join(I_to_J_out, f'{I.space}_input_{I.fnames()[i]}_to_{target_space}_input_{target_fnames[i]}.vtk'), x, img, title)
 
     elif to_series:
+        print(f'reconstructing {I.space} {I.name} in {target_space} space')
         # volume to series
         # we need I transformed to J registered space
         path = graph.shortest_path(graph.spaces[target_space][0], graph.spaces[I.space][0])
@@ -396,6 +398,7 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
 
     
     elif from_series:
+        print(f'reconstructing {I.space} {I.name} in {target_space} space')
         # series to volume
         # I input to I registered space
         path = graph.shortest_path(graph.spaces[target_space][0], graph.spaces[I.space][0])
@@ -442,6 +445,7 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         title = f'{I.space}_{I.name}_registered_to_{target_space}_detjac'
         emlddmm.write_vtk_data(os.path.join(I_to_J_transforms, title + '.vtk'), xJ, detjac, title)
     else:
+        print(f'reconstructing {I.space} {I.name} in {target_space} space')
         # volume to volume
         # I to J
         # save image

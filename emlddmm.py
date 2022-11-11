@@ -796,7 +796,7 @@ def emlddmm(**kwargs):
                 'slice_matching':False, # if true include rigid motions and contrast on each slice
                 'slice_matching_start':0,
                 'slice_matching_isotropic':False, # if true 3D affine is isotropic scale
-                'local_contrast':[], # simple local contrast estimation mode, should be a list of ints
+                'local_contrast':None, # simple local contrast estimation mode, should be a list of ints
                 'reduce_factor':0.9,
                }
     defaults.update(kwargs)
@@ -1174,7 +1174,7 @@ def emlddmm(**kwargs):
                 raise Exception('Require either order = 1 or order>1 and 1D atlas')
             
         
-        if not slice_matching:
+        if not slice_matching or (slice_matching and type(local_contrast)!= list and local_contrast[0]==1):
             if type(local_contrast)==list:
                 # global contrast mapping
                 with torch.no_grad():                
