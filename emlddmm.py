@@ -20,7 +20,7 @@ from warnings import warn
 import tifffile as tf # for 16 bit tiff
 
 # display
-def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,**kwargs):    
+def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,**kwargs):    
     """ Draw 3D imaging data.
     
     Images are shown by sampling slices along 3 orthogonal axes.
@@ -154,7 +154,10 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,**kwargs):
     fig.subplots_adjust(wspace=0,hspace=0)
     if not disp:
         plt.close(fig)
-
+    axs = np.array(axs)
+    
+    if cbar and disp:
+        plt.colorbar(mappable=[h for h in axs[0][0].get_children() if 'Image' in str(h)][0],ax=np.array(axs).ravel())
     return fig,axs
     
     
@@ -1152,7 +1155,7 @@ def emlddmm(**kwargs):
                 raise Exception('Require either order = 1 or order>1 and 1D atlas')
             
         
-        if not slice_matching:
+        if not slice_matching or (slice_matching and type(local_contrast)!=list and local_contrast[0]==1):
             if type(local_contrast)==list:
                 # global contrast mapping
                 with torch.no_grad():                
@@ -3500,7 +3503,95 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
         
     return phiP, connectivity, connectivity_type, name
     
+# we need a tool for converting to RAS
+# suppose we have labels
+# R/L, A/P, S/I
+# I get a string in some order
+
+
+def orientation_to_RAS(orientation):
+    ''' Compute a linear transform from a given orientation to RAS.
     
+    Orientations are specified using 3 letters, by selecting one of each 
+    pair for each image axis: R/L, A/P, S/I
+    
+    Parameters
+    ----------
+    orientation : 3-tuple
+        orientation can be any iterable with 3 components. 
+        Each component should be one of R/L, A/P, S/I. There should be no duplicates
+    
+    Returns
+    -------
+    Ao : 3x3 numpy array
+        A linear transformation to transform your image to RAS        
+    
+    '''
+    orientation_ = [o for o in orientation]
+    Ao = np.eye(3)
+    # first step, flip if necessary
+    for i in range(3):
+        if orientation_[i] == 'L':
+            Ao[i,i] *= -1
+            orientation_[i] = 'R'
+        if orientation_[i] == 'P':
+            Ao[i,i] *= -1
+            orientation_[i] = 'A'
+        if orientation_[i] == 'I':
+            Ao[i,i] *= -1
+            orientation_[i] = 'S'
+
+    # now we need to handle permutations
+    # there are 6 cases
+    if orientation_ == ['R','A','S']:
+        pass
+    elif orientation_ == ['R','S','A']:
+        # flip the last two axes to change to RAS
+        Ao = np.eye(3)[[0,2,1]]@Ao # elementary matrix is identity with rows flipped
+        orientation_ = [orientation_[0],orientation_[2],orientation_[1]]
+    elif orientation_ == ['A','R','S']:
+        # flip the first two axes
+        Ao = np.eye(3)[[1,0,2]]@Ao 
+        orientation_ = [orientation_[1],orientation_[0],orientation_[2]]
+    elif orientation_ == ['A','S','R']:
+        # we need a 2,0,1 permutation
+        Ao = np.eye(3)[[0,2,1]]@np.eye(3)[[2,1,0]]@Ao 
+        orientation_ = [orientation_[2],orientation_[0],orientation_[1]]
+    elif orientation_ == ['S','R','A']:
+        # flip the first two, then the second two
+        Ao = np.eye(3)[[0,2,1]]@np.eye(3)[[1,0,2]]@Ao 
+        orientation_ = [orientation_[1],orientation_[2],orientation_[0]]
+        pass
+    elif orientation_ == ['S','A','R']:
+        # flip the first and last
+        Ao = np.eye(3)[[2,1,0]]@Ao 
+        orientation_ = [orientation_[2],orientation_[1],orientation_[0]]    
+    else:
+        raise Exception('Something is wrong with your orientation')
+    return Ao
+
+def orientation_to_orientation(orientation0,orientation1):
+    ''' Compute a linear transform from one given orientation to another.
+    
+    Orientations are specified using 3 letters, by selecting one of each 
+    pair for each image axis: R/L, A/P, S/I
+    
+    This is done by computing transforms to and from RAS.
+    
+    Parameters
+    ----------
+    orientation : 3-tuple
+        orientation can be any iterable with 3 components. 
+        Each component should be one of R/L, A/P, S/I. There should be no duplicates
+    
+    Returns
+    -------
+    Ao : 3x3 numpy array
+        A linear transformation to transform your image from orientation0 to orientation1        
+    
+    '''
+    Ao = np.linalg.inv(orientation_to_RAS(orientation1))@orientation_to_RAS(orientation0)
+    return Ao    
         
     
         
