@@ -287,7 +287,6 @@ def load_slices(target_name, xJ=None):
         # get the minimum coordinate on each axis
         xJmin = [-(n-1)*d/2.0 for n,d in zip(nJ[1:],dJ[1:])]
         xJmin.insert(0,np.min(x0))
-        # xJ = [(np.arange(n)*d + o).astype('float32') for n,d,o in zip(nJ,dJ,xJmin)]
         xJ = [(np.arange(n)*d + o) for n,d,o in zip(nJ,dJ,xJmin)]
     XJ = np.stack(np.meshgrid(*xJ, indexing='ij'))
 
@@ -2516,6 +2515,39 @@ def write_transform_outputs(output_dir, output, I, J):
     return
 
 
+def registered_domain(x,A2d):
+    '''Construct a new domain that fits all rigidly aligned slices.
+
+    Parameters
+    ----------
+    x : list of arrays
+        list of numpy arrays containing voxel positions along each axis.
+    A2d : numpy array
+        Nx3x3 array of affine transformations
+    
+    Returns
+    -------
+    xr : list of arrays
+        new list of numpy arrays containing voxel positions along each axis
+
+    '''
+    X = torch.stack(torch.meshgrid(x, indexing='ij'), -1)
+    A2di = torch.inverse(A2d)
+    points = (A2di[:, None, None, :2, :2] @ X[..., 1:, None])[..., 0]
+    m0 = torch.min(points[..., 0])
+    M0 = torch.max(points[..., 0])
+    m1 = torch.min(points[..., 1])
+    M1 = torch.max(points[..., 1])
+    # construct a recon domain
+    dJ = [xi[1] - xi[0] for xi in x]
+    # print('dJ shape: ', [x.shape for x in dJ])
+    xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
+    xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
+    xr = x[0], xr0, xr1
+
+    return xr
+
+
 def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     ''' write out registration qc images
 
@@ -2569,7 +2601,7 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     if slice_matching:
         A2d = output['A2d'].detach().to('cpu')
         A2di = torch.inverse(A2d)
-        XJ_ = torch.clone(XJ)            
+        XJ_ = torch.clone(XJ)           
         XJ_[1:] = ((A2di[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)            
         # if registering series to series
         if I.title=='slice_dataset' and J.title=='slice_dataset':
@@ -2625,9 +2657,15 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
         fig[0].suptitle(f'{J.space}_{J.name}_input')
         fig[0].savefig(out + f'{J.space}_{J.name}_input.jpg')
         
-        XJ_ = torch.clone(XJ)
-        XJ_[1:] = ((A2d[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
-        Jr = interp(xJ,Jdata,XJ_)
+        # subtract mean of translation from A2d for reconstructing registered space
+        A2d_registered = torch.clone(A2d)
+        mean_translation = torch.mean(A2d[:,:2,-1], dim=0)
+        print(f'mean_translation: {mean_translation}')
+        A2d_registered[:,:2,-1] -= mean_translation
+
+        XJr_ = torch.clone(XJ)
+        XJr_[1:] = ((A2d[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d_registered[:,None,None,:2,-1]).permute(3,0,1,2)
+        Jr = interp(xJ,Jdata,XJr_)
         fig = draw(Jr,xJ)
         fig[0].suptitle(f'{J.space}_{J.name}_registered')
         out = os.path.join(output_dir,f'{J.space}_registered/{I.space}_{I.name}_to_{J.space}_registered/qc/')
@@ -2637,14 +2675,18 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
         
         # and we need atlas recon
         # sample points for affine
-        Xs = ((Ai[:3,:3]@XJ.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
+        Ai_registered = torch.clone(Ai)
+        Ai_registered[1:3,-1] -= mean_translation.flip(0)
+        print(f'Ai:\n {Ai}')
+        print(f'Ai_registered:\n {Ai_registered}')
+        Xs = ((Ai[:3,:3]@XJ.permute((1,2,3,0))[...,None])[...,0] + Ai_registered[:3,-1]).permute((3,0,1,2))
         # for diffeomorphism
         XV = torch.stack(torch.meshgrid(xv, indexing='ij'))
         phiiAi = interp(xv,phii-XV,Xs) + Xs
 
         # transform image
-        AphiI = interp(xI,Idata,phiiAi)       
-        fig = draw(AphiI,xJ)
+        AphiI = interp(xI,Idata,phiiAi)
+        fig = draw(AphiI, xJ)
         fig[0].suptitle(f'{I.space}_{I.name}_to_{J.space}_registered')
         fig[0].savefig(out + f'{I.space}_{I.name}_to_{J.space}_registered.jpg')
     else:
@@ -2664,6 +2706,8 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     phi = v_to_phii(xv,-v.flip(0))
     Aphi = ((A[:3,:3]@phi.permute((1,2,3,0))[...,None])[...,0] + A[:3,-1]).permute((3,0,1,2))
     Aphi = interp(xv,Aphi,XI)
+    # XJr_[1:] = ((A2d[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
+    # Jr = interp(xJ,Jdata,XJr_)
     phiiAiJ = interp(xJ,Jr,Aphi)
 
     fig = draw(phiiAiJ,xI)

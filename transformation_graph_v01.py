@@ -331,7 +331,7 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         B) Save out I to J detjac and displacement in {target_space}/{I.space}_to_{target_space}/transforms/
     '''
     from_series = I.title == 'slice_dataset'
-    to_series = transforms[0].data.ndim == 3 or transforms[-1].data.ndim == 3 # we don't have the image title so we need to look at the transforms
+    to_series = len(target_fnames) != 0 # we don't have the image title so we need to check for a list of file names
     if from_series and to_series:
         print(f'reconstructing {I.space} {I.name} in {target_space} space')
         # series to series
@@ -468,39 +468,6 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         detjac = np.linalg.det(jac)[None]
         title = f'{I.space}_{I.name}_to_{target_space}_detjac'
         emlddmm.write_vtk_data(os.path.join(I_to_J_transforms, title + '.vtk'), xJ, detjac, title)
-
-
-def registered_domain(x,A2d):
-    '''Construct a new domain that fits all rigidly aligned slices.
-
-    Parameters
-    ----------
-    x : list of arrays
-        list of numpy arrays containing voxel positions along each axis.
-    A2d : numpy array
-        Nx3x3 array of affine transformations
-    
-    Returns
-    -------
-    xr : list of arrays
-        new list of numpy arrays containing voxel positions along each axis
-
-    '''
-    X = torch.stack(torch.meshgrid(x, indexing='ij'), -1)
-    A2di = torch.inverse(A2d)
-    points = (A2di[:, None, None, :2, :2] @ X[..., 1:, None])[..., 0] 
-    m0 = torch.min(points[..., 0])
-    M0 = torch.max(points[..., 0])
-    m1 = torch.min(points[..., 1])
-    M1 = torch.max(points[..., 1])
-    # construct a recon domain
-    dJ = [x[1] - x[0] for x in x]
-    # print('dJ shape: ', [x.shape for x in dJ])
-    xr0 = torch.arange(float(m0), float(M0), dJ[1], device=m0.device, dtype=m0.dtype)
-    xr1 = torch.arange(float(m1), float(M1), dJ[2], device=m0.device, dtype=m0.dtype)
-    xr = x[0], xr0, xr1
-
-    return xr
 
 
 def run_registrations(reg_list):
