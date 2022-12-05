@@ -2657,16 +2657,13 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
         fig[0].suptitle(f'{J.space}_{J.name}_input')
         fig[0].savefig(out + f'{J.space}_{J.name}_input.jpg')
         
-        # subtract mean of translation from A2d for reconstructing registered space
-        # TODO modify XJr by shifting by mean translation instead of changing the transform
-        A2d_registered = torch.clone(A2d)
+        # modify XJ by shifting by mean translation
         mean_translation = torch.mean(A2d[:,:2,-1], dim=0)
         print(f'mean_translation: {mean_translation}')
-        # A2d_registered[:,:2,-1] -= mean_translation
-
-        XJr = torch.clone(XJ)  + mean_translation 
+        XJr = torch.clone(XJ)
+        XJr[1:] -= mean_translation[...,None,None,None]
         XJr_ = torch.clone(XJr)
-        XJr_[1:] = ((A2d[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d_registered[:,None,None,:2,-1]).permute(3,0,1,2)
+        XJr_[1:] = ((A2d[:,None,None,:2,:2]@ (XJr[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
         Jr = interp(xJ,Jdata,XJr_)
         fig = draw(Jr,xJ)
         fig[0].suptitle(f'{J.space}_{J.name}_registered')
@@ -2677,11 +2674,7 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
         
         # and we need atlas recon
         # sample points for affine
-        Ai_registered = torch.clone(Ai)
-        # Ai_registered[1:3,-1] -= mean_translation.flip(0)
-        print(f'Ai:\n {Ai}')
-        print(f'Ai_registered:\n {Ai_registered}')
-        Xs = ((Ai[:3,:3]@XJr.permute((1,2,3,0))[...,None])[...,0] + Ai_registered[:3,-1]).permute((3,0,1,2))
+        Xs = ((Ai[:3,:3]@XJr.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
         # for diffeomorphism
         XV = torch.stack(torch.meshgrid(xv, indexing='ij'))
         phiiAi = interp(xv,phii-XV,Xs) + Xs
@@ -2708,8 +2701,8 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     phi = v_to_phii(xv,-v.flip(0))
     Aphi = ((A[:3,:3]@phi.permute((1,2,3,0))[...,None])[...,0] + A[:3,-1]).permute((3,0,1,2))
     Aphi = interp(xv,Aphi,XI)
-    # XJr_[1:] = ((A2d[:,None,None,:2,:2]@ (XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
-    # Jr = interp(xJ,Jdata,XJr_)
+    if slice_matching:
+        Aphi[1:] += mean_translation[...,None,None,None]
     phiiAiJ = interp(xJ,Jr,Aphi)
 
     fig = draw(phiiAiJ,xI)
