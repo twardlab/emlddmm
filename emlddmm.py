@@ -2672,7 +2672,7 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
             os.makedirs(out)
         fig[0].savefig(out + f'{J.space}_{J.name}_registered.jpg')
         
-        # and we need atlas recon
+        # and we need atlas reconstructed in target space
         # sample points for affine
         Xs = ((Ai[:3,:3]@XJr.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
         # for diffeomorphism
@@ -2701,6 +2701,7 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     phi = v_to_phii(xv,-v.flip(0))
     Aphi = ((A[:3,:3]@phi.permute((1,2,3,0))[...,None])[...,0] + A[:3,-1]).permute((3,0,1,2))
     Aphi = interp(xv,Aphi,XI)
+    # apply the shift to Aphi since it was subtracted when creating Jr
     if slice_matching:
         Aphi[1:] += mean_translation[...,None,None,None]
     phiiAiJ = interp(xJ,Jr,Aphi)

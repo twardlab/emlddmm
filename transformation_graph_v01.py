@@ -169,14 +169,16 @@ class Graph:
         return transforms
     
 
-    def map_points(self, src_space, transforms):
-        '''map points from source space to target. If mapping to an image series, maps to the registered domain.
+    def map_points(self, src_space, transforms, xy_shift=None):
+        '''Applies a sequence of transforms to points in source space. If mapping to an image series, maps to the registered domain.
 
         Parameters
         ----------
         srs_space : str
             name of the source space
         transforms : list of emlddmm Transform objects
+        xy_shift : torch Tensor
+            R^2 vector. Applies a translation in xy for reconstructing in registered space. 
 
         Returns
         -------
@@ -186,6 +188,8 @@ class Graph:
         xI = self.spaces[src_space][1]
         xI = [torch.as_tensor(x) for x in xI]
         XI = torch.stack(torch.meshgrid(xI, indexing='ij'))
+        if xy_shift is not None:
+            XI += xy_shift[...,None,None,None]
         # series of 2d transforms can only be applied to the space on which they were computed because the size must match the number of slices.
         # to avoid an error, check if a volumetric transform is followed by a 2d series transform.
         check = False
@@ -201,16 +205,19 @@ class Graph:
         return X
 
 
-    def map_image(self, src_space, target_space, image, transforms):
+    def map_image(self, src_space, image, target_space, transforms, xy_shift=None):
         '''Map an image from source space to target space.
 
         Parameters
         ----------
         src_space : str
             name of source space
+        image : array
         target_space : str
             name of target space
-        image : array
+        transforms : list of emlddmm Transform objects
+        xy_shift : torch Tensor
+            R^2 vector. Applies a translation in xy for reconstructing in registered space.
 
         Returns
         -------
@@ -219,21 +226,35 @@ class Graph:
         '''
         # if the last transforms are 2d series affine, then we will first apply them to the target space and resample the target image in registered space.
         # then apply the other transforms to the source space and resample the registered target image.
+        # A2d = []
+        # # append any 2D affines from the end of the transforms sequence to A2d
+        # for t in transforms[::-1]:
+        #     if t.data.ndim == 3:
+        #         A2d.insert(0,t)
+        #     else:
+        #         break
+        ids = []
         A2d = []
-        for t in transforms[::-1]:
-            if t.data.ndim == 3:
-                A2d.insert(0,t)
+        for i in reversed(range(len(transforms))):
+            if transforms[i].data.ndim == 3:
+                ids.append(i)
+                A2d.insert(0,transforms[i])
             else:
                 break
-        xJ = self.spaces[target_space][1]
-        xJ = [torch.as_tensor(x) for x in xJ]
+        transforms = [j for i, j in enumerate(transforms) if i not in ids]
+        xI = self.spaces[src_space][1]
+        xI = [torch.as_tensor(x) for x in xI]
         if len(A2d) > 0:
             image = torch.as_tensor(image)
-            XJ = torch.stack(torch.meshgrid(xJ, indexing='ij'))
-            XR = emlddmm.compose_sequence(A2d, XJ)
-            image = emlddmm.interp(xJ,image, XR)
-        X = self.map_points(src_space, transforms)
-        image = emlddmm.interp(xJ, image, X)
+            XI = torch.stack(torch.meshgrid(xI, indexing='ij'))
+            if xy_shift is not None:
+                XI -= xy_shift[...,None,None,None]
+            XR = emlddmm.compose_sequence(A2d, XI)
+            image = emlddmm.interp(xI,image, XR)
+        # any 2D affine transforms at the end of the sequence will be ignored by map_points
+        if len(transforms) > 0:
+            X = self.map_points(target_space, transforms, xy_shift=xy_shift)
+        image = emlddmm.interp(xI, image, X)
 
         return image
 
@@ -310,7 +331,7 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
     transforms = graph.transforms(path)
     XJ = torch.stack(torch.meshgrid(xJ, indexing='ij'))
     fXJ = graph.map_points(target_space, transforms)
-    fI = graph.map_image(target_space, I.space, I.data, transforms)
+    fI = graph.map_image(I.space, I.data, target_space, transforms)
     '''
     Three cases:
 
@@ -356,9 +377,10 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         transforms = graph.transforms(path)
         for i, t in enumerate(transforms):
             if t.data.ndim == 3:
+                mean_translation = torch.mean(t.data[:,:2,-1], dim=0)
                 del transforms[i]
-        phiiAiXJ = graph.map_points(target_space, transforms)
-        AphiI = graph.map_image(target_space, I.space, I.data, transforms)
+        phiiAiXJ = graph.map_points(target_space, transforms, xy_shift=(-1*mean_translation))
+        AphiI = graph.map_image(I.space, I.data, target_space, transforms, xy_shift=(-1*mean_translation))
         # get I to J registered and I to J input displacements
         reg_disp = (phiiAiXJ - XJ)[None]
         input_disp = (fXJ - XJ)[None]
@@ -410,9 +432,11 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
                 idx = i
                 break
         transforms = transforms[-idx:]
-        XI = torch.stack(torch.meshgrid(I.x, indexing='ij'))
-        RXI = emlddmm.compose_sequence(transforms, XI)
-        RiI = emlddmm.interp(I.x, I.data, RXI)
+        mean_translation = torch.mean(transforms[0].data[:,:2,-1], dim=0)
+        RiI = graph.map_image(I.space, I.data, I.space, transforms, xy_shift=(-1*mean_translation))
+        # XI = torch.stack(torch.meshgrid(I.x, indexing='ij'))
+        # RXI = emlddmm.compose_sequence(transforms, XI)
+        # RiI = emlddmm.interp(I.x, I.data, RXI)
 
         Ii_to_Ir_out = os.path.join(out, f'{I.space}_registered/{I.space}_input_to_{I.space}_registered/images/')
         if not os.path.exists(Ii_to_Ir_out):
