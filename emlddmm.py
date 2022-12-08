@@ -2662,10 +2662,11 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
         print(f'mean_translation: {mean_translation}')
         XJr = torch.clone(XJ)
         XJr[1:] -= mean_translation[...,None,None,None]
+        xJr = [xJ[0], xJ[1] - mean_translation[0], xJ[2] - mean_translation[1]]
         XJr_ = torch.clone(XJr)
         XJr_[1:] = ((A2d[:,None,None,:2,:2]@ (XJr[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
         Jr = interp(xJ,Jdata,XJr_)
-        fig = draw(Jr,xJ)
+        fig = draw(Jr,xJr)
         fig[0].suptitle(f'{J.space}_{J.name}_registered')
         out = os.path.join(output_dir,f'{J.space}_registered/{I.space}_{I.name}_to_{J.space}_registered/qc/')
         if not os.path.isdir(out):
