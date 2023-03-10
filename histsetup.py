@@ -10,7 +10,7 @@ import numpy as np
 from skimage.transform import resize
 import h5py
 
-def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=None, image_downfactor=None, sep='_',fnumidx=-1):
+def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=1, image_downfactor=1, sep='_',fnumidx=-1):
     """ Downsample Slices
 
     Copy a subset of optionally downsampled 2D images to the output directory.
@@ -63,10 +63,7 @@ def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=None, image
     max_slice = int(fnames[-1].split('_')[-1][:4])
 
     # get list of slices to be kept after downsampling (these are evenly spaced numbers that may include missing slices)
-    if slice_downfactor:
-        slices_to_keep = np.arange(1, max_slice+1, slice_downfactor)
-    else:
-        slices_to_keep = np.arange(1, max_slice+1)
+    slices_to_keep = np.arange(1, max_slice+1, slice_downfactor)
 
     # Find paths to existing slices in the downsampled list (intersection of existing slices and downsampled slices)
     slice_nums = [int(f.split('_')[-1][:4]) for f in fnames]
@@ -76,7 +73,7 @@ def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=None, image
 
     for i in range(len(fpaths_down)):
         # downsample images if specified
-        if image_downfactor:
+        if image_downfactor > 1:
             img = plt.imread(fpaths_down[i])
             img_resized = resize(img, (img.shape[0] // image_downfactor, img.shape[1] // image_downfactor),\
                  anti_aliasing=True, preserve_range=False)
@@ -85,7 +82,7 @@ def downsample_slices(subject_dir, output_dir, ext, slice_downfactor=None, image
             shutil.copy(fpaths_down[i], output_dir)
 
 
-def make_samples_tsv(subject_dir, ext, max_slice=None, sep='_',fnumidx=-1):
+def make_samples_tsv(subject_dir, ext, slice_downfactor=1, max_slice=None, sep='_',fnumidx=-1):
     """ Make 'samples.tsv' file
     
     Saves a tsv file listing the images in the folder.
@@ -111,51 +108,57 @@ def make_samples_tsv(subject_dir, ext, max_slice=None, sep='_',fnumidx=-1):
 
     """
     # create list of files from source directory (subject_dir) in order of slice number
-    try:
-        fnames = os.listdir(subject_dir)
-    except FileNotFoundError:
-        print('subject directory does not exist')
-        sys.exit(1)
+    fnames = os.listdir(subject_dir)
     fnames = [i for i in fnames if i.endswith(ext)]
     if len(fnames) == 0:
         print('subject directory is empty')
         sys.exit(1)
     fnames = sorted(fnames, key=lambda x: x.split(sep)[fnumidx][:4])
-
     # uncomment this block to include missing images in tsv file (not currently implemented for registration)
-    # # get missing image numbers
-    # img_nums = np.array([int(x.split('_')[-1][:4]) for x in fnames])
-    # slice_range = np.arange(1, max_slice+1)
-    # missing_imgs = list(set(img_nums) - set(slice_range)) + list(set(slice_range) - set(img_nums))
+    # get missing image numbers
+    img_nums = [int(x.split('_')[-1][:4]) for x in fnames]
+    if not max_slice:
+        max_slice = img_nums[-1]
+    slice_range = np.arange(1, max_slice+1, slice_downfactor)
+    missing_imgs = list(set(img_nums) - set(slice_range)) + list(set(slice_range) - set(img_nums))
+    missing_imgs = sorted(missing_imgs)
 
-    # print("missing images: \n", missing_imgs)
-
-    # for i in range(len(missing_imgs)):
-    #     prev_section_num = int(fnames[missing_imgs[i]-2].split('_')[-2])
-    #     prev_slide_num = int(fnames[missing_imgs[i]-2].split('-')[1][1:])
-    #     section_num = prev_section_num + 1 if prev_section_num != 3 else 1
-    #     slide_num = prev_slide_num if prev_section_num != 3 else prev_slide_num + 1
-    #     fname = fnames[0].split('-')[0] + f'-N{slide_num}-0000.00.00-00.00.00_' + fnames[0].split('_')[1]\
-    #         + f'_{section_num}_' + str(missing_imgs[i]).zfill(4) + '.' + fnames[0].split('.')[-1]
-    #     fnames.insert(missing_imgs[i]-1, fname)
+    print("missing images: \n", missing_imgs)
+    # insert missing image names into fnames
+    missing_ids = []
+    for i in range(len(missing_imgs)):
+        fname = fnames[0].split('-')[0]  + '-_' + str(missing_imgs[i]).zfill(4) + '.' + fnames[0].split('.')[-1]
+        N = len(img_nums)
+        for j in range(N):
+            if img_nums[j] > missing_imgs[i]:
+                fnames.insert(j, fname)
+                img_nums.insert(j, missing_imgs[i])
+                missing_ids.append(j)
+                break
+            elif j==(N-1):
+                fnames.append(fname)
+                img_nums.append(missing_imgs[i])
+                missing_ids.append(j+1)
+                break
 
     # make samples.tsv file
     with open(os.path.join(subject_dir, 'samples.tsv'), 'w') as f:
-        f.write('sample_id    participant_id    species    status\n')
+        # f.write('sample_id    participant_id    species    status\n')
+        f.write('sample_id\tparticipant_id\tspecies\tstatus\n')
         status = 'present'
-        # j = 0
+        j = 0
         for i in range(len(fnames)):
-        #     if j < len(missing_imgs) and missing_imgs[j] == i+1:
-        #         status = 'missing'
-        #         j += 1
-        #     else:
-        #         status = 'present' 
-            f.write('{0}    {1}    Mus Musculus    {2}\n'.format(fnames[i], fnames[i][:5], status))
+            status = 'present'
+            for idx in missing_ids:
+                if i == idx:
+                    status = 'missing'
+                    break
+            f.write('{0}\t{1}\tMus Musculus\t{2}\n'.format(fnames[i], fnames[i][:5], status))
 
 
 # Set up metadata JSON file
 # Need Pixel Size, field of view, thickness, offset
-def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72,14.72,10.], slice_downfactor=None, sep='_', fnumidx=-1):
+def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72,14.72,10.], slice_downfactor=1, sep='_', fnumidx=-1):
     """ Generate Sidecar Files
     
     Saves out JSON format sidecare files for each image in the dataset.
@@ -190,11 +193,8 @@ def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72
         If the subject directory does not exist.
 
     """
-    try:
-        fnames = os.listdir(subject_dir)
-    except FileNotFoundError:
-        print('subject directory does not exist')
-        sys.exit(1)
+
+    fnames = os.listdir(subject_dir)
     if len(fnames) == 0:
         print('subject directory is empty')
         sys.exit(1)
@@ -211,10 +211,7 @@ def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72
         for i in range(len(geometry)):
             dv.append([geometry.iloc[i, 4], geometry.iloc[i, 5], geometry.iloc[i, 6]])
             sizes.append([4, geometry.iloc[i, 1], geometry.iloc[i, 2], geometry.iloc[i, 3]])
-            if slice_downfactor:
-                space_directions.append([[dv[i][0], 0., 0.], [0., dv[i][1], 0.], [0., 0., dv[i][2]*slice_downfactor]])
-            else:
-                space_directions.append([[dv[i][0], 0., 0.], [0., dv[i][1], 0.], [0., 0., dv[i][2]]])
+            space_directions.append([[dv[i][0], 0., 0.], [0., dv[i][1], 0.], [0., 0., dv[i][2]*slice_downfactor]])
             space_origin.append([geometry.iloc[i, 7], geometry.iloc[i, 8], geometry.iloc[i, 9]])
         # then remove geometry.csv from list and sort fnames
         fnames = [i for i in fnames if i.endswith(ext)]
@@ -223,8 +220,7 @@ def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72
         fnames = [i for i in fnames if i.endswith(ext)]
         fnames = sorted(fnames, key=lambda x: x.split(sep)[fnumidx][:4])
         if not max_slice:
-            print('If there is no geometry file, the number of slices in the original volume must be entered to calculate spatial information about the slices.\n\
-                  2d_metadata_setup.py -i <inputDir> -o <outputDir> -s <sliceDownFactor> -r <resolutionDownFactor> -m <maxSlice> -d <dv>')
+            max_slice = int(fnames[-1].split(sep)[fnumidx][:4])
         dx, dy, dz = dv
         center = (max_slice - 1) / 2
 
@@ -242,12 +238,9 @@ def generate_sidecars(subject_dir, ext, max_slice=None, dtype='uint8', dv=[14.72
                     print('file type not recognized')
             x_origin = -(img_shape[1] - 1) / 2 * dx
             y_origin = -(img_shape[0] - 1) / 2 * dy
-            space_origin.append([x_origin, y_origin, dz * (slice_num-1 - center)])
+            space_origin.append([x_origin, y_origin, dz / slice_downfactor * (slice_num-1 - center)])
             sizes.append([img_shape[2], img_shape[1], img_shape[0], 1])
-            if slice_downfactor:
-                space_directions.append([[dx, 0., 0.], [0., dy, 0.], [0., 0., dz*slice_downfactor]])
-            else:
-                space_directions.append([[dx, 0., 0.], [0., dy, 0.], [0., 0., dz]])
+            space_directions.append([[dx, 0., 0.], [0., dy, 0.], [0., 0., dz]])
 
     sample_ids = [os.path.splitext(x)[0] for x in fnames]
     for i in range(len(fnames)):
@@ -274,8 +267,8 @@ def main():
     subject_dir = '.'
     output_dir = '.'
     ext = ''
-    slice_down = None
-    res_down = None
+    slice_down = 1
+    res_down = 1
     max_slice = None
     dv = [14.72, 14.72, 10.]
     try:
@@ -294,7 +287,6 @@ def main():
         elif opt == '-e':
             ext = arg
         elif opt == '-s':
-            print(arg)
             slice_down = int(arg)
         elif opt == '-r':
             res_down = int(arg)
@@ -302,19 +294,21 @@ def main():
             max_slice = int(arg)
         elif opt == '-d':
             dv = list(map(float, arg[1:-1].split(',')))
-    if res_down:
-        dv = [dv[0]*res_down, dv[1]*res_down, dv[2]]
+
+    dv = [dv[0]*res_down, dv[1]*res_down, dv[2]*slice_down]
 
     print('subject directory: ', subject_dir, '\n',
           'output directory: ', output_dir, '\n',
           'slice downsample factor: ', slice_down, '\n',
           'resolution downsample factor: ', res_down, '\n',
-          'maximum slice index: ', max_slice, '\n',
+          'maximum slice number: ', max_slice, '\n',
           'dv: ', dv)
 
     downsample_slices(subject_dir, output_dir, ext, slice_downfactor=slice_down, image_downfactor=res_down)
-    make_samples_tsv(output_dir, ext, max_slice)
-    generate_sidecars(output_dir, ext, max_slice, dv=dv, slice_downfactor=slice_down)
+    if res_down > 1:
+        ext = 'png'
+    make_samples_tsv(output_dir, ext, slice_downfactor=slice_down, max_slice=max_slice)
+    generate_sidecars(output_dir, ext, max_slice=max_slice, dv=dv, slice_downfactor=slice_down)
 
 
 if __name__ == '__main__':

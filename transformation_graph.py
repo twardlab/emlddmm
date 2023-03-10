@@ -301,8 +301,8 @@ def reg(dest, source, registration, config, out, labels=None):
     J = J.astype(float)
     # normalize
     J /= np.mean(np.abs(J))
-    normJ = np.quantile(J, 0.99)
-    J /= normJ
+    # normJ = np.quantile(J, 0.99)
+    # J /= normJ
 
     # initial downsampling so there isn't so much on the gpu
     mindownJ = np.min(np.array(downJs),0)
