@@ -231,7 +231,7 @@ class Graph:
         -------
         image : array
             transformed image data
-            
+
         Note
         -----
         The xy_shift optional argument is necessary when reconstructing in registered space or when the origins of the source and target space
@@ -240,13 +240,6 @@ class Graph:
         '''
         # if the last transforms are 2d series affine, then we will first apply them to the target space and resample the target image in registered space.
         # then apply the other transforms to the source space and resample the registered target image.
-        # A2d = []
-        # # append any 2D affines from the end of the transforms sequence to A2d
-        # for t in transforms[::-1]:
-        #     if t.data.ndim == 3:
-        #         A2d.insert(0,t)
-        #     else:
-        #         break
         ids = []
         A2d = []
         for i in reversed(range(len(transforms))):
@@ -448,9 +441,6 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         A2ds = transforms[-idx:]
         mean_translation = torch.mean(A2ds[0].data[:,:2,-1], dim=0)
         RiI = graph.map_image(I.space, I.data, I.space, A2ds, xy_shift=mean_translation)
-        # XI = torch.stack(torch.meshgrid(I.x, indexing='ij'))
-        # RXI = emlddmm.compose_sequence(transforms, XI)
-        # RiI = emlddmm.interp(I.x, I.data, RXI)
 
         Ii_to_Ir_out = os.path.join(out, f'{I.space}_registered/{I.space}_input_to_{I.space}_registered/images/')
         if not os.path.exists(Ii_to_Ir_out):
@@ -738,6 +728,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
