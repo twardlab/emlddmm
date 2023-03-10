@@ -10,6 +10,7 @@ from os.path import split,join,splitext
 import numpy as np
 import matplotlib.pyplot as plt
 from glob import glob
+import tifffile
 
 if __name__ == '__main__':
     print('hello world')
@@ -28,6 +29,12 @@ if __name__ == '__main__':
         default=None,
         help='Defaults to input name with a suffix "_curves.npy"',
     )
+    parser.add_argument('-D','--pixel_size',
+                        default=None,
+                        type=float,
+                        help='If loading a raw image, use pixel size')
+    # todo add origin, add independent x and y
+
 
     args = parser.parse_args()
     print(args)
@@ -40,30 +47,57 @@ if __name__ == '__main__':
         files.sort()
         args.filename = files[ind]
         print(f'special case, using index {ind} to select file {args.filename}')
+
+
+    # get input extension
+    ext = splitext(args.filename)[-1]
+    
+    # load the data from a numpy file
+    if ext == '.npz':
+        try:
+            data = np.load(args.filename)
+        except:
+            raise Exception(f'Could not load input image {args.filename}')
+        print(f'image contains ')
+        print([k for k in data])
+        # let's draw the image
+        x = data['x']
+        y = data['y']
+        I = data['I'][0] # 0 for grayscale
         
-    try:
-        data = np.load(args.filename)
-    except:
-        raise Exception(f'Could not load input image {args.filename}')
-    print(f'image contains ')
-    print([k for k in data])
+    elif ext == '.tif'  or ext == '.tiff':
+        I = tifffile.imread(args.filename)
+        if I.dtype == np.uint8:
+            I = I / 255.0
+        elif I.dtype == np.uint16:
+            I = I / np.quantile(I,0.99,axis=(0,1))
+        if args.pixel_size is None:
+            raise Exception('When using raw image, pixel size is required')
+        x = np.arange(I.shape[1])*args.pixel_size - (I.shape[1]-1)*args.pixel_size/2.0
+        y = np.arange(I.shape[0])*args.pixel_size - (I.shape[0]-1)*args.pixel_size/2.0
+        
+        
+    else:
+        raise Exception(f'Extension {ext} not understood')
 
     # get the output name
     if args.output is None:
-        output = args.filename.replace('.npz','_curves.npy')
+        output = args.filename.replace(ext,'_curves.npy')
     print(f'output name {output}')
 
-    # let's draw the image
-    x = data['x']
-    y = data['y']
-    I = data['I'][0]
 
     dx = x[1] - x[0]
     dy = y[1] - y[0]
     
     fig,ax = plt.subplots()
+    # we need to add some zoom functionality
+    def zoom(event):
+        print(event)
+        pass
+    fig.canvas.mpl_connect('scroll_event',zoom)
     ax.imshow(I,extent=(x[0]-dx/2.0,x[-1]+dx/2,y[-1]+dy/2,y[0]-dy/2))
-    plt.show(block=False)
+    #plt.show(block=False)
+
 
     data = {}
     try:

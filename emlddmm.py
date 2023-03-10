@@ -1740,6 +1740,11 @@ def read_vtk_data(fname,endian='b'):
     -----
     If data not written in big endian
         Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian="l" if you want little
+        
+    TODO
+    ----
+    Torch does not support negative strides.  This has lead to an error where x has a negative stride.
+    I should flip instead of negative stride, or copy afterward.
     '''
     # TODO support skipping blank lines
     big = not (endian=='l')
@@ -1860,6 +1865,7 @@ def read_vtk_data(fname,endian='b'):
             images.append(data)
             count += 1
         images = np.stack(images) # stack on axis 0
+    
     return x,images,title,names
     
     
@@ -1996,13 +2002,17 @@ def read_data(fname,**kwargs):
         
         
     else:
-        print('Opening with nibabel, note only 3D images supported')
+        print('Opening with nibabel, note only 3D images supported, sform or quaternion matrix is ignored')
         vol = nibabel.load(fname,**kwargs)
         print(vol.header)
         images = np.array(vol.get_fdata())
         if images.ndim == 3:
             images = images[None]
+        '''
         A = vol.header.get_base_affine()
+        # NOTE: february 28, 2023.  the flipping below is causing some trouble
+        # I would like to not use the A matrix at all
+        
         if not np.allclose(np.diag(np.diag(A[:3,:3])),A[:3,:3]):
             raise Exception('Only support diagonal affine matrix with nibabel')
         x = [ A[i,-1] + np.arange(images.shape[i+1])*A[i,i] for i in range(3)]
@@ -2010,7 +2020,10 @@ def read_data(fname,**kwargs):
             if A[i,i] < 0:
                 x[i] = x[i][::-1]
                 images = np.array(np.flip(images,axis=i+1))
-            
+        '''    
+        # instead we do this, whic his simpler
+        d = np.array(vol.header['pixdim'][1:4],dtype=float)
+        x = [np.arange(n)*d - (n-1)*d/2 for n,d in zip(images.shape[1:],d)]
         title = ''
         names = ['']
         
@@ -3013,6 +3026,7 @@ def write_outputs_for_pair(output_dir,outputs,
         # TODO qc   
         
     else: # if slice matching
+        # NOTE: in registered space we may need to sample in a different spot if origin is not in the middle
         # to atlas space from registered target space
         from_space_name = 'registered_' + target_space_name
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
@@ -3044,12 +3058,20 @@ def write_outputs_for_pair(output_dir,outputs,
         images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir, exist_ok=exist_ok)
         # to get these images I first need to map them to registered
-        XJ = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xJ], indexing='ij'))
+        XJ = torch.stack(torch.meshgrid([torch.tensor(x,device=phi.device,dtype=phi.dtype) for x in xJ], indexing='ij'))        
         R = outputs['A2d']
-        RXJ = ((R[:,None,None,:2,:2]@(XJ[1:].permute(1,2,3,0)[...,None]))[...,0] + R[:,None,None,:2,-1]).permute(-1,0,1,2)
+        # TODO: implement a mean shift
+        meanshift = torch.mean(R[:,:2,-1],dim=0)
+        
+        XJshift = XJ.clone()
+        XJshift[1:] -= meanshift[...,None,None,None]
+        
+        xJshift = [xJ[0],xJ[1]-meanshift[0],xJ[2]-meanshift[1]]
+        # add mean shift below ( I added but didn't change names)
+        RXJ = ((R[:,None,None,:2,:2]@(XJshift[1:].permute(1,2,3,0)[...,None]))[...,0] + R[:,None,None,:2,-1]).permute(-1,0,1,2)
         RXJ = torch.cat((XJ[0][None],RXJ))
         RiJ = interp([torch.tensor(x,device=RXJ.device,dtype=RXJ.dtype) for x in xJ],torch.tensor(J,device=RXJ.device,dtype=RXJ.dtype),RXJ,padding_mode='zeros')
-        phiiAiRiJ = interp([torch.tensor(x,device=RXJ.device,dtype=RXJ.dtype) for x in xJ],RiJ,AphiXI,padding_mode='zeros')
+        phiiAiRiJ = interp([torch.tensor(x,device=RXJ.device,dtype=RXJ.dtype) for x in xJshift],RiJ,AphiXI,padding_mode='zeros')
         write_data(join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
                    xI,phiiAiRiJ.to(torch.float32),f'{from_space_name}_{target_image_name}_to_{to_space_name}')
         
@@ -3059,12 +3081,18 @@ def write_outputs_for_pair(output_dir,outputs,
         fig,ax = draw(phiiAiRiJ,xI)
         fig.suptitle('phiiAiRiJ')
         fig.savefig(join(qc_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
+        fig.canvas.draw()
         fig,ax = draw(I,xI)
         fig.suptitle('I')
         fig.savefig(join(qc_dir,f'{to_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
-        
+        fig.canvas.draw()
     
         # now we do to registered space
+        # TODO: implement proper registered space sample points
+        # note that I'm applying transformations to XJ, but I should apply them to XJ with the mean shift
+        # 
+        
+        
         to_space_name = 'registered_' + target_space_name
         to_space_dir = join(output_dir,to_space_name)
         os.makedirs(to_space_dir,exist_ok=exist_ok)
@@ -3083,12 +3111,12 @@ def write_outputs_for_pair(output_dir,outputs,
         #    # write out
         #    with open(os.path.join(from_space_dir)):
         write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
-                  xJ,(RXJ-XJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
+                  xJshift,(RXJ-XJshift)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
         # images
         images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir,exist_ok=exist_ok)
         write_data(join(images_dir,f'{from_space_name}_{target_image_name}_to_{to_space_name}.vtk'),
-                  xJ,(RiJ).to(torch.float32), f'{from_space_name}_{target_image_name}_to_{to_space_name}')
+                  xJshift,(RiJ).to(torch.float32), f'{from_space_name}_{target_image_name}_to_{to_space_name}')
         # from atlas
         from_space_name = atlas_space_name
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
@@ -3096,31 +3124,32 @@ def write_outputs_for_pair(output_dir,outputs,
         # transforms, registered to atlas
         phii = v_to_phii(outputs['xv'],outputs['v'])
         Ai = torch.linalg.inv(outputs['A'])
-        AiXJ = ((Ai[:3,:3]@XJ.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1]).permute(-1,0,1,2)
-        phiiAiXJ = interp(outputs['xv'],phii-XV,AiXJ) + AiXJ                
+        AiXJ = ((Ai[:3,:3]@XJshift.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1]).permute(-1,0,1,2)
+        phiiAiXJ = interp(outputs['xv'],phii-XV,AiXJ) + AiXJ
         transforms_dir = join(from_space_dir,TRANSFORMS)
         os.makedirs(transforms_dir,exist_ok=exist_ok)
         write_data(join(transforms_dir,f'{to_space_name}_to_{from_space_name}_displacement.vtk'),
-                  xJ,(phiiAiXJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
+                  xJshift,(phiiAiXJ)[None].to(torch.float32), f'{to_space_name}_to_{from_space_name}')
         # images
         AphiI = interp(xI,torch.tensor(I,device=phiiAiXJ.device,dtype=phiiAiXJ.dtype),phiiAiXJ,padding_mode='zeros')
         images_dir = join(from_space_dir,IMAGES)
         os.makedirs(images_dir,exist_ok=exist_ok)
         write_data(join(images_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.vtk'),
-                  xJ,(AphiI).to(torch.float32), f'{from_space_name}_{atlas_image_name}_to_{to_space_name}')
+                  xJshift,(AphiI).to(torch.float32), f'{from_space_name}_{atlas_image_name}_to_{to_space_name}')
         
         # a qc directory
         qc_dir = join(to_space_dir,'qc')
         os.makedirs(qc_dir,exist_ok=exist_ok)
-        fig,ax = draw(RiJ,xJ)
+        fig,ax = draw(RiJ,xJshift)
         fig.suptitle('RiJ')
         fig.savefig(join(qc_dir,
                                  f'input_{target_space_name}_{target_image_name}_to_registered_{target_space_name}.jpg'))
-        fig,ax = draw(AphiI,xJ)
+        fig.canvas.draw()
+        fig,ax = draw(AphiI,xJshift)
         fig.suptitle('AphiI')
         fig.savefig(join(qc_dir,
                                  f'input_{atlas_space_name}_{atlas_image_name}_to_registered_{target_space_name}.jpg'))
-        
+        fig.canvas.draw()
         
         # to input space
         to_space_name = 'input_' + target_space_name
@@ -3169,11 +3198,12 @@ def write_outputs_for_pair(output_dir,outputs,
         fig,ax = draw(J,xJ)
         fig.suptitle('J')
         fig.savefig(join(qc_dir,f'{to_space_name}_{target_image_name}_to_{to_space_name}.jpg'))
+        fig.canvas.draw()
         
         fig,ax = draw(RAphiI,xJ)
         fig.suptitle('RAphiI')
         fig.savefig(join(qc_dir,f'{from_space_name}_{atlas_image_name}_to_{to_space_name}.jpg'))
-
+        fig.canvas.draw()
         # TODO: double check this is done
         
 def pad(xI,I,n,**kwargs):
@@ -3181,8 +3211,21 @@ def pad(xI,I,n,**kwargs):
     Pad an image and its domain.    
     
     Perhaps include here
+    
+    Parameters
+    ----------
+    xI : list of arrays
+        Location of pixels in I
+    I : array
+        Image
+    n : list of ints or list of pairs of ints
+        Pad on front and back
+        
     '''
     raise Exception('Not Implemented')
+    if isinstance(I,torch.Tensor):
+        raise Exception('only implemented for numpy')
+    
     pass
     
 def map_image(emlddmm_path, root_dir, from_space_name, to_space_name,
