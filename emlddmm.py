@@ -18,8 +18,38 @@ from warnings import warn
 # from scipy.spatial.distance import directed_hausdorff, dice
 # from medpy.metric import binary
 import tifffile as tf # for 16 bit tiff
+from scipy.stats import mode
 
 # display
+def extent_from_x(xJ):
+    ''' Given a set of pixel locations, returns an extent 4-tuple for use with np.imshow.
+    
+    Note inputs are locations of pixels along each axis, i.e. row column not xy.
+    
+    Parameters
+    ----------
+    xJ : list of torch tensors
+        Location of pixels along each axis
+    
+    Returns
+    -------
+    extent : tuple
+        (xmin, xmax, ymin, ymax) tuple
+    
+    Examples
+    --------
+    
+    >>> extent_from_x(xJ)
+    >>> fig,ax = plt.subplots()
+    >>> ax.imshow(J,extent=extentJ)
+    
+    '''
+    dJ = [x[1]-x[0] for x in xJ]
+    extentJ = ( (xJ[1][0] - dJ[1]/2.0).item(),
+               (xJ[1][-1] + dJ[1]/2.0).item(),
+               (xJ[0][-1] + dJ[0]/2.0).item(),
+               (xJ[0][0] - dJ[0]/2.0).item())
+    return extentJ
 def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,**kwargs):    
     """ Draw 3D imaging data.
     
@@ -523,6 +553,43 @@ def downsample_image_domain(xI,I,down,W=None):
         return xId,Id
     else:
         return xId,Id,Wd
+    
+    
+def downmode(xI,S_,down):
+    '''
+    xI is coordinate locations of voxels in S_
+    I is a 3d image.
+    down is a list of 3 ints to downsample along each axis
+    2D images can be hanled by adding a singleton dimension
+    no leading batch dimensions
+    
+    returns downsampled image and x
+    
+    '''
+    
+    # crop it off the right side so its size is a multiple of down
+    nS = np.array(S_.shape)
+    nSd = nS//down
+    nSu = nSd*down
+    S_ = np.copy(S_)[:nSu[0],:nSu[1],:nSu[2]]
+    # now reshape
+    S_ = np.reshape(S_,(nSd[0],down[0],nSd[1],down[1],nSd[2],down[2]))
+    S_ = S_.transpose(1,3,5,0,2,4)
+    S_ = S_.reshape(down[0]*down[1]*down[2],nSd[0],nSd[1],nSd[2])
+
+    S_ = mode(S_,axis=0)[0][0]
+    # now same for xR
+    xI_ = [np.copy(x) for x in xI]
+    xI_[0] = xI_[0][:nSu[0]]
+    xI_[0] = np.mean(xI_[0].reshape(nSd[0],down[0]),1)
+
+    xI_[1] = xI_[1][:nSu[1]]
+    xI_[1] = np.mean(xI_[1].reshape(nSd[1],down[1]),1)
+
+    xI_[2] = xI_[2][:nSu[2]]
+    xI_[2] = np.mean(xI_[2].reshape(nSd[2],down[2]),1)
+    
+    return xI_,S_
 
 # build an interp function from grid sample
 def interp(x,I,phii,**kwargs):
