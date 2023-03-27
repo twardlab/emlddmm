@@ -167,13 +167,13 @@ Registrations are computed between pairs of spaces.  Each space should be given 
 Each space may have more than one imaging dataset sampled in it (for example multiple MRI scans with different contrasts).  Each image within a space should be given a unique name.  (e.g. "exvivoMRI -> T1", "exvivoMRI -> T2", "invivoMRI -> T1", "Histology")
 
 ### Filenames
-Each image should a filename (for 3D data), or a directory (for 2D data) associated to it.
+Each image should have a filename (for 3D data), or a directory (for 2D data) associated to it.
 
 ### Registration tuples
-To register a complex multimodal datasets, we specify a list of (space/image to map from, space/image to map to ) tuples. These correspond to edges in a graph and should span the set of spaces.  This set of transformations will be computed using our optimization procedure.
+To register a complex multimodal dataset, we specify a list of (space/image to map from, space/image to map to ) tuples. These correspond to edges in a graph and should span the set of spaces.  This set of transformations will be computed using our optimization procedure.
 
 ### Reconstruction tuples
-After transforamtions are computed, we can reconstruct data from one space in any other space. Tuples of the form (space/image to map from, space to map to) are specified. Given the registration tuples, a path of transformations will be computed, which may involve the composition of more than one calculated transform.
+After transformations are computed, we can reconstruct data from one space in any other space. Tuples of the form (space/image to map from, space to map to) are specified. Given the registration tuples, a path of transformations will be computed, which may involve the composition of more than one calculated transform. We can also choose to reconstruct each image in every other space instead of specifying each mapping with a tuple.
 
 ### Example
 For example we can run registration and reconstruction with the command
@@ -199,7 +199,7 @@ Where the input json file contains
     "output": "/home/brysongray/emlddmm/transformation_graph_outputs",
     "transforms": [[["HIST", "nissl"], ["CCF", "average_template_50"]],
                    [["MRI", "masked"], ["CT", "masked"]]],
-    "transform_all": "True"
+    "transform_all": "False"
 }
 ```
 
