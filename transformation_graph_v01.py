@@ -317,6 +317,13 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         name of the space to which image I will be transformed.
     target_fnames : list
         list of file names; only necessary if target is a series of 2d slices.
+        
+    TODO
+    ----
+    Check why the registered space histology is not working. (march 27, 2023)
+    I think the issue is that there is actually no time to do it.
+    If I say to reconstruct one space to itself, then it says not connected and gives an error.  
+    There needs to be another way.
 
     '''
     jacobian = lambda X,dv : np.stack(np.gradient(X, dv[0],dv[1],dv[2], axis=(1,2,3))).transpose(2,3,4,0,1)
@@ -472,7 +479,7 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         detjac = np.linalg.det(jac)[None]
         title = f'{I.space}_{I.name}_registered_to_{target_space}_detjac'
         emlddmm.write_vtk_data(os.path.join(I_to_J_transforms, title + '.vtk'), xJ, detjac, title)
-    else:
+    else: # this is the volume to volume case
         print(f'reconstructing {I.space} {I.name} in {target_space} space')
         # volume to volume
         # I to J
@@ -690,14 +697,23 @@ def main():
             graph  = graph.merge(tmp_graph)
         with open(os.path.join(output, 'graph.p'), 'wb') as f:
             pickle.dump(graph, f)
+    elif "graph" in input_dict: # if we do not specify registrations, but we do specify a graph
+        with open(input_dict["graph"], 'rb') as f:
+            graph = pickle.load(f)
+            print(graph.adj,graph.spaces)
+
 
     if "transform_all" in input_dict and input_dict["transform_all"] == True:
         for src_space in sip:
+            print(f'starting to transform from source {src_space}')
             for src_image in sip[src_space]:
+                print(f'starting to transform from source {src_space} image {src_image}')
                 src_path = sip[src_space][src_image]
                 I = emlddmm.Image(src_space, src_image, src_path, x=graph.spaces[src_space][1])
                 # reconstruct in every other space
                 for target_space in [n for n in sip if n != src_space]:
+                    print(f'starting to transform from source {src_space} image {src_image} to target space {target_space}')
+
                     target_image = list(sip[target_space].keys())[0] # get the first image. This is just to get file names if it is a series.
                     target_path = sip[target_space][target_image]
                     if os.path.splitext(target_path)[-1] == '':
@@ -715,6 +731,8 @@ def main():
         assert "graph" in locals(), "\"graph\" argument is required when only applying new transforms."
         for t in transforms:
             I = emlddmm.Image(t[0][0], t[0][1], sip[t[0][0]][t[0][1]], x=graph.spaces[t[0][0]][1])
+            # note on march 27, 2023.
+            # when I load image, there is no extra normalization or data type conversion other that what is done in emlddmm.read_data
             target_space = t[1][0]
             target_image = t[1][1]
             target_path = sip[target_space][target_image]

@@ -97,6 +97,10 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,
     Here is an example::
 
        >>> example test
+   
+    TODO
+    ----
+    Put interpolation='none' in keywords
 
 
     """
@@ -228,7 +232,7 @@ def load_slices(target_name, xJ=None):
         If the first image is not present in the image series.
 
     """
-    print('loading target images')
+    #print('loading target images')
     fig,ax = plt.subplots()
     ax = [ax]
     # current limitation
@@ -259,6 +263,7 @@ def load_slices(target_name, xJ=None):
             except:
                 data_[i,j] = ''
     data = data_
+    #print(f'dataset with shape {data.shape}')
     
     # now we will loop through the files and get the sizes 
     nJ_ = np.zeros((data.shape[0],3),dtype=int)
@@ -266,7 +271,7 @@ def load_slices(target_name, xJ=None):
     slice_status = data[:,3]
     J_ = []
     for i in range(data.shape[0]):
-        if not slice_status[i] == 'present':
+        if not slice_status[i] == 'present':            
             # if i == 0:
             #     raise Exception('First image is not present')
             # J_.append(np.array([[[0.0,0.0,0.0]]]))
@@ -305,6 +310,7 @@ def load_slices(target_name, xJ=None):
         nJ_[i] = np.array(J__.shape)
 
         J_.append(J__)
+               
 
 
         # the domain
@@ -315,6 +321,7 @@ def load_slices(target_name, xJ=None):
         origin[i] = np.array(jsondata['SpaceOrigin'])
         x0 = origin[:,2] # z coordinates of slices
     if xJ == None:
+        #print('building grid')
         # build 3D coordinate grid
         nJ0 = np.array(int((np.max(x0) - np.min(x0))//dJ[0]) + 1) # length of z axis on the grid (there may be missing slices)
         nJm = np.max(nJ_,0)
@@ -324,6 +331,7 @@ def load_slices(target_name, xJ=None):
         xJmin = [-(n-1)*d/2.0 for n,d in zip(nJ[1:],dJ[1:])]
         xJmin.insert(0,np.min(x0))
         xJ = [(np.arange(n)*d + o) for n,d,o in zip(nJ,dJ,xJmin)]
+        #print(xJ)
     XJ = np.stack(np.meshgrid(*xJ, indexing='ij'))
 
     # get the presence of a slice at z axis grid points. This is used for loading into a 3D volume. 
@@ -342,7 +350,7 @@ def load_slices(target_name, xJ=None):
     #         j += 1
     #     slice_status.append(status)
 
-    # resample slices on 3D grid
+    # resample slices on 3D grid    
     J = np.zeros(XJ.shape[1:] + tuple([3]))
     W0 = np.zeros(XJ.shape[1:])
     i = 0
@@ -358,6 +366,7 @@ def load_slices(target_name, xJ=None):
         i += 1
     J = np.transpose(J,(3,0,1,2))
 
+    #print(f'J shape {J.shape}')
     return xJ,J,W0
     
 
@@ -1662,6 +1671,8 @@ def emlddmm_multiscale(**kwargs):
             params['sigmaB'] = np.ones(kwargs['J'].shape[0])*2.0
         if 'sigmaA' not in params:
             params['sigmaA'] = np.ones(kwargs['J'].shape[0])*5.0
+        #print(f'starting emlddmm with params')
+        #print(params)
         output = emlddmm(**params)
         # I should save an output at each iteration
         outputs.append(output)
@@ -1964,7 +1975,7 @@ def read_vtk_data(fname,normalize=True,endian='b'):
             count += 1
         images = np.stack(images) # stack on axis 0
         if normalize:
-          images = images / np.mean(np.abs(images)) # normalize
+            images = images / np.mean(np.abs(images)) # normalize
 
     return x,images,title,names
     
