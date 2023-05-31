@@ -1,4 +1,4 @@
-#from turtle import forward
+
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -879,6 +879,7 @@ def emlddmm(**kwargs):
                 'slice_matching_isotropic':False, # if true 3D affine is isotropic scale
                 'local_contrast':None, # simple local contrast estimation mode, should be a list of ints
                 'reduce_factor':0.9,
+                'auto_stepsize_v':0, # 0 for no auto stepsize, or a number n for updating every n iterations
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -905,6 +906,9 @@ def emlddmm(**kwargs):
     ev = kwargs['ev']
     eA2d = kwargs['eA2d']
     reduce_factor = kwargs['reduce_factor']
+    auto_stepsize_v = kwargs['auto_stepsize_v']
+    if auto_stepsize_v is None:
+        auto_stepsize_v = 0
     
     order = kwargs['order'] 
     
@@ -1215,7 +1219,7 @@ def emlddmm(**kwargs):
         phiiAi = interp(xv,phii-XV,Xs) + Xs
         
         # transform image
-        AphiI = interp(xI,I,phiiAi)        
+        AphiI = interp(xI,I,phiiAi)
 
         # transform contrast
         # I'd like to support two cases, order 1 and arbitrary dim
@@ -1513,7 +1517,26 @@ def emlddmm(**kwargs):
 
 
         # update
+        
         with torch.no_grad():
+            # here we'll do an automatic step size estimation for e based on a quadratic/Gauss-newton approximation
+            # e1 = -int  err*DI*grad  dx/sigmaM**2  + int (Lv)*(Lgrad)dx/sigmaR**2
+            # e2 = int  |DI*grad|^2  dx/sigmaM**2  + int (Lgrad)*(Lgrad)dx/sigmaR**2
+            # e = e1/e2
+            # what do I need to do to implement this?
+            # the only tricky thing is to resample grad onto the same grid as J            
+            if auto_stepsize_v and not it%auto_stepsize_v:
+                # first we need to deal with the affine
+                # we will transform J and fAphiI and W back to the space of I
+                Xs = (A[:3,:3]@XI[...,None])[...,0] + A[:3,-1]
+                AiJ = interp(xJ,J,Xs)
+                fphiI = interp(xJ,fAphiI,Xs)
+                AiW = interp(xJ,WM*W0,Xs)
+                # now we need DI
+                DfphiI = torch.stack(torch.gradient(fphiI,dxI),-1)
+                
+            
+            
             if it >= v_start:
                 v -= vgrad*ev
             v.grad.zero_()
@@ -1805,7 +1828,7 @@ dtypes_reverse = {
     'int':np.dtype('int32'),
     'long':np.dtype('int64'),
 }    
-def read_vtk_data(fname,normalize=True,endian='b'):
+def read_vtk_data(fname,normalize=False,endian='b'):
     '''
     Read vtk structured points legacy format data.
     
@@ -2448,8 +2471,20 @@ class Image:
         '''
         self.space = space
         self.name = name
-        self.x, self.data, self.title, self.names = read_data(fpath, x=x)
-        self.data = self.data.astype(float)
+        
+        self.x, self.data, self.title, self.names = read_data(fpath, x=x, normalize=True)
+                
+        # I think we should check the title to see if we need to normalize
+        if 'label' in self.title.lower() or 'annotation' in self.title.lower() or 'segmentation' in self.title.lower():
+            print('Found an annotation image, not converting to float, and reloading with normalize false')
+            self.annotation = True
+            # read it again with no normalization
+            self.x, self.data, self.title, self.names = read_data(fpath, x=x, normalize=False)  
+        else:
+            self.data = self.data.astype(float) 
+            self.annotation = False
+                
+
         self.mask = mask
         self.path = fpath
         if 'mask' in self.names:
@@ -2554,8 +2589,9 @@ def fnames(path):
     return fnames
 
 
-def write_transform_outputs(output_dir, output, I, J):
+def write_transform_outputs_(output_dir, output, I, J):
     '''
+    Note this version (whose function name ends in "_" ) is obsolete.
     Write transforms output from emlddmm.  Velocity field, 3D affine transform,
     and 2D affine transforms for each slice if applicable.
     
@@ -2571,6 +2607,10 @@ def write_transform_outputs(output_dir, output, I, J):
     Returns
     -------
     None
+
+    TODO
+    ----
+    Update parameter list.
     
     '''
     xv = output['xv']
@@ -2622,6 +2662,92 @@ def write_transform_outputs(output_dir, output, I, J):
             write_matrix_data(output_name, A2d[i])
 
     return
+
+def write_transform_outputs(output_dir, output, I, J):
+    '''
+    Note, daniel is redoing the above slightly. on March 2023
+
+    Write transforms output from emlddmm.  Velocity field, 3D affine transform,
+    and 2D affine transforms for each slice if applicable.
+    
+    Parameters
+    ----------
+    output_dir : str
+        Directory to place output data (will be created of it does not exist)
+    output : dict
+        Output dictionary from emlddmm algorithm
+    A2d_names : list 
+        List of file names for A2d transforms
+    
+    Returns
+    -------
+    None
+
+    TODO
+    ----
+    Update parameter list.
+    
+    '''
+    xv = output['xv']
+    v = output['v']
+    A = output['A']
+    slice_outputs = 'A2d' in output
+    if slice_outputs:
+        A2d = output['A2d']
+    
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+
+    series_to_series = I.title == 'slice_dataset' and J.title == 'slice_dataset'
+    if series_to_series:
+        #out = os.path.join(output_dir, f'{I.space}_input/{J.space}_{J.name}_input_to_{I.space}_input/transforms/')
+        # danel thinks the name shouldn't go here
+        # it should be clear from the filenames
+        #out = os.path.join(output_dir, f'{I.space}_input/{J.space}_input_to_{I.space}_input/transforms/')
+        out = os.path.join(output_dir, f'{I.space}/{J.space}_to_{I.space}/transforms/')
+        if not os.path.isdir(out):
+            os.makedirs(out)
+        A2d_names = []
+        for i in range(A2d.shape[0]):
+            #A2d_names.append(f'{I.space}_input_{I.fnames()[i]}_to_{J.space}_input_{J.fnames()[i]}_matrix.txt')
+            A2d_names.append(f'{I.space}_{I.fnames()[i]}_to_{J.space}_{J.fnames()[i]}_matrix.txt')
+        for i in range(A2d.shape[0]):
+            output_name = os.path.join(out, A2d_names[i])
+            write_matrix_data(output_name, A2d[i])
+
+        return
+    
+    if slice_outputs:        
+        #out3d = os.path.join(output_dir, f'{I.space}/{J.space}_{J.name}_registered_to_{I.space}/transforms/')
+        # again daniel says no name here
+        out3d = os.path.join(output_dir, f'{I.space}/{J.space}_registered_to_{I.space}/transforms/')        
+        #out2d = os.path.join(output_dir, f'{J.space}_registered/{J.space}_input_to_{J.space}_registered/transforms')
+        out2d = os.path.join(output_dir, f'{J.space}_registered/{J.space}_to_{J.space}_registered/transforms')
+        if not os.path.isdir(out2d):
+            os.makedirs(out2d)
+    else:        
+        #out3d = os.path.join(output_dir, f'{I.space}/{J.space}_{J.name}_to_{I.space}/transforms/')
+        # again daniel says no name here
+        out3d = os.path.join(output_dir, f'{I.space}/{J.space}_to_{I.space}/transforms/')
+
+    if not os.path.isdir(out3d):
+        os.makedirs(out3d)
+        
+    output_name = os.path.join(out3d, 'velocity.vtk')
+    title = 'velocity_field'
+    write_vtk_data(output_name,xv,v.cpu().numpy(),title)  
+    output_name = os.path.join(out3d, 'A.txt')
+    write_matrix_data(output_name,A)
+    if slice_outputs:
+        A2d_names = []
+        for i in range(A2d.shape[0]):
+            #A2d_names.append(f'{J.space}_registered_{J.fnames()[i]}_to_{J.space}_input_{J.fnames()[i]}_matrix.txt')
+            A2d_names.append(f'{J.space}_registered_{J.fnames()[i]}_to_{J.space}_{J.fnames()[i]}_matrix.txt')
+        for i in range(A2d.shape[0]):
+            output_name = os.path.join(out2d, A2d_names[i])
+            write_matrix_data(output_name, A2d[i])
+
+    return    
 
 
 def registered_domain(x,A2d):
@@ -2684,13 +2810,13 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
 
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
-    print(f'output dir is {output_dir}')
+    #print(f'output dir is {output_dir}')
     
     xv = [x.to('cpu') for x in output['xv']]
     v = output['v'].detach().to('cpu')
     A = output['A'].detach().to('cpu')
     Ai = torch.inverse(A)
-    print(A.device)
+    #print(A.device)
     device = A.device
     dtype = A.dtype
     
@@ -2720,27 +2846,29 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
             AI = interp(xI, Idata, XJ_)
             fig = draw(AI,xJ)
             fig[0].suptitle(f'{I.space}_{I.name}_input_to_{J.space}_input')
-            out = os.path.join(output_dir,f'{J.space}_input/{I.space}_{I.name}_input_to_{J.space}_input/qc/')
+            #out = os.path.join(output_dir,f'{J.space}_input/{I.space}_{I.name}_input_to_{J.space}_input/qc/')
+            out = os.path.join(output_dir,f'{J.space}/{I.space}_to_{J.space}/qc/')
             if not os.path.isdir(out):
                 os.makedirs(out)
-            fig[0].savefig(out + f'{I.space}_{I.name}_input_to_{J.space}_input.jpg')
+            fig[0].savefig(out + f'{I.space}_{I.name}_to_{J.space}.jpg')
             fig = draw(Jdata, xJ)
-            fig[0].suptitle(f'{J.space}_{J.name}_input')
-            fig[0].savefig(out + f'{J.space}_{J.name}_input.jpg')
+            fig[0].suptitle(f'{J.space}_{J.name}')
+            fig[0].savefig(out + f'{J.space}_{J.name}.jpg')
             # now J to I
             XI = torch.stack(torch.meshgrid(xI, indexing='ij'))
             XI_ = torch.clone(XI)
             XI_[1:] = ((A2d[:,None,None,:2,:2]@ (XI[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
             AiJ = interp(xJ,Jdata,XI_)
             fig = draw(AiJ,xI)
-            fig[0].suptitle(f'{J.space}_{J.name}_to_{I.space}_input')
-            out = os.path.join(output_dir,f'{I.space}_input/{J.space}_{J.name}_input_to_{I.space}_input/qc/')
+            fig[0].suptitle(f'{J.space}_{J.name}_to_{I.space}')
+            #out = os.path.join(output_dir,f'{I.space}_input/{J.space}_{J.name}_input_to_{I.space}_input/qc/')
+            out = os.path.join(output_dir,f'{I.space}/{J.space}_to_{I.space}/qc/')
             if not os.path.isdir(out):
                 os.makedirs(out)
-            fig[0].savefig(out + f'{J.space}_{J.name}_input_to_{I.space}_input.jpg')
+            fig[0].savefig(out + f'{J.space}_{J.name}_to_{I.space}.jpg')
             fig = draw(Idata,xI)
-            fig[0].suptitle(f'{I.space}_{I.name}_input')
-            fig[0].savefig(out + f'{I.space}_{I.name}_input.jpg')
+            fig[0].suptitle(f'{I.space}_{I.name}')
+            fig[0].savefig(out + f'{I.space}_{I.name}.jpg')
 
             return
             
@@ -2759,14 +2887,15 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     if slice_matching:
         fig = draw(AphiI,xJ)
         fig[0].suptitle(f'{I.space}_{I.name}_to_{J.space}_input')
-        out = os.path.join(output_dir,f'{J.space}_input/{I.space}_{I.name}_to_{J.space}_input/qc/')
+        #out = os.path.join(output_dir,f'{J.space}_input/{I.space}_{I.name}_to_{J.space}_input/qc/')
+        out = os.path.join(output_dir,f'{J.space}/{I.space}_to_{J.space}/qc/')
         if not os.path.isdir(out):
             os.makedirs(out)
-        fig[0].savefig(out + f'{I.space}_{I.name}_to_{J.space}_input.jpg')
+        fig[0].savefig(out + f'{I.space}_{I.name}_to_{J.space}.jpg')
         
         fig = draw(Jdata,xJ)
-        fig[0].suptitle(f'{J.space}_{J.name}_input')
-        fig[0].savefig(out + f'{J.space}_{J.name}_input.jpg')
+        fig[0].suptitle(f'{J.space}_{J.name}')
+        fig[0].savefig(out + f'{J.space}_{J.name}.jpg')
         
         # modify XJ by shifting by mean translation
         mean_translation = torch.mean(A2d[:,:2,-1], dim=0)
@@ -2779,7 +2908,8 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
         Jr = interp(xJ,Jdata,XJr_)
         fig = draw(Jr,xJr)
         fig[0].suptitle(f'{J.space}_{J.name}_registered')
-        out = os.path.join(output_dir,f'{J.space}_registered/{I.space}_{I.name}_to_{J.space}_registered/qc/')
+        #out = os.path.join(output_dir,f'{J.space}_registered/{I.space}_{I.name}_to_{J.space}_registered/qc/')
+        out = os.path.join(output_dir,f'{J.space}_registered/{I.space}_to_{J.space}_registered/qc/')
         if not os.path.isdir(out):
             os.makedirs(out)
         fig[0].savefig(out + f'{J.space}_{J.name}_registered.jpg')
@@ -2800,7 +2930,8 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     else:
         fig = draw(AphiI,xJ)
         fig[0].suptitle(f'{I.space}_{I.name}_to_{J.space}')
-        out = os.path.join(output_dir,f'{J.space}/{I.space}_{I.name}_to_{J.space}/qc/')
+        #out = os.path.join(output_dir,f'{J.space}/{I.space}_{I.name}_to_{J.space}/qc/')
+        out = os.path.join(output_dir,f'{J.space}/{I.space}_to_{J.space}/qc/')
         if not os.path.isdir(out):
             os.makedirs(out)
         fig[0].savefig(out + f'{I.space}_{I.name}_to_{J.space}.jpg')
@@ -2822,11 +2953,13 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
     fig = draw(phiiAiJ,xI)
     fig[0].suptitle(f'{J.space}_{J.name}_to_{I.space}')
     if slice_matching:
-        out = os.path.join(output_dir,f'{I.space}/{J.space}_{J.name}_registered_to_{I.space}/qc/')
+        #out = os.path.join(output_dir,f'{I.space}/{J.space}_{J.name}_registered_to_{I.space}/qc/')
+        out = os.path.join(output_dir,f'{I.space}/{J.space}_registered_to_{I.space}/qc/')
         if not os.path.isdir(out):
             os.makedirs(out)
     else:
-        out = os.path.join(output_dir,f'{I.space}/{J.space}_{J.name}_to_{I.space}/qc/')
+        #out = os.path.join(output_dir,f'{I.space}/{J.space}_{J.name}_to_{I.space}/qc/')
+        out = os.path.join(output_dir,f'{I.space}/{J.space}_to_{I.space}/qc/')
         if not os.path.isdir(out):
             os.makedirs(out)
     fig[0].savefig(out + f'{J.space}_{J.name}_to_{I.space}.jpg' )
@@ -2889,10 +3022,23 @@ class Transform():
     A simple class for storing and applying transforms
     TODO: add another type for series of 2D transforms
 
+    Note that the types of transforms we can support are
+    1) Deformations stored as a displacement field loaded from a vtk file.  
+    These should be a 1x3xrowxcolxslice array.
+    2) Deformations stored as a position field in a python variable.  
+    These are a 3xrowxcolxslice array.
+    3) Velocity fields stored as a python variable.
+    These are ntx3xrowxcolxslice arrays.
+    4) a 4x4 affine transform loaded from a text file
+    5) a 4x4 affine transform stored in a python variable
+    6) a nslices x 3 x 3 sequence of affine transforms stored in an array. *** new and special case ***
+
+    Note the data stores position fields or matrices.  If it is a vtk file it will store a position field.
+
     Raise
     -----
     Exception
-        If transform is not a txt or vtk file.
+        If transform is not a txt or vtk file or valid python variable.
     Exception
         if direction is not 'f' or 'b'.
     Exception
@@ -2903,9 +3049,10 @@ class Transform():
         When specifying a mapping, if the direction is 'b' (backward).
 
     '''
-    def __init__(self,data,direction='f',domain=None,dtype=torch.float,device='cpu'):
-        if type(data) == str:
-            # instead we load it
+    def __init__(self, data, direction='f', domain=None, dtype=torch.float, device='cpu', verbose=False):
+        if isinstance(data,str):
+            if verbose: print(f'Your data is a string, attempting to load files')
+            # If the data is a string, we assume it is a filename and load it
             prefix,extension = os.path.splitext(data)
             if extension == '.txt':
                 '''
@@ -2916,20 +3063,32 @@ class Transform():
                     #print(data)
                 '''
                 # note on March 29, daniel adds the following and commented out the above
+                # Here we load a matrix from a text file.  We will expect this to be a 4x4 matrix.
                 data = read_matrix_data(data)
+                if verbose: print(f'Found txt extension, loaded matrix data')
             elif extension == '.vtk':
+                # if it is a vtk file we will assume this is a displacement field
                 x,images,title,names = read_vtk_data(data)
                 domain = x
                 data = images
+                if verbose: print(f'Found vtk extension, loaded vtk file with size {data.shape}')
             elif extension == '':
+                # if there is no extension, we assume this is a directory containing a sequence of transformation matrices
+                # TODO: there are a couple issues here
+                # first we need to make sure we can sort the files in the right way.  right now its sorting based on the last 4 characters
+                # this works for csh, but does not work in general.
+                # second we may have two datasets mixed in, so we'll need a glob pattern.
                 transforms_ls = sorted(os.listdir(data), key=lambda x: x.split('_matrix.txt')[0][-4:])
                 data = []
                 for t in transforms_ls:
                     A2d = read_matrix_data(t)
                     data.append(A2d)
+                    # converting to tensor will deal with the stacking
+                if verbose: print(f'Found directory, loaded a series of {len(data)} matrix files with size {data[-1].shape}')
             else:
                 raise Exception(f'Only txt and vtk files supported but your transform is {data}')
-            
+        
+        # convert the data to a torch tensor        
         self.data = torch.as_tensor(data,dtype=dtype,device=device)
         if domain is not None:
             domain = [torch.as_tensor(d,dtype=dtype,device=device) for d in domain]            
@@ -2941,9 +3100,11 @@ class Transform():
         # if it is a velocity field we need to integrate it
         # if it is a displacement field, then we need to add identity to it
         if self.data.ndim == 5:
+            if verbose: print(f'Found 5D dataset, this is either a displacement field or a velocity field')
             if self.data.shape[0] == 1:
                 # assume this is a displacement field and add identity
                 # if it is a displacement field we cannot invert it, so we should throw an error if you use the wrong f,b
+                raise Exception('Displacement field not supported yet')
                 pass
             else:
                 # assume this is a velocity field and integrate it
@@ -2951,11 +3112,14 @@ class Transform():
                     raise Exception('Domain is required when inputting velocity field')
                 if self.direction == 'b':
                     self.data = v_to_phii(self.domain,self.data)
+                    if verbose: print(f'Integrated inverse from velocity field')
                 else:
                     self.data = v_to_phii(self.domain,-torch.flip(self.data,(0,)))
-            
+                    if verbose: print(f'Integrated velocity field')            
         elif self.data.ndim == 2:# if it is a matrix check size
+            if verbose: print(f'Found 2D dataset, this is an affine matrix.')
             if self.data.shape[0] == 3 and self.data.shape[1]==3:
+                if verbose: print(f'converting 2D to 3D with identity')
                 tmp = torch.eye(4,device=device,dtype=dtype)
                 tmp[1:,1:] = self.data
                 self.data = tmp            
@@ -2964,14 +3128,14 @@ class Transform():
                 
             if self.direction == 'b':
                 self.data = torch.inverse(self.data)
-        elif self.data.ndim == 3: # if it is a series of 2d affines
+        elif self.data.ndim == 3: # if it is a series of 2d affines, we leave them as 2d.
+            if verbose: print(f'Found a series of 2D affines.')
             if self.direction == 'b':
                 self.data = torch.inverse(self.data)
         elif self.data.ndim == 4: # if it is a mapping
             if self.direction == 'b':
                 raise Exception(f'When specifying a mapping, backwards is not supported')
-        
-                
+                        
                 
                 
     def apply(self,X):
@@ -2981,11 +3145,14 @@ class Transform():
             A = self.data
             return ((A[:3,:3]@X.permute(1,2,3,0)[...,None])[...,0] + A[:3,-1]).permute(3,0,1,2)
         elif self.data.ndim == 3:
+            # if it is 3D then it is a stack of 2D 3x3 affine matrices
+            # this will only work if the input data is the right shape
+            # ideally, I should attach a domain to it.
             A2d = self.data
             X[1:] = ((A2d[:,None,None,:2,:2]@ (X[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)
             return X
         elif self.data.ndim == 4:
-            # then it is a mapping, we need interp
+            # then it is a displacement field, we need interp
             # recall all components are stored on the first axis,
             # but for sampling they need to be on the last axis
             ID = torch.stack(torch.meshgrid(self.domain,indexing='ij'))
@@ -2995,15 +3162,14 @@ class Transform():
 
             return interp(self.domain,(self.data-ID),X) + X
             
-        
-            
+                    
     def __repr__(self):
         return f'Transform with data size {self.data.shape}, direction {self.direction}, and domain {type(self.domain)}'
     def __call__(self,X):
         return self.apply(X)
             
 # now wrap this into a function
-def compose_sequence(transforms,Xin,direction='f'):
+def compose_sequence(transforms,Xin,direction='f',verbose=False):
     '''
     Input can be a list of transforms class.
     Or a list of filenames (single direction in argument)
@@ -3169,6 +3335,7 @@ def write_outputs_for_pair(output_dir,outputs,
                            xI,I,xJ,J,WJ=None,
                            atlas_space_name=None,target_space_name=None,
                            atlas_image_name=None,target_image_name=None):
+    # TODO: daniel double check this after bryson name changes (remove input)
     '''
     Write outputs in standard format for a pair of images
     
@@ -3263,6 +3430,7 @@ def write_outputs_for_pair(output_dir,outputs,
                xI,torch.tensor(I,dtype=dtype),'atlas')
     
     if not slice_matching:        
+        print(f'writing NOT slice matching outputs')
         # to atlas space from target space    
         from_space_name = target_space_name
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
@@ -3345,9 +3513,13 @@ def write_outputs_for_pair(output_dir,outputs,
         # TODO qc   
         
     else: # if slice matching
+        print(f'writing slice matching transform outputs')
+        # WORKING HERE TO MAKE SURE I HAVE THE RIGHT OUTPUTS
         # NOTE: in registered space we may need to sample in a different spot if origin is not in the middle
+
+
         # to atlas space from registered target space
-        from_space_name = 'registered_' + target_space_name
+        from_space_name = target_space_name + '_registered'
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir, exist_ok=exist_ok)
         # to atlas space from registered target space transforms    
@@ -3368,7 +3540,7 @@ def write_outputs_for_pair(output_dir,outputs,
         
         
         # to atlas space from input target space
-        from_space_name = 'input_' + target_space_name
+        from_space_name = target_space_name
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir, exist_ok=exist_ok)
         # to atlas space from input target space transforms    
@@ -3412,11 +3584,11 @@ def write_outputs_for_pair(output_dir,outputs,
         # 
         
         
-        to_space_name = 'registered_' + target_space_name
+        to_space_name = target_space_name + '_registered'
         to_space_dir = join(output_dir,to_space_name)
         os.makedirs(to_space_dir,exist_ok=exist_ok)
         # from input
-        from_space_name = 'input_' + target_space_name
+        from_space_name = target_space_name
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # transforms, registered to input
@@ -3471,14 +3643,14 @@ def write_outputs_for_pair(output_dir,outputs,
         fig.canvas.draw()
         
         # to input space
-        to_space_name = 'input_' + target_space_name
+        to_space_name = target_space_name
         to_space_dir = join(output_dir,to_space_name)
         os.makedirs(to_space_dir,exist_ok=exist_ok)
         # input to input
         # TODO: i can write the original images here
         
         # registered to input
-        from_space_name = 'registered_' + target_space_name
+        from_space_name = target_space_name + '_registered'
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # images, NONE        
