@@ -859,9 +859,10 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
                 output_geojson = {'type': 'FeatureCollection', 'features': []}
                 # generate geojson curves for each label
                 labels = np.unique(img.cpu().numpy())
-                coordinates = []
+                
                 count = 0
                 for l in labels[1:]: # ignore background label
+                    coordinates = [] # one set of coordinates per label
                     cs = ax.contour(xJ[-1],xJ[-2],(img.cpu().numpy()[0,0]==l).astype(float),[0.5],linewidths=1.0,colors='k')
                     paths = cs.collections[0].get_paths()
                     for path in paths:
@@ -1012,10 +1013,12 @@ def run_registrations(reg_list):
         with open(config) as f:
             config = json.load(f)
         I = emlddmm.Image(space=registration[0][0], name=registration[0][1], fpath=source)
+        print(f'Source I shape {I.data.shape}')
         if I.title == 'slice_dataset': # if series to series, both images must share the same coordinate grid
             J = emlddmm.Image(space=registration[1][0], name=registration[1][1], fpath=target, mask=True, x=I.x)
         else:
             J = emlddmm.Image(space=registration[1][0], name=registration[1][1], fpath=target, mask=True)
+        print(f'Target J shape {J.data.shape}')
         # add domains to graph before downsampling for later
         graph.spaces[I.space][1] = I.x
         graph.spaces[J.space][1] = J.x
