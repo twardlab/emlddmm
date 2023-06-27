@@ -19,10 +19,12 @@ from warnings import warn
 # from medpy.metric import binary
 import tifffile as tf # for 16 bit tiff
 from scipy.stats import mode
+from scipy.interpolate import interpn
 
 # display
 def extent_from_x(xJ):
-    ''' Given a set of pixel locations, returns an extent 4-tuple for use with np.imshow.
+    ''' Given a set of pixel locations, returns an extent 4-tuple for use with n    git push --set-upstream origin interface_checking_march_2023
+p.imshow.
     
     Note inputs are locations of pixels along each axis, i.e. row column not xy.
     
@@ -4094,7 +4096,7 @@ def convert_points_from_json(points,d_high, low_res_file):
     
     '''
     
-    with open(image_input_file,'rt') as f:
+    with open(low_res_file,'rt') as f:
         data = json.load(f)    
     
     q = np.array(points[:,::-1])
@@ -4106,7 +4108,7 @@ def convert_points_from_json(points,d_high, low_res_file):
     # deal with the origin
     # where does (0,0) map to?
     
-    print(data['SpaceOrigin'])
+    #print(data['SpaceOrigin'])
     q[:,0] += data['SpaceOrigin'][1]
     q[:,1] += data['SpaceOrigin'][0]
     q = np.concatenate((np.zeros_like(q[:,0])[:,None]+data['SpaceOrigin'][-1],q   ), -1)
@@ -4136,15 +4138,15 @@ def apply_transform_from_file_to_points(q,tform_file):
     '''
     if tform_file.endswith('.txt'):
         # this is a matrix
-        R = emlddmm.read_matrix_data(tform_file)
+        R = read_matrix_data(tform_file)
         # for matrix data we will apply the inverse and leave the first component unchanged
         Ri = np.linalg.inv(R)
         Tq = np.copy(q)
         Tq[:,1:] = (Ri[:2,:2]@q[:,1:].T).T + Ri[:2,-1]
-        return Riq
+        return Tq
     elif tform_file.endswith('displacement.vtk'):
         # this is a vtk displacement field
-        x,d,title,names = emlddmm.read_data(tform_file)
+        x,d,title,names = read_data(tform_file)
         if d.ndim == 5:
             d = d[0]
         identity = np.stack(np.meshgrid(*x,indexing='ij'))
