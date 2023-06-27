@@ -847,7 +847,8 @@ def emlddmm(**kwargs):
                 'v_start':200,
                 'n_reduce_step':10,
                 'v_expand_factor':0.2,
-                'v_res_factor':2.0,
+                'v_res_factor':2.0, # gets ignored if dv is specified
+                'dv':None,
                 'a':None, # note default below dv[0]*2.0
                 'p':2.0,    
                 'aprefactor':0.1, # in terms of voxels in the downsampled atlas
@@ -892,6 +893,13 @@ def emlddmm(**kwargs):
     dtype = kwargs['dtype']
     if dtype is None:
         dtype = torch.float
+    if isinstance(dtype,str):
+        if dtype == 'float':
+            dtype = torch.float
+        elif dtype == 'float32':
+            dtype = torch.float32
+        elif dtype == 'float64':
+            dtype = torch.float64
     
     # move the above to the right device
     I = torch.as_tensor(I,device=device,dtype=dtype)
@@ -921,6 +929,7 @@ def emlddmm(**kwargs):
     
     v_expand_factor = kwargs['v_expand_factor']
     v_res_factor = kwargs['v_res_factor']
+    dv = kwargs['dv']
     
     a = kwargs['a']
     p = kwargs['p']
@@ -981,7 +990,24 @@ def emlddmm(**kwargs):
     
     # set up a domain for xv    
     # I'll put it a bit bigger than xi
-    dv = dI*torch.tensor(v_res_factor,dtype=dtype,device=device) # we want this to be independent of the I downsampling, 
+    if dv is None:
+        dv = dI*torch.tensor(v_res_factor,dtype=dtype,device=device) # we want this to be independent of the I downsampling, 
+    else:        
+        if isinstance(dv,float):
+            dv = torch.tensor([dv,dv,dv],dtype=dtype,device=device)
+        elif isinstance(dv,list):
+            if len(dv) == 3:
+                dv = torch.tensor(dv,dtype=dtype,device=device)
+            else:
+                raise Exception(f'dv must be a scalar or a 3 element list, but was {dv}')
+        else:
+            # just try it
+            dv = torch.tensor(dv,dtype=dtype,device=device)
+            if len(dv) != 3:
+                raise Exception(f'dv must be a scalar or a 3 element list, but was {dv}')
+                
+                                                    
+        
     # feb 4, 2022, I want it to be isotropic though
     #print(f'dv {dv}')
     if a is None:
@@ -4037,10 +4063,95 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
         
     return phiP, connectivity, connectivity_type, name
     
-# we need a tool for converting to RAS
-# suppose we have labels
-# R/L, A/P, S/I
-# I get a string in some order
+
+
+def convert_points_from_json(points,d_high, low_res_file):
+    '''
+    Points are loaded from Samik's json files under the field "geometry".
+    
+    The input image sidecare file is used to identify origin information (including the slice).
+    
+    We also need to input the pixel size of the high resolution data.
+    
+    Note Samik's json files use an xy convention, which will be flipped to a row col convention.
+    
+    Parameters
+    ----------
+    points : numpy array
+        An N x 2 set of points loaded from one of Samik's json files
+    d_high : float
+        Pixel size of high resolution image
+    low_res_file : str
+        Name of sidecar json file from input to image registration pipeline.
+    
+    
+    Returns
+    -------
+    q : numpy array
+        An N x 3 array of points with physical units (probably microns) and 
+        origin consistent with what is used for registration.
+    
+    
+    '''
+    
+    with open(image_input_file,'rt') as f:
+        data = json.load(f)    
+    
+    q = np.array(points[:,::-1])
+    # flip the sign of the x0 component
+    q[:,0] = q[:,0]*(-1)
+    # multiply by the pixel size
+    q = q * d_high
+
+    # deal with the origin
+    # where does (0,0) map to?
+    
+    print(data['SpaceOrigin'])
+    q[:,0] += data['SpaceOrigin'][1]
+    q[:,1] += data['SpaceOrigin'][0]
+    q = np.concatenate((np.zeros_like(q[:,0])[:,None]+data['SpaceOrigin'][-1],q   ), -1)
+
+    return q
+
+def apply_transform_from_file_to_points(q,tform_file):
+    '''
+    To transform points from spacei to spacej
+    We look for the output folder called
+    outputs/spacei/spacej_to_spacei/transforms
+    Note "spacej to spacei" is not a typo.
+    In the transforms folder, there are transforms of the form
+    "spacei to spacej".  
+    If applying transforms to slice data, you will have to find the appropriate slice.
+    
+    Parameters
+    ----------
+    q : numpy array
+        A Nx3 numpy array of coordinates in slice,row,col order
+    tform_file : str
+        A string pointing to a transform file
+        
+    Returns
+    -----
+    Tq : numpy array
+    '''
+    if tform_file.endswith('.txt'):
+        # this is a matrix
+        R = emlddmm.read_matrix_data(tform_file)
+        # for matrix data we will apply the inverse and leave the first component unchanged
+        Ri = np.linalg.inv(R)
+        Tq = np.copy(q)
+        Tq[:,1:] = (Ri[:2,:2]@q[:,1:].T).T + Ri[:2,-1]
+        return Riq
+    elif tform_file.endswith('displacement.vtk'):
+        # this is a vtk displacement field
+        x,d,title,names = emlddmm.read_data(tform_file)
+        if d.ndim == 5:
+            d = d[0]
+        identity = np.stack(np.meshgrid(*x,indexing='ij'))
+        phi = d + identity
+        Tq = interpn(x,phi.transpose(1,2,3,0),q,bounds_error=False,fill_value=None,method='nearest')
+        return Tq
+    
 
 
 def orientation_to_RAS(orientation):
