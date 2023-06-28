@@ -840,9 +840,9 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
         os.makedirs(qc_out, exist_ok=True)
 
         fig,ax = plt.subplots()
-        for i in range(len(xJ[0])):
+        for i in range(len(xJ[0])): # loop over all slices
             ax.cla()
-            x = [[xJ[0][i], xJ[0][i]+10], xJ[1], xJ[2]]
+            x = [[xJ[0][i], xJ[0][i]+10], xJ[1], xJ[2]] #TODO this +10 is hard coded just to make it work in 3D, it's not actually slice thickness
 
             # save image
             img = fI[:, i, None, ...]
@@ -1086,6 +1086,7 @@ def run_registrations(reg_list):
                 mean_translation = torch.mean(A2d.data[:,:2,-1], dim=0).clone().detach().cpu().numpy()
                 
                 #print(f'calculated mean translation {mean_translation}')
+                # note we use the same z coordinate (J.x[0])
                 registered_x = [J.x[0], J.x[1] - mean_translation[0], J.x[2] - mean_translation[1]]
                 
 

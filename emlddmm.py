@@ -4117,10 +4117,11 @@ def convert_points_from_json(points,d_high, low_res_file):
 
 def apply_transform_from_file_to_points(q,tform_file):
     '''
-    To transform points from spacei to spacej
+    To transform points from spacei to spacej (example from fluoro to nissl_registerd)
     We look for the output folder called
-    outputs/spacei/spacej_to_spacei/transforms
-    Note "spacej to spacei" is not a typo.
+    outputs/spacei/spacej_to_spacei/transforms (example outputs/fluoro/nissl_registered_to_fluoro/transforms)
+    Note "spacej to spacei" is not a typo 
+    (even though it looks backwards, point data uses inverse of transform as compared to images).
     In the transforms folder, there are transforms of the form
     "spacei to spacej".  
     If applying transforms to slice data, you will have to find the appropriate slice.
@@ -4138,11 +4139,9 @@ def apply_transform_from_file_to_points(q,tform_file):
     '''
     if tform_file.endswith('.txt'):
         # this is a matrix
-        R = read_matrix_data(tform_file)
-        # for matrix data we will apply the inverse and leave the first component unchanged
-        Ri = np.linalg.inv(R)
+        R = read_matrix_data(tform_file)                
         Tq = np.copy(q)
-        Tq[:,1:] = (Ri[:2,:2]@q[:,1:].T).T + Ri[:2,-1]
+        Tq[:,1:] = (R[:2,:2]@q[:,1:].T).T + R[:2,-1]
         return Tq
     elif tform_file.endswith('displacement.vtk'):
         # this is a vtk displacement field
