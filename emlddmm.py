@@ -356,10 +356,14 @@ def load_slices(target_name, xJ=None):
     J = np.zeros(XJ.shape[1:] + tuple([3]))
     W0 = np.zeros(XJ.shape[1:])
     i = 0
+    #print('starting to interpolate slice dataset')
     for j in range(XJ.shape[1]):
         # if slice_status[j] == False:
-        if slice_status[j] == 'missing':
+        if slice_status[j] in ['missing','absent',False,'False','false']:
+            #print(f'slice {j} was missing')
             continue
+        # getting an index out of range issue in the line below (problem was 'missing' versus 'absent')
+        #print(dJ,J_[i].shape)
         xJ_ = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(J_[i].shape[:-1], dJ[1:])]
         J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="border"), (1,2,0))
         W0_ = np.zeros(W0.shape[1:])
