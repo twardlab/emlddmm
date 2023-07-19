@@ -4071,53 +4071,124 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
     
 
 
-def convert_points_from_json(points,d_high, low_res_file):
+
+def convert_points_from_json(points, d_high, n_high=None, sidecar=None, z=None, verbose=False):
     '''
-    Points are loaded from Samik's json files under the field "geometry".
+    We load points from a json produced by Samik.
     
-    The input image sidecare file is used to identify origin information (including the slice).
+    These are indexed to pixels in a high res image, rather than any physical units.
     
-    We also need to input the pixel size of the high resolution data.
+    To convert to proper points in 3D for transforming, we need information about pixel size and origin.
     
-    Note Samik's json files use an xy convention, which will be flipped to a row col convention.
+    Pixel size of the high res image is a required input.
+    
+    If we have a json sidecar file that was prepared for the registration dataset, we can get all the info from this.
+    
+    If not, we get it elsewhere.
+    
+    Origin information can be determined from knowing the number of pixels in the high res image. 
+    
+    Z coordinate information is not required if we are only applying 2D transforms, 
+    but for 3D it will have to be input manually if we do not have a sidecar file.
+    
     
     Parameters
     ----------
-    points : numpy array
-        An N x 2 set of points loaded from one of Samik's json files
+    points : str or numpy array
+        either a geojson filename, or a Nx2 numpy array with coordinates loaded from such a file.
     d_high : float
-        Pixel size of high resolution image
-    low_res_file : str
-        Name of sidecar json file from input to image registration pipeline.
-    
+        pixel size of high resolution image where cells were detected
+    n_high : str or numpy array
+        WIDTH x HEIGHT of high res image.  Or the filename of the high res image.
+    sidecar : str
+        Filename of sidecar file to get z and origin info
+    z : float
+        z coordinate
     
     Returns
     -------
     q : numpy array
-        An N x 3 array of points with physical units (probably microns) and 
-        origin consistent with what is used for registration.
+        A Nx3 array of points in physical units using our coordinate system convention (origin in center).
     
+    Notes
+    -----
+    If we are applying 3D transforms, we need a z coordinate.  This can be determined either by specifying it
+    or by using a sidecar file.  If we have neither, it ill be set to 0.
+    
+    TODO
+    ----
+    Consider setting z to nan instead of zero.
     
     '''
     
-    with open(low_res_file,'rt') as f:
-        data = json.load(f)    
+    # deal with the input points
+    if isinstance(points,str):
+        if verbose: print(f'points was a string, loading from json file')
+        # If we specified a string, load the points
+        with open(cell_detect_file,'rt') as f:
+            data = json.load(f)
+        points = data['features'][0]['geometry']['coordinates']
+        points = [p for p in points if p]
+        points = np.array(points)
+    else:
+        if verbose: print(f'Points was not a string, using as is')
     
+    # start processing points
     q = np.array(points[:,::-1])
     # flip the sign of the x0 component
     q[:,0] = q[:,0]*(-1)
     # multiply by the pixel size
     q = q * d_high
-
-    # deal with the origin
-    # where does (0,0) map to?
+    if verbose: print(f'flipped the first and second column, multiplied the first column of the result by -1')
     
-    #print(data['SpaceOrigin'])
-    q[:,0] += data['SpaceOrigin'][1]
-    q[:,1] += data['SpaceOrigin'][0]
-    q = np.concatenate((np.zeros_like(q[:,0])[:,None]+data['SpaceOrigin'][-1],q   ), -1)
-
+    # now check if there is a sidecar
+    if sidecar is not None:
+        if verbose: print(f'sidecar specified, loading origin and z information')
+        with open(sidecar,'rt') as f:
+            data = json.load(f) 
+        # I don't think this is quite right
+        # this would be right if the downsampling factor was 1 and the voxel centers matched
+        # if the downsampling factor was 2, we'd have to move a quarter (big) voxel to the left
+        # | o | _ |
+        # if the downsampling factor was 4 we'd have to move 3 eights
+        # | o | _ | _ | _ |
+        # what's the pattern? we move half a big voxel to the left, then half a small voxel to the right
+        # 
+        #downsampling_factor = (np.diag(np.array(data['SpaceDirections'][1:]))/(d_high))[0]
+        d_low = np.diag(np.array(data['SpaceDirections'][1:]))
+        if verbose: print(f'd low {d_low}')
+        q[:,0] += data['SpaceOrigin'][1] - d_low[1]/2.0 + d_high/2.0
+        q[:,1] += data['SpaceOrigin'][0] - d_low[0]/2.0 + d_high/2.0
+        q = np.concatenate((np.zeros_like(q[:,0])[:,None]+data['SpaceOrigin'][-1],q   ), -1)
+        
+    
+    else:
+        if verbose: print(f'no sidecar specified, loading origin from n_high')
+        # we have to get origin and z information elsewhere
+        if n_high is None:
+            raise Exception(f'If not specifying sidecar, you must specify n_high')
+        elif isinstance(n_high,str):
+            if verbose: print(f'loading n_high from jp2 file')
+            # this sould be a jp2 file
+            image = Image.open(image_high_file)
+            n_high = np.array(image.size) # this should be xy
+            image.close()
+        # in this case, the point 0,0 (first pixel) should have a coordinate -n/2            
+        q[:,0] -= (n_high[1]-1)/2*d_high
+        q[:,1] -= (n_high[0]-1)/2*d_high
+        if verbose: print(f'added origin')
+            
+        if z is None:
+            # if we have no z information we will just pad zeros
+            if verbose: print(f'no z coordinate, appending 0')
+            q = np.concatenate((np.zeros_like(q[:,0])[:,None],q   ), -1)
+        else:
+            if verbose: print(f'appending input z coordinate')
+            q = np.concatenate((np.ones_like(q[:,0])[:,None]*z,q   ), -1)
+            
+        
     return q
+        
 
 def apply_transform_from_file_to_points(q,tform_file):
     '''
@@ -4143,6 +4214,7 @@ def apply_transform_from_file_to_points(q,tform_file):
     '''
     if tform_file.endswith('.txt'):
         # this is a matrix
+        # we do matrix multiplication to the xy components, and leave the z component unchanged
         R = read_matrix_data(tform_file)                
         Tq = np.copy(q)
         Tq[:,1:] = (R[:2,:2]@q[:,1:].T).T + R[:2,-1]
@@ -4153,7 +4225,8 @@ def apply_transform_from_file_to_points(q,tform_file):
         if d.ndim == 5:
             d = d[0]
         identity = np.stack(np.meshgrid(*x,indexing='ij'))
-        phi = d + identity
+        phi = d + identity # add identity to convert "displacement" to "position"
+        # evaluate the position field at the location of these points.
         Tq = interpn(x,phi.transpose(1,2,3,0),q,bounds_error=False,fill_value=None,method='nearest')
         return Tq
     
