@@ -20,6 +20,7 @@ from warnings import warn
 import tifffile as tf # for 16 bit tiff
 from scipy.stats import mode
 from scipy.interpolate import interpn
+from PIL import Image # only required for one format conversion function
 
 # display
 def extent_from_x(xJ):
