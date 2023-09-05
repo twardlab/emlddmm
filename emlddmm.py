@@ -53,7 +53,7 @@ p.imshow.
                (xJ[0][-1] + dJ[0]/2.0).item(),
                (xJ[0][0] - dJ[0]/2.0).item())
     return extentJ
-def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,**kwargs):    
+def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,slices_start_end=[None,None,None],**kwargs):    
     """ Draw 3D imaging data.
     
     Images are shown by sampling slices along 3 orthogonal axes.
@@ -149,7 +149,10 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,
     axs = []
     axsi = []
     # ax0
-    slices = np.round(np.linspace(0,J.shape[1]-1,n_slices+2)[1:-1]).astype(int)        
+    slices = np.round(np.linspace(0,J.shape[1]-1,n_slices+2)[1:-1]).astype(int)     
+    if slices_start_end[0] is not None:
+        slices = np.round(np.linspace(slices_start_end[0][0],slices_start_end[0][1],n_slices+2)[1:-1]).astype(int)     
+        
     # for origin upper (default), extent is x (small to big), then y reversed (big to small)
     extent = (xJ[2][0],xJ[2][-1],xJ[1][-1],xJ[1][0])
     for i in range(n_slices):
@@ -164,6 +167,8 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,
     axsi = []
     # ax1
     slices = np.round(np.linspace(0,J.shape[2]-1,n_slices+2)[1:-1]).astype(int)    
+    if slices_start_end[1] is not None:
+        slices = np.round(np.linspace(slices_start_end[1][0],slices_start_end[1][1],n_slices+2)[1:-1]).astype(int)         
     extent = (xJ[2][0],xJ[2][-1],xJ[0][-1],xJ[0][0])
     for i in range(n_slices):
         ax = fig.add_subplot(3,n_slices,i+1+n_slices)      
@@ -177,6 +182,9 @@ def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,
     axsi = []
     # ax2
     slices = np.round(np.linspace(0,J.shape[3]-1,n_slices+2)[1:-1]).astype(int)        
+    if slices_start_end[2] is not None:
+        slices = np.round(np.linspace(slices_start_end[2][0],slices_start_end[2][1],n_slices+2)[1:-1]).astype(int)     
+    
     extent = (xJ[1][0],xJ[1][-1],xJ[0][-1],xJ[0][0])
     for i in range(n_slices):        
         ax = fig.add_subplot(3,n_slices,i+1+n_slices*2)
@@ -1407,7 +1415,8 @@ def emlddmm(**kwargs):
         
         # reg cost (note that with no complex, there are two elements on the last axis)
         version_num = int(torch.__version__.split('.')[1])
-        if version_num < 7:
+        version_num = float('.'.join( torch.__version__.split('.')[:2] ))
+        if version_num < 1.7:
             vhat = torch.rfft(v,3,onesided=False)
         else:
             #vhat = torch.view_as_real(torch.fft.fftn(v,dim=3,norm="backward"))
