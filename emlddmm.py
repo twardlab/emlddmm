@@ -1414,9 +1414,10 @@ def emlddmm(**kwargs):
         
         
         # reg cost (note that with no complex, there are two elements on the last axis)
-        version_num = int(torch.__version__.split('.')[1])
-        version_num = float('.'.join( torch.__version__.split('.')[:2] ))
-        if version_num < 1.7:
+        #version_num = int(torch.__version__.split('.')[1])
+        #version_num = float('.'.join( torch.__version__.split('.')[:2] ))
+        version_num = [int(x) for x in torch.__version__.split('.')[:2]]
+        if version_num[0] <= 1 and version_num[1]< 7:
             vhat = torch.rfft(v,3,onesided=False)
         else:
             #vhat = torch.view_as_real(torch.fft.fftn(v,dim=3,norm="backward"))
@@ -1435,7 +1436,7 @@ def emlddmm(**kwargs):
         E.backward()
 
         # covector to vector
-        if version_num < 7:
+        if version_num[0] <= 1 and version_num[1]< 7:
             vgrad = torch.irfft(torch.rfft(v.grad,3,onesided=False)*(KK)[None,None,...,None],3,onesided=False)
         else:
 
@@ -4242,7 +4243,7 @@ def apply_transform_from_file_to_points(q,tform_file):
     
 
 
-def orientation_to_RAS(orientation):
+def orientation_to_RAS(orientation,verbose=False):
     ''' Compute a linear transform from a given orientation to RAS.
     
     Orientations are specified using 3 letters, by selecting one of each 
@@ -4262,7 +4263,7 @@ def orientation_to_RAS(orientation):
     '''
     orientation_ = [o for o in orientation]
     Ao = np.eye(3)
-    # first step, flip if necessary
+    # first step, flip if necessary, so we only use symbols R A and S
     for i in range(3):
         if orientation_[i] == 'L':
             Ao[i,i] *= -1
@@ -4293,17 +4294,16 @@ def orientation_to_RAS(orientation):
     elif orientation_ == ['S','R','A']:
         # flip the first two, then the second two
         Ao = np.eye(3)[[0,2,1]]@np.eye(3)[[1,0,2]]@Ao 
-        orientation_ = [orientation_[1],orientation_[2],orientation_[0]]
-        pass
+        orientation_ = [orientation_[1],orientation_[2],orientation_[0]]        
     elif orientation_ == ['S','A','R']:
         # flip the first and last
-        Ao = np.eye(3)[[2,1,0]]@Ao 
+        Ao = np.eye(3)[[2,1,0]]@Ao         
         orientation_ = [orientation_[2],orientation_[1],orientation_[0]]    
     else:
         raise Exception('Something is wrong with your orientation')
     return Ao
 
-def orientation_to_orientation(orientation0,orientation1):
+def orientation_to_orientation(orientation0,orientation1,verbose=False):
     ''' Compute a linear transform from one given orientation to another.
     
     Orientations are specified using 3 letters, by selecting one of each 
@@ -4323,7 +4323,7 @@ def orientation_to_orientation(orientation0,orientation1):
         A linear transformation to transform your image from orientation0 to orientation1        
     
     '''
-    Ao = np.linalg.inv(orientation_to_RAS(orientation1))@orientation_to_RAS(orientation0)
+    Ao = np.linalg.inv(orientation_to_RAS(orientation1,verbose))@orientation_to_RAS(orientation0,verbose)
     return Ao    
         
     
