@@ -4136,7 +4136,7 @@ def convert_points_from_json(points, d_high, n_high=None, sidecar=None, z=None, 
     if isinstance(points,str):
         if verbose: print(f'points was a string, loading from json file')
         # If we specified a string, load the points
-        with open(cell_detect_file,'rt') as f:
+        with open(points,'rt') as f:
             data = json.load(f)
         points = data['features'][0]['geometry']['coordinates']
         points = [p for p in points if p]
