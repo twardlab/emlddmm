@@ -20,7 +20,8 @@ from warnings import warn
 import tifffile as tf # for 16 bit tiff
 from scipy.stats import mode
 from scipy.interpolate import interpn
-from PIL import Image # only required for one format conversion function
+import PIL # only required for one format conversion function
+PIL.Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error
 
 # display
 def extent_from_x(xJ):
@@ -4181,7 +4182,7 @@ def convert_points_from_json(points, d_high, n_high=None, sidecar=None, z=None, 
         elif isinstance(n_high,str):
             if verbose: print(f'loading n_high from jp2 file')
             # this sould be a jp2 file
-            image = Image.open(image_high_file)
+            image = PIL.Image.open(n_high)
             n_high = np.array(image.size) # this should be xy
             image.close()
         # in this case, the point 0,0 (first pixel) should have a coordinate -n/2            
