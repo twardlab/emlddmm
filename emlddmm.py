@@ -631,6 +631,42 @@ def downmode(xI,S_,down):
     
     return xI_,S_
 
+def downmedian(xI,S_,down):
+    '''
+    xI is coordinate locations of voxels in S_
+    I is a 3d image.
+    down is a list of 3 ints to downsample along each axis
+    2D images can be hanled by adding a singleton dimension
+    no leading batch dimensions
+    
+    returns downsampled image and x
+    
+    '''
+    
+    # crop it off the right side so its size is a multiple of down
+    nS = np.array(S_.shape)
+    nSd = nS//down
+    nSu = nSd*down
+    S_ = np.copy(S_)[:nSu[0],:nSu[1],:nSu[2]]
+    # now reshape
+    S_ = np.reshape(S_,(nSd[0],down[0],nSd[1],down[1],nSd[2],down[2]))
+    S_ = S_.transpose(1,3,5,0,2,4)
+    S_ = S_.reshape(down[0]*down[1]*down[2],nSd[0],nSd[1],nSd[2])
+
+    S_ = np.median(S_,axis=0)[0][0]
+    # now same for xR
+    xI_ = [np.copy(x) for x in xI]
+    xI_[0] = xI_[0][:nSu[0]]
+    xI_[0] = np.mean(xI_[0].reshape(nSd[0],down[0]),1)
+
+    xI_[1] = xI_[1][:nSu[1]]
+    xI_[1] = np.mean(xI_[1].reshape(nSd[1],down[1]),1)
+
+    xI_[2] = xI_[2][:nSu[2]]
+    xI_[2] = np.mean(xI_[2].reshape(nSd[2],down[2]),1)
+    
+    return xI_,S_
+
 # build an interp function from grid sample
 def interp(x, I, phii, interp2d=False, **kwargs):
     '''
@@ -1315,6 +1351,8 @@ def emlddmm(**kwargs):
                     # feb 2, 2022 converted from inv to solve and used double
                     # august 2022 add id a small constnat times identity, but I'll set it to zero for now so no change
                     small = 1e-2*0
+                    # september 2023, set to 1e-4, because I was getting nan
+                    small = 1e-4
                     coeffs = torch.linalg.solve((B__.T@B_).double() + torch.eye(B__.shape[1],device=device,dtype=torch.float64)*small, 
                                                 (B__.T@(J.reshape(J.shape[0],-1).T)).double() ).to(dtype)
                 fAphiI = ((B_@coeffs).T).reshape(J.shape) # there are unnecessary transposes here, probably slowing down, to fix later
@@ -1587,6 +1625,7 @@ def emlddmm(**kwargs):
             
             A[:3] -= Agrad*eA
             if Amode==1: # 1 means rigid
+                # TODO update this with center of mass
                 U,S,VH = torch.linalg.svd(A[:3,:3])
                 A[:3,:3] = U@VH
             elif Amode==2: # 2 means rigid + scale
@@ -1601,17 +1640,18 @@ def emlddmm(**kwargs):
             if slice_matching:
                 
                 # project A to isotropic and normal up
-                # isotropic (done)
+                # isotropic (done, really where is normal up?)
                 # TODO normal                
                 # what I really should do is parameterize this group and work out a metric                                
                 u,s,v_ = torch.svd(A[:3,:3])
                 if slice_matching_isotropic:
                     s = torch.exp(torch.mean(torch.log(s)))*torch.eye(3,device=device,dtype=dtype)
-                    A[:3,:3] = u@s@v_.T               
+                    A[:3,:3] = u@s@v_.T  # why transpose? torch svd does not return the transpose, but this will be deprecated
                 
                 if it > slice_matching_start:
                     A2d[:,:2,:3] -= A2dgrad*eA2d # already scaled
                 # project onto rigid
+                # TODO, when not centered at origin, I may need a different projection (see procrustes)
                 u,s,v_ = torch.svd(A2d[:,:2,:2])
                 A2d[:,:2,:2] = u@v_.transpose(1,2)
                 A2d.grad.zero_()
