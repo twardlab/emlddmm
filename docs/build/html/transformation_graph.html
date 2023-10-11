@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>transformation_graph module &mdash; GDM 0.0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> GDM
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">transformation_graph module</a></li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">GDM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>transformation_graph module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/transformation_graph.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="module-transformation_graph">
+<span id="transformation-graph-module"></span><h1>transformation_graph module<a class="headerlink" href="#module-transformation_graph" title="Permalink to this headline"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="transformation_graph.BFS">
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">BFS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dist</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#BFS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.BFS" title="Permalink to this definition"></a></dt>
+<dd><p>Breadth first search</p>
+<p>a modified version of BFS that stores predecessor
+of each vertex in array pred and its distance from source in array dist</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>src</strong> (<em>int</em>) – int value given by corresponding source in spaces dict</p></li>
+<li><p><strong>dest</strong> (<em>int</em>) – dest value given by corresponding destination in spaces dict</p></li>
+<li><p><strong>v</strong> (<em>int</em>) – length of spaces dict</p></li>
+<li><p><strong>pred</strong> (<em>list of ints</em>) – stores predecessor of vertex i at pred[i]</p></li>
+<li><p><strong>dist</strong> (<em>list of ints</em>) – stores distance (by number of vertices) of vertex i from source vertex</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if a path from src to dest is found and False otherwise</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="transformation_graph.add_edge">
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">add_edge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slice_matching</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#add_edge"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.add_edge" title="Permalink to this definition"></a></dt>
+<dd><p>Add edge between two vertices in registration adjacency list.</p>
+<p>Adds the key:value pair, dest_space:(‘path/to/tranforms’, ‘direction’) to the dict corresponding to source space in the adjacency list.
+The adjacency list (adj) has the form [{src_space_1 dict}, …, {src_space_n dict}] for n source spaces.
+Each source space dict has the form {dest_space_1: (‘path/to/transforms_1’, ‘direction’), …, dest_space_n: (‘path/to/transforms_n’, ‘direction}
+which indicates the spaces to which the source space were registered, and the location of transforms corresponding to that registration.
+For each registration both the forward and backward transformation is recorded in the list. e.g. [{space_1: (‘space_0_to_space_1/transforms’, ‘f’)}, {space_0: (‘space_0_to_space_1/transforms’, ‘b’)}</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>spaces</strong> (<em>dict</em>) – user assigned space name strings each assigned an integer value as a key:value pair in a dictionary</p></li>
+<li><p><strong>src_space</strong> (<em>str</em>) – user assigned source space name</p></li>
+<li><p><strong>dest_space</strong> (<em>str</em>) – user assigned destination space name</p></li>
+<li><p><strong>out</strong> (<em>str</em>) – path to registration outputs</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="transformation_graph.apply_transformation">
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">apply_transformation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_img</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#apply_transformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.apply_transformation" title="Permalink to this definition"></a></dt>
+<dd><p>Apply Transformation</p>
+<p>Applies affine matrix and velocity field transforms to map dest points to src points. Saves displacement field from dest points to src points
+(i.e. difference between transformed coordinates and input coordinates), and determinant of Jacobian for 3d destination spaces. Also saves transformed image in vtk format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>spaces</strong> (<em>dict</em>) – user assigned space name strings each assigned an integer value as a key:value pair in a dictionary</p></li>
+<li><p><strong>src_space</strong> (<em>str</em>) – user assigned src space name used for naming outputs</p></li>
+<li><p><strong>src_img</strong> (<em>str</em>) – user assigned src image name used for naming outputs</p></li>
+<li><p><strong>dest_space</strong> (<em>str</em>) – user assigned dest image name used for naming outputs</p></li>
+<li><p><strong>out</strong> (<em>str</em>) – path to registration outputs root</p></li>
+<li><p><strong>src_path</strong> (<em>str</em>) – path to source image (image to be sampled on transformed points)</p></li>
+<li><p><strong>dest_path</strong> (<em>str</em>) – path to destination image (image whos points are to be transformed)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="transformation_graph.find_shortest_path">
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">find_shortest_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#find_shortest_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.find_shortest_path" title="Permalink to this definition"></a></dt>
+<dd><p>Find Shortest Path</p>
+<p>Finds the shortest path between src and dest in the adjacency list and prints its length</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>src</strong> (<em>int</em>) – int value given by corresponding source in spaces dict</p></li>
+<li><p><strong>dest</strong> (<em>int</em>) – dest value given by corresponding destination in spaces dict</p></li>
+<li><p><strong>v</strong> (<em>int</em>) – length of spaces dict</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>path</strong> – path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list of ints</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="transformation_graph.get_transformation">
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">get_transformation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#get_transformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.get_transformation" title="Permalink to this definition"></a></dt>
+<dd><p>Get Transformation</p>
+<p>Gets file path or paths to the transforms needed to match src to dest</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>path</strong> (<em>list of ints</em>) – path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>transformation</strong> – list of file paths to sequence of transformations matching src to dest</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list of strings</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="transformation_graph.main">
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.main" title="Permalink to this definition"></a></dt>
+<dd><p>Main function for parsing input arguments, calculating registrations and applying transformations.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="transformation_graph.reg">
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">reg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dest</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">registration</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#reg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.reg" title="Permalink to this definition"></a></dt>
+<dd><p>registration</p>
+<p>Registers a single source image and destination image. Affine matrix and velocity field transformations, and qc images are saved.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dest</strong> (<em>str</em>) – path to destination image</p></li>
+<li><p><strong>source</strong> (<em>str</em>) – path to source image or series of images</p></li>
+<li><p><strong>registration</strong> (<em>list of strings</em>) – List of two strings, giving source space name and destination space name.
+These are used for naming output files.</p></li>
+<li><p><strong>config</strong> (<em>str</em>) – path to JSON configuration file specifying registration parameters</p></li>
+<li><p><strong>out</strong> (<em>str</em>) – path to output directory</p></li>
+<li><p><strong>labels</strong> (<em>str</em>) – path to labels image used for qc</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="transformation_graph.run_registrations">
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">run_registrations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reg_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#run_registrations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.run_registrations" title="Permalink to this definition"></a></dt>
+<dd><p>Run Registrations</p>
+<p>Runs a sequence of registrations given by reg_list</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>reg_list</strong> (<em>list of dicts</em>) – each dict in reg_list specifies the source image path, destination image path,
+src and dest space names, output directory, and registration configuration settings.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>spaces</strong> (<em>dict</em>) – user assigned space name strings each assigned an integer value as a key:value pair in a dictionary</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel Tward, Bryson Gray, Partha Mitra.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

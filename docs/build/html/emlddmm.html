@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>emlddmm module &mdash; GDM 0.0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> GDM
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">emlddmm module</a></li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">GDM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>emlddmm module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/emlddmm.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="module-emlddmm">
+<span id="emlddmm-module"></span><h1>emlddmm module<a class="headerlink" href="#module-emlddmm" title="Permalink to this headline"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="emlddmm.Transform">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">Transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'f'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#Transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.Transform" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A simple class for storing and applying transforms
+TODO: add another type for series of 2D transforms</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="emlddmm.Transform.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#Transform.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.Transform.apply" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.apply_transform_float">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">apply_transform_float</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xout</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#apply_transform_float"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.apply_transform_float" title="Permalink to this definition"></a></dt>
+<dd><p>Apply transform to image
+Image points stored in x, data stored in I
+transform stored in Xout</p>
+<p>There is an issue with numpy integer arrays, I’ll have two functions</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.apply_transform_int">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">apply_transform_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xout</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">double</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#apply_transform_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.apply_transform_int" title="Permalink to this definition"></a></dt>
+<dd><p>Apply transform to image
+Image points stored in x, data stored in I
+transform stored in Xout</p>
+<p>There is an issue with numpy integer arrays, I’ll have two functions</p>
+<p>Note that we often require double precision when converting to floats and back</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.compose_sequence">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">compose_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transforms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'f'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#compose_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.compose_sequence" title="Permalink to this definition"></a></dt>
+<dd><p>Input can be a list of transforms class.
+Or a list of filenames (single direction in argument)
+Or a list of a list of 2 tuples that specify direction (f,b)
+Or an output directory</p>
+<p>Note f is default which maps points from atlas to target,
+or images from target to atlas.</p>
+<p>Xin are the points we want to transform (e.g. sample points in atlas)</p>
+<p>TODO use os path join
+TODO support direction as a list, right now direction only is used for a single direction</p>
+<p>Note, if the input is a string, we assume it is an output directory and get A and V. In this case we use the direction argument.
+If the input is a tuple of length 2, we assume it is an output directory and a direction</p>
+<p>Otherwise, the input must be a list.  It can be a list of strings, or transforms, or string-direction tuples.</p>
+<p>What if it is a list of length 1?</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.downsample">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">downsample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">down</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">W</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#downsample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.downsample" title="Permalink to this definition"></a></dt>
+<dd><p>Downsample an image by an integer factor along each axis. Note extra data at
+the end will be truncated if necessary.</p>
+<p>If the first axis is for image channels, downsampling factor should be 1 on this.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>I</strong> (<em>array</em><em> (</em><em>numpy</em><em> or </em><em>torch</em><em>)</em>) – Imaging data to downsample</p></li>
+<li><p><strong>down</strong> (<em>list of int</em>) – List of downsampling factors for each axis.</p></li>
+<li><p><strong>W</strong> (<em>array</em><em> (</em><em>numpy</em><em> or </em><em>torch</em><em>)</em>) – A weight of the same size as I but without the “channel” dimension</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Id</strong> – Downsampled imaging data.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array (numpy or torch as input)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.downsample_ax">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">downsample_ax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">down</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">W</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#downsample_ax"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.downsample_ax" title="Permalink to this definition"></a></dt>
+<dd><p>Downsample imaging data along one of the first 5 axes.</p>
+<p>Imaging data is downsampled by averaging nearest pixels.
+Note that data will be lost from the end of images instead of padding.
+This function is generally called repeatedly on each axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>I</strong> (<em>array like</em><em> (</em><em>numpy</em><em> or </em><em>torch</em><em>)</em>) – Image to be downsampled on one axis.</p></li>
+<li><p><strong>down</strong> (<em>int</em>) – Downsampling factor.  2 means average pairs of nearest pixels
+into one new downsampled pixel</p></li>
+<li><p><strong>ax</strong> (<em>int</em>) – Which axis to downsample along.</p></li>
+<li><p><strong>W</strong> (<em>np array</em>) – A mask the same size as I, but without a “channel” dimension</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Id</strong> – The downsampled image.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.downsample_image_domain">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">downsample_image_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">down</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">W</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#downsample_image_domain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.downsample_image_domain" title="Permalink to this definition"></a></dt>
+<dd><p>Downsample an image as well as pixel locations</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xI</strong> (<em>list of numpy arrays</em>) – xI[i] is a numpy array storing the locations of each voxel
+along the i-th axis.</p></li>
+<li><p><strong>I</strong> (<em>array like</em>) – Image to be downsampled</p></li>
+<li><p><strong>down</strong> (<em>list of ints</em>) – Factor by which to downsample along each dimension</p></li>
+<li><p><strong>W</strong> (<em>array like</em>) – Weights the same size as I, but without a “channel” dimension</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>xId</strong> (<em>list of numpy arrays</em>) – New voxel locations in the same format as xI</p></li>
+<li><p><strong>Id</strong> (<em>numpy array</em>) – Downsampled image.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.draw">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">draw</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">J</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xJ</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_slices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#draw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.draw" title="Permalink to this definition"></a></dt>
+<dd><p>Draw 3D imaging data.</p>
+<p>Images are shown by sampling slices along 3 orthogonal axes.
+Color or grayscale data can be shown.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>J</strong> (<em>array like</em><em> (</em><em>torch tensor</em><em> or </em><em>numpy array</em><em>)</em>) – A 3D image with C channels should be size (C x nslice x nrow x ncol)
+Note grayscale images should have C=1, but still be a 4D array.</p></li>
+<li><p><strong>xJ</strong> (<em>list</em>) – A list of 3 numpy arrays.  xJ[i] contains the positions of voxels
+along axis i.  Note these are assumed to be uniformly spaced. The default
+is voxels of size 1.0.</p></li>
+<li><p><strong>fig</strong> (<em>matplotlib figure</em>) – A figure in which to draw pictures. Contents of hte figure will be cleared.
+Default is None, which creates a new figure.</p></li>
+<li><p><strong>n_slices</strong> (<em>int</em>) – An integer denoting how many slices to draw along each axis. Default 5.</p></li>
+<li><p><strong>vmin</strong> – A minimum value for windowing imaging data. Can also be a list of size C for
+windowing each channel separately. Defaults to None, which corresponds
+to tha 0.001 quantile on each channel.</p></li>
+<li><p><strong>vmax</strong> – A maximum value for windowing imaging data. Can also be a list of size C for
+windowing each channel separately. Defaults to None, which corresponds
+to tha 0.999 quantile on each channel.</p></li>
+<li><p><strong>kwargs</strong> (<em>dict</em>) – Other keywords will be passed on to the matplotlib imshow function. For example
+include cmap=’gray’ for a gray colormap</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>fig</strong> (<em>matplotlib figure</em>) – The matplotlib figure variable with data.</p></li>
+<li><p><strong>axs</strong> (<em>array of matplotlib axes</em>) – An array of matplotlib subplot axes containing each image.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<p>Here is an example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">example</span> <span class="n">test</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">emlddmm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#emlddmm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.emlddmm" title="Permalink to this definition"></a></dt>
+<dd><p>Run the EMLDDMM algorithm for deformable registration between two
+different imaging modalities with possible missing data in one of them</p>
+<p>Details of this algorithm can be found in
+[1] Tward, Daniel, et al. “Diffeomorphic registration with intensity
+transformation and missing data: Application to 3D digital pathology
+of Alzheimer’s disease.” Frontiers in neuroscience 14 (2020): 52.
+[2] Tward, Daniel, et al. “3d mapping of serial histology sections
+with anomalies using a novel robust deformable registration algorithm.”
+Multimodal Brain Image Analysis and Mathematical Foundations of
+Computational Anatomy. Springer, Cham, 2019. 162-173.
+[3] Tward, Daniel, et al. “Solving the where problem in neuroanatomy:
+a generative framework with learned mappings to register multimodal,
+incomplete data into a reference brain.” bioRxiv (2020).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arguments</strong> (<em>Note all parameters are keyword</em>) – </p></li>
+<li><p><strong>required.</strong> (<em>but the first four are</em>) – </p></li>
+<li><p><strong>xI</strong> (<em>list of arrays</em>) – xI[i] stores the location of voxels on the i-th axis of the atlas image I (REQUIRED)</p></li>
+<li><p><strong>I</strong> (<em>4D array</em><em> (</em><em>numpy</em><em> or </em><em>torch</em><em>)</em>) – 4D array storing atlas imaging data.  Channels (e.g. RGB are stored on the
+first axis, and the last three are spatial dimensions. (REQUIRED)</p></li>
+<li><p><strong>xJ</strong> (<em>list of arrays</em>) – xJ[i] stores the location of voxels on the i-th axis of the target image J (REQUIRED)</p></li>
+<li><p><strong>J</strong> (<em>4D array</em><em> (</em><em>numpy</em><em> or </em><em>torch</em><em>)</em>) – 4D array storing target imaging data.  Channels (e.g. RGB are stored on the
+first axis, and the last three are spatial dimensions. (REQUIRED)</p></li>
+<li><p><strong>nt</strong> (<em>int</em>) – Number of timesteps for integrating a velocity field to yeild a position field (default 5).</p></li>
+<li><p><strong>eA</strong> (<em>float</em>) – Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
+that you test this value and not rely on defaults. Note linear and translation components
+are combined following [ref] so only one stepsize is required.</p></li>
+<li><p><strong>ev</strong> (<em>float</em>) – Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
+that you test this value and not rely on defaults.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>out</strong> – Returns a dictionary of outputs storing computing transforms. if full_outputs==True,
+then more data is output including figures.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm_multiscale">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">emlddmm_multiscale</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#emlddmm_multiscale"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.emlddmm_multiscale" title="Permalink to this definition"></a></dt>
+<dd><p>Run the emlddmm algorithm multiple times, restarting
+with the results of the previous iteration. This is intended
+to be used to register data from coarse to fine resolution.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>value</strong> (<em>emlddmm parameters either as a list of length 1</em><em> (</em><em>to use the same</em>) – </p></li>
+<li><p><strong>at</strong> (<em>at each iteration</em><em>) or </em><em>a list of length N</em><em> (</em><em>to use different values</em>) – </p></li>
+<li><p><strong>iterations</strong><strong>)</strong><strong>.</strong> (<em>each of the N</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>A list of emlddmm outputs (see documentation for emlddmm)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.interp">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">interp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phii</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#interp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.interp" title="Permalink to this definition"></a></dt>
+<dd><p>Interpolate a 3D image with specified regular voxel locations at specified sample points.</p>
+<p>Interpolate the 3D image I, with regular grid positions stored in x (1d arrays),
+at the positions stored in phii (3D arrays with first channel storing component)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>list of numpy arrays</em>) – x[i] is a numpy array storing the pixel locations of imaging data along the i-th axis.
+Note that this MUST be regularly spaced, only the first and last values are queried.</p></li>
+<li><p><strong>I</strong> (<em>array</em>) – Numpy array or torch tensor storing 3D imaging data.  I is a 4D array with
+channels along the first axis and spatial dimensions along the last 3</p></li>
+<li><p><strong>phii</strong> (<em>array</em>) – Numpy array or torch tensor storing positions of the sample points. phii is a 4D array
+with components along the first axis (e.g. x0,x1,x1) and spatial dimensions
+along the last 3.</p></li>
+<li><p><strong>kwargs</strong> (<em>dict</em>) – keword arguments to be passed to the grid sample function. For example
+to specify interpolation type like nearest.  See pytorch grid_sample documentation.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>out</strong> – 4D array storing a 3D image with channels stored along the first axis.
+This is the input image resampled at the points stored in phii.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>torch tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.load_slices">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">load_slices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#load_slices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.load_slices" title="Permalink to this definition"></a></dt>
+<dd><p>Load a slice dataset.</p>
+<p>Load a slice dataset for histology registration. Slice datasets include pairs
+of images and json sidecar files, as well as one tsv file explaining the dataset.
+Note this code creates a 3D array by padding.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>target_name</strong> (<em>string</em>) – Name of a directory containing slice dataset.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>xJ</strong> (<em>list of numpy arrays</em>) – Location of v</p></li>
+<li><p><strong>J</strong> (<em>numpy array</em>) – Numpy array of size C x nslices x nrows x ncols where C is the number of channels
+e.g. C=3 for RGB.</p></li>
+<li><p><strong>W0</strong> (<em>numpy array</em>) – A nslices x nrows x ncols numpy array containing weights.  Weights are 0 where there
+was padding</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<p>Document describing dataset format here: TODO XXXXX
+documented XXXX</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.map_image">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">map_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emlddmm_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_space_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_space_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_image_fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_image_directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_slice_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_slice_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_detjac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#map_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.map_image" title="Permalink to this definition"></a></dt>
+<dd><p>This function will map imaging data from one space to another.
+There are four cases:
+1. 3D to 3D mapping: A single displacement field is used to map data
+2. 3D to 2D mapping: A single displacement field is used to map data,</p>
+<blockquote>
+<div><p>a slice filename is needed in addition to a space</p>
+</div></blockquote>
+<ol class="arabic simple" start="3">
+<li><p>2D to 2D mapping: A single matrix is used to map data.</p></li>
+<li><dl class="simple">
+<dt>2D to 3D mapping: Currently not supported. Ideally this will output</dt><dd><p>data, and weights for a single slice, so it can be averaged with other slices.</p>
+</dd>
+</dl>
+</li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>emlddmm_path</strong> (<em>str</em>) – Path to the emlddmm python library, used for io</p></li>
+<li><p><strong>root_dir</strong> (<em>str</em>) – The root directory of the output structure</p></li>
+<li><p><strong>from_space_name</strong> (<em>str</em>) – The name of the space we are mapping data from</p></li>
+<li><p><strong>to_space_name</strong> (<em>str</em>) – The name of the space we are mapping data to</p></li>
+<li><p><strong>input_image_fname</strong> (<em>str</em>) – Filename of the input image to be transformed</p></li>
+<li><p><strong>output_image_fname</strong> (<em>str</em>) – Filename of the output image after transformation. If None (default), it will be returned as a python variable but not written to disk.</p></li>
+<li><p><strong>from_slice_name</strong> (<em>str</em>) – When transforming slice based image data only, we also need to know the filename of the slice the data came from.</p></li>
+<li><p><strong>to_slice_name</strong> (<em>str</em>) – When transforming slice based image data only, we also need to know the filename of the slice the data came from.</p></li>
+<li><p><strong>use_detjac</strong> (<em>bool</em>) – If the image represents a density, it should be transformed and multiplied by the Jacobian of the transformation</p></li>
+<li><p><strong>**kwargs</strong> (<em>dict</em>) – Arguments passed to torch interpolation (grid_resample), e.g. padding_mode,</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>phiI</strong> – Transformed image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.map_points">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">map_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emlddmm_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_space_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_space_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_points_fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_points_directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_slice_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_slice_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_detjac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#map_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.map_points" title="Permalink to this definition"></a></dt>
+<dd><p>For points we need to get the transforms in the opposite folder to images.</p>
+<p>This function will map imaging data from one space to another.
+There are four cases:
+1. 3D to 3D mapping: A single displacement field is used to map data
+2. 3D to 2D mapping: Currently not supported.
+3. 2D to 2D mapping: A single matrix is used to map data.
+4. 2D to 3D mapping: A single displacement field is used to map data,</p>
+<blockquote>
+<div><p>a slice filename is needed in addition to a space</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>emlddmm_path</strong> (<em>str</em>) – Path to the emlddmm python library, used for io</p></li>
+<li><p><strong>root_dir</strong> (<em>str</em>) – The root directory of the output structure</p></li>
+<li><p><strong>from_space_name</strong> (<em>str</em>) – The name of the space we are mapping data from</p></li>
+<li><p><strong>to_space_name</strong> (<em>str</em>) – The name of the space we are mapping data to</p></li>
+<li><p><strong>input_points_fname</strong> (<em>str</em>) – Filename of the input image to be transformed</p></li>
+<li><p><strong>output_directory_fname</strong> (<em>str</em>) – Filename of the output image after transformation. If None (default), it will be returned as a python variable but not written to disk.</p></li>
+<li><p><strong>from_slice_name</strong> (<em>str</em>) – When transforming slice based image data only, we also need to know the filename of the slice the data came from.</p></li>
+<li><p><strong>to_slice_name</strong> (<em>str</em>) – When transforming slice based image data only, we also need to know the filename of the slice the data came from.</p></li>
+<li><p><strong>use_detjac</strong> (<em>bool</em>) – If the image represents a density, it should be transformed and multiplied by the Jacobian of the transformation</p></li>
+<li><p><strong>**kwargs</strong> (<em>dict</em>) – Arguments passed to torch interpolation (grid_resample), e.g. padding_mode,</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>phiP</strong> (<em>array</em>) – Transformed points</p></li>
+<li><p><strong>connectivity</strong> (<em>list of lists</em>) – Same connectivity entries as loaded data</p></li>
+<li><p><strong>connectivity_type</strong> (<em>str</em>) – Same connectivity type as loaded data</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.pad">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">pad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#pad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.pad" title="Permalink to this definition"></a></dt>
+<dd><p>Pad an image and its domain.</p>
+<p>Perhaps include here</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.read_data">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">read_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#read_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.read_data" title="Permalink to this definition"></a></dt>
+<dd><p>Read array data from several file types.</p>
+<p>This function will read array based data of several types
+and output x,images,title,names. Note we prefer vtk legacy format,
+but accept some other formats as read by nibabel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fname</strong> (<em>str</em>) – Filename (full path or relative) of array data to load. Can be .vtk or
+nibabel supported formats (e.g. .nii)</p></li>
+<li><p><strong>**kwargs</strong> (<em>dict</em>) – Keyword parameters that are passed on to the loader function</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>x</strong> (<em>list of numpy arrays</em>) – Pixel locations where each element of the list identifies pixel
+locations in corresponding axis.</p></li>
+<li><p><strong>images</strong> (<em>numpy array</em>) – Imaging data of size channels x slices x rows x cols, or of size
+time x 3 x slices x rows x cols for velocity fields</p></li>
+<li><p><strong>title</strong> (<em>str</em>) – Title of the dataset (read from vtk files)</p></li>
+<li><p><strong>names</strong> (<em>list of str</em>) – Names of each dataset (channel or time point)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.read_matrix_data">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">read_matrix_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#read_matrix_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.read_matrix_data" title="Permalink to this definition"></a></dt>
+<dd><p>Read linear transforms as matrix text file.
+Note in python we work in zyx order, but text files are in xyz order</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fname</strong> (<em>str</em>) – </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>A</strong> – matrix in zyx order</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.read_vtk_data">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">read_vtk_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">endian</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'b'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#read_vtk_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.read_vtk_data" title="Permalink to this definition"></a></dt>
+<dd><p>Read vtk structured points legacy format data.</p>
+<p>Note endian should always be big, but we support little as well.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fname</strong> (<em>str</em>) – Name of .vtk file to read.</p></li>
+<li><p><strong>endian</strong> (<em>str</em>) – Endian of data, with ‘b’ for big (default and only officially supported format)
+or ‘l’ for little (for compatibility if necessary).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>x</strong> (<em>list of numpy arrays</em>) – Location of voxels along each spatial axis (last 3 axes)</p></li>
+<li><p><strong>images</strong> (<em>numpy array</em>) – Image with last three axes corresponding to spatial dimensions.  If 4D,
+first axis is channel.  If 5D, first axis is time, and second is xyz
+component of vector field.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.read_vtk_polydata">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">read_vtk_polydata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#read_vtk_polydata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.read_vtk_polydata" title="Permalink to this definition"></a></dt>
+<dd><p>Read ascii vtk polydata from simple legacy files.
+Assume file contains xyz order, they are converted to zyx for python</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fname</strong> (<em>str</em>) – The name of the file to read</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>points</strong> (<em>numpy float array</em>) – nx3 array storing locations of points</p></li>
+<li><p><strong>connectivity</strong> (<em>list of lists</em>) – list of indices containing connectivity elements</p></li>
+<li><p><strong>connectivity_type</strong> (<em>str</em>) – VERTICES or LINES or POLYGONS</p></li>
+<li><p><strong>name</strong> (<em>str</em>) – name of the dataset</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.reshape_for_local">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">reshape_for_local</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">J</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_contrast</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#reshape_for_local"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.reshape_for_local" title="Permalink to this definition"></a></dt>
+<dd><p>Reshapes an image into blocks for simple local contrast estimation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>J</strong> (<em>tensor</em>) – 3D image data where first index stores the channel information (i.e. 4D array)</p></li>
+<li><p><strong>local_contrast</strong> (<em>tensor</em>) – 1D tensor storing the block size on each dimension</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Jv</strong> – Reshaped imaging data to be used for contrast estimation</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.reshape_from_local">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">reshape_from_local</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Jv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_contrast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#reshape_from_local"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.reshape_from_local" title="Permalink to this definition"></a></dt>
+<dd><p>After changing contrast, transform back</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.rigid2D">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">rigid2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xJ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">J</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#rigid2D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.rigid2D" title="Permalink to this definition"></a></dt>
+<dd><p>Rigid transformation between 2D slices.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.sinc_resample_numpy">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">sinc_resample_numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#sinc_resample_numpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.sinc_resample_numpy" title="Permalink to this definition"></a></dt>
+<dd><p>Perform sinc resampling of an image in numpy.</p>
+<p>This function does sinc resampling using numpy rfft
+torch does not let us control behavior of fft well enough
+This is intended to be used to resample velocity fields if necessary
+Only intending it to be used for upsampling.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>I</strong> (<em>numpy array</em>) – An image to be resampled. Can be an arbitrary number of dimensions.</p></li>
+<li><p><strong>n</strong> (<em>list of ints</em>) – Desired dimension of output data.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>Id</strong> – A resampled image of size n.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>numpy array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.v_to_phii">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">v_to_phii</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#v_to_phii"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.v_to_phii" title="Permalink to this definition"></a></dt>
+<dd><p>Use Euler’s method to construct a position field from a velocity field
+by integrating over time.</p>
+<p>This method uses interpolation and subtracts and adds identity for better
+behavior outside boundaries. This method is sometimes refered to as the
+method of characteristics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xv</strong> (<em>list of 1D tensors</em>) – xv[i] is a tensor storing the location of the sample points along
+the i-th dimension of v</p></li>
+<li><p><strong>v</strong> (<em>5D tensor</em>) – 5D tensor where first axis corresponds to time, second corresponds to
+component, and 3rd to 5th correspond to spatial dimensions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>phii</strong> – Inverse transformation is output with component on the first dimension
+and space on the last 3. Note that the whole timeseries is not output.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>4D tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.write_data">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">write_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#write_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.write_data" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.write_matrix_data">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">write_matrix_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">A</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#write_matrix_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.write_matrix_data" title="Permalink to this definition"></a></dt>
+<dd><p>Write linear transforms as matrix text file.
+Note that in python we use zyx order,
+but we write outputs in xyz order</p>
+<dl class="simple">
+<dt>fname<span class="classifier">str</span></dt><dd><p>Filename to write</p>
+</dd>
+<dt>A<span class="classifier">2D array</span></dt><dd><p>Matrix data to write. Assumed to be in zyx order.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.write_outputs_for_pair">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">write_outputs_for_pair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xJ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">J</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">WJ</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atlas_space_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_space_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atlas_image_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_image_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#write_outputs_for_pair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.write_outputs_for_pair" title="Permalink to this definition"></a></dt>
+<dd><p>Write outputs in standard format for a pair of images</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>output_dir</strong> (<em>str</em>) – Location to store output data.</p></li>
+<li><p><strong>outputs</strong> (<em>dict</em>) – Dictionary of outputs from the emlddmm python code</p></li>
+<li><p><strong>xI</strong> (<em>list of numpy array</em>) – Location of voxels in atlas</p></li>
+<li><p><strong>I</strong> (<em>numpy array</em>) – Atlas image</p></li>
+<li><p><strong>xJ</strong> (<em>list of numpy array</em>) – Location of voxels in target</p></li>
+<li><p><strong>J</strong> (<em>numpy array</em>) – Target image</p></li>
+<li><p><strong>names</strong> (<em>str</em>) – Names of spaces;images otherwise will use default</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.write_qc_outputs">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">write_qc_outputs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_img</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_img</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xJ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">J</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xS</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">S</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#write_qc_outputs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.write_qc_outputs" title="Permalink to this definition"></a></dt>
+<dd><p>Write outputs
+TODO figure out how to do this with or without A2d
+I still want to output per slice</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.write_transform_outputs">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">write_transform_outputs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#write_transform_outputs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.write_transform_outputs" title="Permalink to this definition"></a></dt>
+<dd><p>Write transforms output from emlddmm.  Velocity field, 3D affine transform,
+and 2D affine transforms for each slice if applicable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>output_dir</strong> (<em>str</em>) – Directory to place output data (will be created of it does not exist)</p></li>
+<li><p><strong>output</strong> (<em>dict</em>) – Output dictionary from emlddmm algorithm</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.write_vtk_data">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">write_vtk_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#write_vtk_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.write_vtk_data" title="Permalink to this definition"></a></dt>
+<dd><p>Write data as vtk file legacy format file. Note data is written in big endian.</p>
+<p>inputs should be numpy, but will check for tensor
+only structured points supported, scalars or vectors data type
+each channel is saved as a dataset (time for velocity field, or image channel for images)
+each channel is saved as a structured points with a vector or a scalar at each point</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fname</strong> (<em>str</em>) – filename to write to</p></li>
+<li><p><strong>x</strong> (<em>list of arrays</em>) – Voxel locations along last three axes</p></li>
+<li><p><strong>out</strong> (<em>numpy array</em>) – Imaging data to write out. If out is size nt x 3 x slices x height x width we assume vector
+if out is size n x slices x height x width we assume scalar</p></li>
+<li><p><strong>title</strong> (<em>str</em>) – Name of the dataset</p></li>
+<li><p><strong>names</strong> (<em>list of str</em><em> or </em><em>None</em>) – List of names for each dataset or None to use a default.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.write_vtk_polydata">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">write_vtk_polydata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connectivity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connectivity_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#write_vtk_polydata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.write_vtk_polydata" title="Permalink to this definition"></a></dt>
+<dd><p>points should by Nx3 in zyx order
+It will be written out in xyz order
+connectivity should be lists of indices or nothing to write only cell data</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fname</strong> (<em>str</em>) – Filename to write</p></li>
+<li><p><strong>name</strong> (<em>str</em>) – Dataset name</p></li>
+<li><p><strong>points</strong> (<em>array</em>) – </p></li>
+<li><p><strong>connectivity</strong> (<em>str</em>) – Array of arrays storing each connectivity element as integers that refer to the points,
+size number of points by number of dimensions (expected to be 3)</p></li>
+<li><p><strong>connectivity_type</strong> (<em>str</em>) – Can by VERTICES, or POLYGONS, or LINES</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>nothing</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel Tward, Bryson Gray, Partha Mitra.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
