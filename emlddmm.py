@@ -596,14 +596,32 @@ def downsample_image_domain(xI,I,down,W=None):
     
     
 def downmode(xI,S_,down):
-    '''
-    xI is coordinate locations of voxels in S_
-    I is a 3d image.
-    down is a list of 3 ints to downsample along each axis
+    ''' Downsamples a 3D image by taking the mode among rectangular neighborhoods.
+    This is appropriate for label images, where averaging pixel values is not meaningful.
+    
+    Note
+    ----
     2D images can be hanled by adding a singleton dimension
     no leading batch dimensions
     
-    returns downsampled image and x
+    Parameters
+    ----------
+    xI : list of 3 numpy arrays
+        Locations of image pixels along each axis
+    S_ : numpy array
+        Numpy array storing imaging data.  Note there should not be
+        a leading dimension for channels.
+    down : list of 3 ints
+        downsample by this factor along each axis.
+                
+    
+    Returns
+    -------
+    xd : list of 3 numpy arrays
+        Locations of image pixels along each axis after downsampling.
+    Sd : numpy array
+        The downsampled image.
+    
     
     '''
     
@@ -632,14 +650,33 @@ def downmode(xI,S_,down):
     return xI_,S_
 
 def downmedian(xI,S_,down):
-    '''
-    xI is coordinate locations of voxels in S_
-    I is a 3d image.
-    down is a list of 3 ints to downsample along each axis
+    ''' Downsamples a 3D image by taking the median among rectangular neighborhoods.
+    This is often appropriate when image pixels has a small number of outliers, or when
+    pixel values are assumed to be ordered, but don't otherwise belong to a vector space.
+    
+    Note
+    ----
     2D images can be hanled by adding a singleton dimension
     no leading batch dimensions
     
-    returns downsampled image and x
+    Parameters
+    ----------
+    xI : list of 3 numpy arrays
+        Locations of image pixels along each axis
+    S_ : numpy array
+        Numpy array storing imaging data.  Note there should not be
+        a leading dimension for channels.
+    down : list of 3 ints
+        downsample by this factor along each axis.
+                
+    
+    Returns
+    -------
+    xd : list of 3 numpy arrays
+        Locations of image pixels along each axis after downsampling.
+    Sd : numpy array
+        The downsampled image.
+    
     
     '''
     

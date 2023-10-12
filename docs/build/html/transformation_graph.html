@@ -6,6 +6,7 @@
   <title>transformation_graph module &mdash; GDM 0.0.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -13,7 +14,9 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" /> 
@@ -34,11 +37,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <!-- Local TOC -->
-              <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">transformation_graph module</a></li>
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
 </ul>
-</div>
+
         </div>
       </div>
     </nav>
@@ -64,7 +71,7 @@
            <div itemprop="articleBody">
              
   <div class="section" id="module-transformation_graph">
-<span id="transformation-graph-module"></span><h1>transformation_graph module<a class="headerlink" href="#module-transformation_graph" title="Permalink to this headline"></a></h1>
+<span id="transformation-graph-module"></span><h1>transformation_graph module<a class="headerlink" href="#module-transformation_graph" title="Permalink to this heading"></a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="transformation_graph.BFS">
 <span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">BFS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dist</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#BFS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.BFS" title="Permalink to this definition"></a></dt>
@@ -74,12 +81,12 @@ of each vertex in array pred and its distance from source in array dist</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>adj</strong> (<em>list</em><em> of </em><em>dicts</em>) – adjacency list of transformations between spaces</p></li>
 <li><p><strong>src</strong> (<em>int</em>) – int value given by corresponding source in spaces dict</p></li>
 <li><p><strong>dest</strong> (<em>int</em>) – dest value given by corresponding destination in spaces dict</p></li>
 <li><p><strong>v</strong> (<em>int</em>) – length of spaces dict</p></li>
-<li><p><strong>pred</strong> (<em>list of ints</em>) – stores predecessor of vertex i at pred[i]</p></li>
-<li><p><strong>dist</strong> (<em>list of ints</em>) – stores distance (by number of vertices) of vertex i from source vertex</p></li>
+<li><p><strong>pred</strong> (<em>list</em><em> of </em><em>ints</em>) – stores predecessor of vertex i at pred[i]</p></li>
+<li><p><strong>dist</strong> (<em>list</em><em> of </em><em>ints</em>) – stores distance (by number of vertices) of vertex i from source vertex</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -103,29 +110,45 @@ For each registration both the forward and backward transformation is recorded i
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>adj</strong> (<em>list</em><em> of </em><em>dicts</em>) – adjacency list of transformations between spaces</p></li>
 <li><p><strong>spaces</strong> (<em>dict</em>) – user assigned space name strings each assigned an integer value as a key:value pair in a dictionary</p></li>
 <li><p><strong>src_space</strong> (<em>str</em>) – user assigned source space name</p></li>
 <li><p><strong>dest_space</strong> (<em>str</em>) – user assigned destination space name</p></li>
 <li><p><strong>out</strong> (<em>str</em>) – path to registration outputs</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>None</p>
-</dd>
 </dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">spaces</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;HIST&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;MRI&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;CCF&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;CT&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">adj</span> <span class="o">=</span> <span class="p">[{}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">spaces</span><span class="p">))]</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">adj</span><span class="p">)</span>
+<span class="go">[{}, {}, {}, {}]</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">add_edge</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="n">spaces</span><span class="p">,</span> <span class="s1">&#39;MRI&#39;</span><span class="p">,</span> <span class="s1">&#39;CCF&#39;</span><span class="p">,</span> <span class="s1">&#39;outputs&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">adj</span><span class="p">)</span>
+<span class="go">[{}, {2: (&#39;outputs/CCF/MRI_to_CCF/&#39;, &#39;f&#39;)}, {1: (&#39;outputs/CCF/MRI_to_CCF/&#39;, &#39;b&#39;)}, {}]</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">add_edge</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="n">spaces</span><span class="p">,</span> <span class="s1">&#39;HIST&#39;</span><span class="p">,</span> <span class="s1">&#39;MRI&#39;</span><span class="p">,</span> <span class="s1">&#39;outputs&#39;</span><span class="p">,</span> <span class="n">slice_matching</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">adj</span><span class="p">)</span>
+<span class="go">[{1: (&#39;outputs/MRI/HIST_REGISTERED_to_MRI/&#39;, &#39;f&#39;)}, {2: (&#39;outputs/CCF/MRI_to_CCF/&#39;, &#39;f&#39;), 0: (&#39;outputs/MRI/HIST_REGISTERED_to_MRI/&#39;, &#39;b&#39;)}, {1: (&#39;outputs/CCF/MRI_to_CCF/&#39;, &#39;b&#39;)}, {}]</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="transformation_graph.apply_transformation">
-<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">apply_transformation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_img</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#apply_transformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.apply_transformation" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">apply_transformation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_img</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#apply_transformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.apply_transformation" title="Permalink to this definition"></a></dt>
 <dd><p>Apply Transformation</p>
 <p>Applies affine matrix and velocity field transforms to map dest points to src points. Saves displacement field from dest points to src points
 (i.e. difference between transformed coordinates and input coordinates), and determinant of Jacobian for 3d destination spaces. Also saves transformed image in vtk format.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>adj</strong> (<em>list</em><em> of </em><em>dicts</em>) – adjacency list of transformations between spaces</p></li>
 <li><p><strong>spaces</strong> (<em>dict</em>) – user assigned space name strings each assigned an integer value as a key:value pair in a dictionary</p></li>
 <li><p><strong>src_space</strong> (<em>str</em>) – user assigned src space name used for naming outputs</p></li>
 <li><p><strong>src_img</strong> (<em>str</em>) – user assigned src image name used for naming outputs</p></li>
@@ -135,10 +158,16 @@ For each registration both the forward and backward transformation is recorded i
 <li><p><strong>dest_path</strong> (<em>str</em>) – path to destination image (image whos points are to be transformed)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>None</p>
-</dd>
 </dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">adj</span> <span class="o">=</span> <span class="p">[{</span><span class="mi">1</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/example_output/CCF/MRI_to_CCF/&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">),</span> <span class="mi">2</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/example_output/MRI/HIST_REGISTERED_to_MRI/&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">)},</span>
+<span class="gp">... </span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/example_output/CCF/MRI_to_CCF/&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">)},</span>
+<span class="gp">... </span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/example_output/MRI/HIST_REGISTERED_to_MRI/&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">)}]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spaces</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;MRI&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;CCF&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;HIST&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">apply_transformation</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="n">spaces</span><span class="p">,</span> <span class="s1">&#39;MRI&#39;</span><span class="p">,</span> <span class="s1">&#39;masked&#39;</span><span class="p">,</span> <span class="s1">&#39;CCF&#39;</span><span class="p">,</span> <span class="s1">&#39;outputs/example_output&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="s1">&#39;HR_NIHxCSHL_50um_14T_M1_masked.vtk&#39;</span><span class="p">,</span> <span class="s1">&#39;average_template_50.vtk&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -149,7 +178,7 @@ For each registration both the forward and backward transformation is recorded i
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>adj</strong> (<em>list</em><em> of </em><em>dicts</em>) – adjacency list of transformations between spaces</p></li>
 <li><p><strong>src</strong> (<em>int</em>) – int value given by corresponding source in spaces dict</p></li>
 <li><p><strong>dest</strong> (<em>int</em>) – dest value given by corresponding destination in spaces dict</p></li>
 <li><p><strong>v</strong> (<em>int</em>) – length of spaces dict</p></li>
@@ -162,6 +191,23 @@ For each registration both the forward and backward transformation is recorded i
 <dd class="field-odd"><p>list of ints</p>
 </dd>
 </dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">adj</span> <span class="o">=</span> <span class="p">[{</span><span class="mi">1</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/MRI/HIST_REGISTERED_to_MRI/&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">)},</span>
+<span class="gp">... </span>       <span class="p">{</span><span class="mi">2</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/CCF/MRI_to_CCF/&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">),</span> <span class="mi">0</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/MRI/HIST_REGISTERED_to_MRI/&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">)},</span>
+<span class="gp">... </span>       <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/CCF/MRI_to_CCF/&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">)},</span>
+<span class="gp">... </span>       <span class="p">{}]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">path</span> <span class="o">=</span> <span class="n">find_shortest_path</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="go">Shortest path length is: 2</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<span class="go">[0,1,2]</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">path</span> <span class="o">=</span> <span class="n">transformation_graph</span><span class="o">.</span><span class="n">find_shortest_path</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="go">Given source and destination are not connected</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -172,8 +218,8 @@ For each registration both the forward and backward transformation is recorded i
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>adj</strong> (<em>list of dicts</em>) – adjacency list of transformations between spaces</p></li>
-<li><p><strong>path</strong> (<em>list of ints</em>) – path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.</p></li>
+<li><p><strong>adj</strong> (<em>list</em><em> of </em><em>dicts</em>) – adjacency list of transformations between spaces</p></li>
+<li><p><strong>path</strong> (<em>list</em><em> of </em><em>ints</em>) – path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -183,12 +229,26 @@ For each registration both the forward and backward transformation is recorded i
 <dd class="field-odd"><p>list of strings</p>
 </dd>
 </dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">adj</span> <span class="o">=</span> <span class="p">[{</span><span class="mi">1</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/MRI/HIST_REGISTERED_to_MRI/&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">)},</span>
+<span class="gp">... </span>       <span class="p">{</span><span class="mi">2</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/CCF/MRI_to_CCF/&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">),</span> <span class="mi">0</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/MRI/HIST_REGISTERED_to_MRI/&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">)},</span>
+<span class="gp">... </span>       <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;outputs/CCF/MRI_to_CCF/&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">)},</span>
+<span class="gp">... </span>       <span class="p">{}]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">path</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">transformation</span> <span class="o">=</span> <span class="n">get_transformation</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">transformation</span><span class="p">)</span>
+<span class="go">[(&#39;outputs/MRI/HIST_REGISTERED_to_MRI/&#39;, &#39;f&#39;), (&#39;outputs/CCF/MRI_to_CCF/&#39;, &#39;f&#39;)]</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="transformation_graph.main">
 <span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.main" title="Permalink to this definition"></a></dt>
-<dd><p>Main function for parsing input arguments, calculating registrations and applying transformations.</p>
+<dd><p>Main</p>
+<p>Main function for parsing input arguments, calculating registrations and applying transformations.</p>
+<p class="rubric">Example</p>
+<p>$ python transformation_graph.py –infile GDMInput.json</p>
 </dd></dl>
 
 <dl class="py function">
@@ -201,27 +261,35 @@ For each registration both the forward and backward transformation is recorded i
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dest</strong> (<em>str</em>) – path to destination image</p></li>
 <li><p><strong>source</strong> (<em>str</em>) – path to source image or series of images</p></li>
-<li><p><strong>registration</strong> (<em>list of strings</em>) – List of two strings, giving source space name and destination space name.
+<li><p><strong>registration</strong> (<em>list</em>) – List containing two lists of strings, e.g. [[“src_space”,”src_img”],[“dest_space”,”dest_img”]].
 These are used for naming output files.</p></li>
 <li><p><strong>config</strong> (<em>str</em>) – path to JSON configuration file specifying registration parameters</p></li>
 <li><p><strong>out</strong> (<em>str</em>) – path to output directory</p></li>
 <li><p><strong>labels</strong> (<em>str</em>) – path to labels image used for qc</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>None</p>
-</dd>
 </dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dest</span> <span class="o">=</span> <span class="s1">&#39;average_template_50.vtk&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">source</span> <span class="o">=</span> <span class="s1">&#39;HR_NIHxCSHL_50um_14T_M1_masked.vtk&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">registration</span> <span class="o">=</span> <span class="p">[[</span><span class="s1">&#39;MRI&#39;</span><span class="p">,</span><span class="s1">&#39;masked&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;CCF&#39;</span><span class="p">,</span><span class="s1">&#39;average_template_50&#39;</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="s1">&#39;configMD816_MR_to_CCF.json&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span> <span class="o">=</span> <span class="s1">&#39;outputs/example_output&#39;</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">reg</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">registration</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="transformation_graph.run_registrations">
 <span class="sig-prename descclassname"><span class="pre">transformation_graph.</span></span><span class="sig-name descname"><span class="pre">run_registrations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reg_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/transformation_graph.html#run_registrations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#transformation_graph.run_registrations" title="Permalink to this definition"></a></dt>
 <dd><p>Run Registrations</p>
-<p>Runs a sequence of registrations given by reg_list</p>
+<p>Runs a sequence of registrations given by reg_list using reg method, which saves transformations and qc images.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>reg_list</strong> (<em>list of dicts</em>) – each dict in reg_list specifies the source image path, destination image path,
+<dd class="field-odd"><p><strong>reg_list</strong> (<em>list</em><em> of </em><em>dicts</em>) – each dict in reg_list specifies the source image path, destination image path,
 src and dest space names, output directory, and registration configuration settings.</p>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -232,6 +300,28 @@ src and dest space names, output directory, and registration configuration setti
 </p>
 </dd>
 </dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">reg_list</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;registration&#39;</span><span class="p">:[[</span><span class="s1">&#39;MRI&#39;</span><span class="p">,</span><span class="s1">&#39;masked&#39;</span><span class="p">],[</span><span class="s1">&#39;CCF&#39;</span><span class="p">,</span><span class="s1">&#39;average_template_50&#39;</span><span class="p">]],</span>
+<span class="go">                 &#39;source&#39;: &#39;HR_NIHxCSHL_50um_14T_M1_masked.vtk&#39;,</span>
+<span class="go">                 &#39;dest&#39;: &#39;average_template_50.vtk&#39;,</span>
+<span class="go">                 &#39;config&#39;: &#39;configMD816_MR_to_CCF.json&#39;,</span>
+<span class="go">                 &#39;output&#39;: &#39;outputs/example_output&#39;},</span>
+<span class="go">                {&#39;registration&#39;:[[&#39;HIST&#39;,&#39;Nissl&#39;],[&#39;MRI&#39;,&#39;masked&#39;]],</span>
+<span class="go">                 &#39;source&#39;: &#39;MD816_STIF&#39;,</span>
+<span class="go">                 &#39;dest&#39;: &#39;HR_NIHxCSHL_50um_14T_M1_masked.vtk&#39;,</span>
+<span class="go">                 &#39;config&#39;: &#39;configMD816_Nissl_to_MR.json&#39;,</span>
+<span class="go">                 &#39;output&#39;: &#39;outputs/example_output&#39;}]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">adj</span><span class="p">,</span> <span class="n">spaces</span> <span class="o">=</span> <span class="n">run_registrations</span><span class="p">(</span><span class="n">reg_list</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">adj</span><span class="p">)</span>
+<span class="go">[{1: (&#39;outputs/example_output/CCF/MRI_to_CCF/&#39;, &#39;f&#39;), 2: (&#39;outputs/example_output/MRI/HIST_REGISTERED_to_MRI/&#39;, &#39;b&#39;)},</span>
+<span class="go"> {0: (&#39;outputs/example_output/CCF/MRI_to_CCF/&#39;, &#39;b&#39;)},</span>
+<span class="go"> {0: (&#39;outputs/example_output/MRI/HIST_REGISTERED_to_MRI/&#39;, &#39;f&#39;)}]</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">spaces</span><span class="p">)</span>
+<span class="go">{&#39;MRI&#39;: 0, &#39;CCF&#39;: 1, &#39;HIST&#39;: 2}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </div>

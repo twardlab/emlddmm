@@ -6,6 +6,7 @@
   <title>2D_metadata_setup module &mdash; GDM 0.0.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -13,7 +14,9 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" /> 
@@ -34,11 +37,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <!-- Local TOC -->
-              <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">2D_metadata_setup module</a></li>
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
 </ul>
-</div>
+
         </div>
       </div>
     </nav>
@@ -63,28 +70,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="module-2D_metadata_setup">
-<span id="d-metadata-setup-module"></span><h1>2D_metadata_setup module<a class="headerlink" href="#module-2D_metadata_setup" title="Permalink to this headline"></a></h1>
-<dl class="py function">
-<dt class="sig sig-object py" id="D_metadata_setup.downsample_slices">
-<span id="2D_metadata_setup.downsample_slices"></span><span class="sig-prename descclassname"><span class="pre">2D_metadata_setup.</span></span><span class="sig-name descname"><span class="pre">downsample_slices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slice_downfactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">image_downfactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/2D_metadata_setup.html#downsample_slices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#D_metadata_setup.downsample_slices" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="D_metadata_setup.generate_sidecars">
-<span id="2D_metadata_setup.generate_sidecars"></span><span class="sig-prename descclassname"><span class="pre">2D_metadata_setup.</span></span><span class="sig-name descname"><span class="pre">generate_sidecars</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_slice</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'uint8'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[14.72,</span> <span class="pre">14.72,</span> <span class="pre">10.0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slice_downfactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/2D_metadata_setup.html#generate_sidecars"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#D_metadata_setup.generate_sidecars" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="D_metadata_setup.main">
-<span id="2D_metadata_setup.main"></span><span class="sig-prename descclassname"><span class="pre">2D_metadata_setup.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">argv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/2D_metadata_setup.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#D_metadata_setup.main" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="D_metadata_setup.make_samples_tsv">
-<span id="2D_metadata_setup.make_samples_tsv"></span><span class="sig-prename descclassname"><span class="pre">2D_metadata_setup.</span></span><span class="sig-name descname"><span class="pre">make_samples_tsv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_slice</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/2D_metadata_setup.html#make_samples_tsv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#D_metadata_setup.make_samples_tsv" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
+  <div class="section" id="d-metadata-setup-module">
+<h1>2D_metadata_setup module<a class="headerlink" href="#d-metadata-setup-module" title="Permalink to this heading"></a></h1>
 </div>
 
 

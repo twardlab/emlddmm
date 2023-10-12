@@ -6,18 +6,25 @@
 Welcome to GDM's documentation!
 ===============================
 
+Generative diffeomorphic mapping (GDM) is a deformable image registration algorithm designed for aligning multimodal neuroimaging datasets to one another for subsequent analysis.  Our package has several important novel features including estimation of any differences in contrast or color between datasets, identification of missing tissues or artifactions, diverse geometries such as mapping 3D volumes to a sequence of 2D datasets, and complex multimodality registration setups described by transformation graphs.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   
+   introduction
+   coordinate_systems
+   installation
+   documentation
+   todo
 
 
 
-Indices and tables
-==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+
+Module and function documentation
+=================================
+
 
 Installing
 ==========
@@ -43,4 +50,4 @@ Python functions to be run interactively
 
 Command line functions
 ----------------------
-* :py:mod:`transformation_graph`: Run the transformation graph
+* :py:mod:`transformation_graph_v01`: Run the transformation graph
