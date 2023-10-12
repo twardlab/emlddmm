@@ -35,6 +35,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.graphviz',
+    'sphinx.ext.imgmath',
 ]
 
 

@@ -1,1 +1,6 @@
 *~
+*.vtk
+*.npy
+*.npz
+*.nii
+*.nii.gz

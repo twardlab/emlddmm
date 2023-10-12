@@ -86,24 +86,41 @@
 <div class="section" id="example-workflow-stp-mapping">
 <h2>Example workflow: STP mapping<a class="headerlink" href="#example-workflow-stp-mapping" title="Permalink to this heading"></a></h2>
 <p>A common setting is when we do not have serial section data.  For example we may map the Allen atlas to a single 3D STP image.  We will need to superimpose atlas labels on the STPT image, and transform the STPT image to match the shape of the atlas.</p>
-<p>image here</p>
+<div class="figure align-center" id="threedthreedmap">
+<div class="graphviz"><img src="_images/graphviz-c1491416dc2eca8b1261a16e5583582ff451ba73.png" alt="Picture of an arrow from atlas to STPT." class="graphviz" /></div>
+<p class="caption"><span class="caption-text">An example task of 3D to 3D mapping between an atlas and a Serial Two Photon Tomography dataset.</span><a class="headerlink" href="#threedthreedmap" title="Permalink to this image"></a></p>
+</div>
 </div>
 <div class="section" id="example-workflow-alternating-sections-to-atlases">
 <h2>Example workflow: Alternating sections to atlases<a class="headerlink" href="#example-workflow-alternating-sections-to-atlases" title="Permalink to this heading"></a></h2>
 <p>A typical example is to image a mouse brain using serial sections.  Alternate sections are stained for Nissl, or for a specific fluorescent tracer.  The pipeline will rigidly register fluorescent slices to neighboring Nissl slices, and will deformably register the Allen CCF Nissl atlas onto the 3D stack of Nissl slices. This allows us to map the anatomical labels from the atlas onto our slices.  On each slice, we can quantify cell counts or fluorescence in atlas regions. In 3D we can quantify tracer or cell density.</p>
-<p>image here</p>
+<div class="figure align-center" id="threedtwodmap">
+<div class="graphviz"><img src="_images/graphviz-c85a7c1fdd0203e2f1b78199e22a9eabbc126cc6.png" alt="Picture of an arrow from atlas to STPT." class="graphviz" /></div>
+<p class="caption"><span class="caption-text">We map our 3D atlas onto a series of 2D nissl images. We also map our 2D Nissl images to their nearest fluorescent image</span><a class="headerlink" href="#threedtwodmap" title="Permalink to this image"></a></p>
+</div>
+<p>Note that any time our pipeline registers a 3D volume to a set of 2D slices, a new space is automatically created called a “registered” space.  In this space, all the Nissl sections will be rigidly aligned into a 3D reconstruction.</p>
+<div class="figure align-center" id="threedtwodmapwithregistered">
+<span id="twodsections"></span><div class="graphviz"><img src="_images/graphviz-17fc1b285f99230a7ba17938c5a66e57d313d153.png" alt="Picture of an arrow from atlas to STPT." class="graphviz" /></div>
+<p class="caption"><span class="caption-text">For any 3D to 2D map, a registered space is automatically created (shown in red).  No input data is associated with this space, but images can be reconstructed into this space.</span><a class="headerlink" href="#threedtwodmapwithregistered" title="Permalink to this image"></a></p>
+</div>
 </div>
 <div class="section" id="example-workflow-ex-vivo-mri">
 <h2>Example workflow: Ex vivo MRI<a class="headerlink" href="#example-workflow-ex-vivo-mri" title="Permalink to this heading"></a></h2>
 <p>Another example is when MRI is available for a specimen.  We typically have an in vivo MRI, ex vivo MRI, and serial section microscopy.  The registration tasks are: i) ex vivo to in vivo, ii) ex vivo to serial sections, iii) ex vivo to atlas.  We may wish to reconstruct our data in any of the three spaces (in vivo, ex vivo, or atlas). Here the ex vivo MRI plays the role of a common space that is mapped to everything.</p>
+<div class="figure align-center" id="exvivomap">
+<div class="graphviz"><img src="_images/graphviz-a834afb1aafbc87626dfdd72d6693181edb9375e.png" alt="Picture of an arrow from atlas to STPT." class="graphviz" /></div>
+<p class="caption"><span class="caption-text">We may also include in vivo and ex vivo mri.</span><a class="headerlink" href="#exvivomap" title="Permalink to this image"></a></p>
+</div>
+<p>Again, a reconstructed space  will be automatically created.</p>
+<div class="figure align-center" id="exvivomapwithregistered">
+<div class="graphviz"><img src="_images/graphviz-0cdac0cc9ba56e2a51ddb9ba31f94a50149ec16e.png" alt="Picture of an arrow from atlas to STPT." class="graphviz" /></div>
+<p class="caption"><span class="caption-text">For any 3D to 2D map, a registered space is automatically created (shown in red).  No input data is associated with this space, but images can be reconstructed into this space.</span><a class="headerlink" href="#exvivomapwithregistered" title="Permalink to this image"></a></p>
+</div>
 </div>
 <div class="section" id="example-workflow-arbitrary-layout">
 <h2>Example workflow: Arbitrary layout<a class="headerlink" href="#example-workflow-arbitrary-layout" title="Permalink to this heading"></a></h2>
 <p>In general, a registration task can be formulated by a directed acyclic graph.  Each node in the graph is a “space”, which may have more than one image associated with it.  Each arrow in the graph is a registration task.</p>
 <p>We have built infrastructure to perform necessary maps, and compose transforms to reconstruct any dataset in any space.</p>
-<div class="graphviz"><img src="_images/graphviz-e399987d98003a9830bb1b01d506dfd229b26557.png" alt="digraph {
-   &quot;From&quot; -&gt; &quot;To&quot;;
-}" class="graphviz" /></div>
 </div>
 </div>
 
