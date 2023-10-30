@@ -36,12 +36,13 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.graphviz',
     'sphinx.ext.imgmath',
+    'sphinx.ext.todo'
 ]
 
 
 # Napoleon settings
 # Note daniel is using all defaults
-napoleon_google_docstring = True
+napoleon_google_docstring = False # daniel changed to false
 napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = False
 napoleon_include_private_with_doc = False
@@ -51,10 +52,13 @@ napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
 napoleon_use_ivar = False
 napoleon_use_param = True
-napoleon_use_rtype = True
+napoleon_use_rtype = False # I changed this to false, it now won't create a return type field for functions with one output
 napoleon_preprocess_types = False
 napoleon_type_aliases = None
 napoleon_attr_annotations = True
+
+# Display todos by setting to True
+todo_include_todos = True
 
 
 

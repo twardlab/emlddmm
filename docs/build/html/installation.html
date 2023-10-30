@@ -21,7 +21,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Function reference" href="documentation.html" />
-    <link rel="prev" title="Coordinate Systems" href="coordinate_systems.html" /> 
+    <link rel="prev" title="Output Specification" href="output_specification.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,6 +43,9 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
@@ -74,15 +77,31 @@
              
   <div class="section" id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h1>
-<p>Clone the repository</p>
-<p>Install the requirements</p>
+<p>Clone the repository:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">twardlab</span><span class="o">/</span><span class="n">emlddmm</span>
+</pre></div>
+</div>
+<p>Change to the directory emlddmm has been cloned to and install the requirements:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">r</span> <span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+<p>When running interactively in python, add the appropriate path:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;PATH_TO_EMLDDMM_LIBRARY&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When running from command line:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">PATH_TO_EMLDDMM_LIBRARY</span><span class="o">/</span><span class="n">transformation_graph_v01</span><span class="o">.</span><span class="n">py</span> <span class="n">OTHER_INPUTS</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>For details on the command line interface, see <a class="reference internal" href="input_specification.html"><span class="doc">input specification</span></a>.</p>
 </div>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="coordinate_systems.html" class="btn btn-neutral float-left" title="Coordinate Systems" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="output_specification.html" class="btn btn-neutral float-left" title="Output Specification" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="documentation.html" class="btn btn-neutral float-right" title="Function reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

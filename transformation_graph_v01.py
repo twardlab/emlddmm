@@ -283,7 +283,7 @@ class Graph:
                     X = t.apply(X)
                 else:
 
-                    # TODO
+                    # TODO (done)
                     # for each z coordinate, find the closest slice
                     # then map the xy coordinates based on the matrix for there closest slice
                     # also, snap the z coordinate exactly to the slice, I think this will be necessary for interpolation      

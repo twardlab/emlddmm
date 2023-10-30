@@ -41,6 +41,9 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
@@ -90,10 +93,7 @@ of each vertex in array pred and its distance from source in array dist</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>True if a path from src to dest is found and False otherwise</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>bool</p>
+<dd class="field-even"><p><em>bool</em> – True if a path from src to dest is found and False otherwise</p>
 </dd>
 </dl>
 </dd></dl>
@@ -185,10 +185,7 @@ For each registration both the forward and backward transformation is recorded i
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>path</strong> – path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>list of ints</p>
+<dd class="field-even"><p><strong>path</strong> (<em>list of ints</em>) – path from src to dest using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.</p>
 </dd>
 </dl>
 <p class="rubric">Example</p>
@@ -223,10 +220,7 @@ For each registration both the forward and backward transformation is recorded i
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>transformation</strong> – list of file paths to sequence of transformations matching src to dest</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>list of strings</p>
+<dd class="field-even"><p><strong>transformation</strong> (<em>list of strings</em>) – list of file paths to sequence of transformations matching src to dest</p>
 </dd>
 </dl>
 <p class="rubric">Example</p>

@@ -25,9 +25,10 @@ PIL.Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error
 
 # display
 def extent_from_x(xJ):
-    ''' Given a set of pixel locations, returns an extent 4-tuple for use with n    git push --set-upstream origin interface_checking_march_2023
-p.imshow.
+    ''' Given a set of pixel locations, returns an extent 4-tuple for use with imshow.
     
+    Note
+    ----
     Note inputs are locations of pixels along each axis, i.e. row column not xy.
     
     Parameters
@@ -40,9 +41,12 @@ p.imshow.
     extent : tuple
         (xmin, xmax, ymin, ymax) tuple
     
-    Examples
-    --------
+    Example
+    -------
+    Draw a 2D image stored in J, with pixel locations of rows stored in xJ[0] and pixel locations
+    of columns stored in xJ[1].
     
+    >>> import matplotlib.pyplot as plt
     >>> extent_from_x(xJ)
     >>> fig,ax = plt.subplots()
     >>> ax.imshow(J,extent=extentJ)
@@ -829,7 +833,16 @@ def reshape_for_local(J,local_contrast):
     Jshape = torch.as_tensor(J.shape[1:],device=J.device)
     topad = Jshape%local_contrast
     topad = (local_contrast-topad)%local_contrast    
-    Jpad = torch.nn.functional.pad(J,(0,topad[2].item(),0,topad[1].item(),0,topad[0].item()))              
+    Jpad = torch.nn.functional.pad(J,(0,topad[2].item(),0,topad[1].item(),0,topad[0].item()))   
+    '''
+    # let's do symmetric padding instead
+    # note, we need cropping at the end to match this
+    # if its even, they'll both be the same
+    # if its odd, right will be one more
+    leftpad = torch.floor(topad/2.0).int()
+    rightpad = torch.ceil(topad/2.0).int()
+    Jpad = torch.nn.functional.pad(J,(leftpad[2].item(),rightpad[2].item(),leftpad[1].item(),rightpad[1].item(),leftpad[0].item(),rightpad[0].item()))   
+    '''
     
     # now reshape it
     Jpad_ = Jpad.reshape( (Jpad.shape[0],
@@ -853,20 +866,19 @@ def emlddmm(**kwargs):
     different imaging modalities with possible missing data in one of them
     
     Details of this algorithm can be found in
-    [1] Tward, Daniel, et al. "Diffeomorphic registration with intensity 
-    transformation and missing data: Application to 3D digital pathology 
-    of Alzheimer's disease." Frontiers in neuroscience 14 (2020): 52.
-    [2] Tward, Daniel, et al. "3d mapping of serial histology sections 
-    with anomalies using a novel robust deformable registration algorithm." 
-    Multimodal Brain Image Analysis and Mathematical Foundations of 
-    Computational Anatomy. Springer, Cham, 2019. 162-173.
-    [3] Tward, Daniel, et al. "Solving the where problem in neuroanatomy: 
-    a generative framework with learned mappings to register multimodal, 
-    incomplete data into a reference brain." bioRxiv (2020).
+    
+    * [1] Tward, Daniel, et al. "Diffeomorphic registration with intensity transformation and missing data: Application to 3D digital pathology of Alzheimer's disease." Frontiers in neuroscience 14 (2020): 52.
+    * [2] Tward, Daniel, et al. "3d mapping of serial histology sections with anomalies using a novel robust deformable registration algorithm." Multimodal Brain Image Analysis and Mathematical Foundations of Computational Anatomy. Springer, Cham, 2019. 162-173.
+    * [3] Tward, Daniel, et al. "Solving the where problem in neuroanatomy: a generative framework with learned mappings to register multimodal, incomplete data into a reference brain." bioRxiv (2020).
+    * [4] Tward DJ. An optical flow based left-invariant metric for natural gradient descent in affine image registration. Frontiers in Applied Mathematics and Statistics. 2021 Aug 24;7:718607.
+    
+    
+    Note all parameters are keyword arguments, but the first four are required.    
+    
     
     Parameters
     ----------
-    Note all parameters are keyword arguments, but the first four are required.    
+    
     xI : list of arrays
         xI[i] stores the location of voxels on the i-th axis of the atlas image I (REQUIRED)
     I : 4D array (numpy or torch)
@@ -882,10 +894,52 @@ def emlddmm(**kwargs):
     eA : float
         Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
         that you test this value and not rely on defaults. Note linear and translation components
-        are combined following [ref] so only one stepsize is required.
+        are combined following [4] so only one stepsize is required.
     ev : float
         Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
         that you test this value and not rely on defaults.
+    order : int
+        Order of the polynomial used for contrast mapping. If using local contranst,
+        only order 1 is supported.
+    n_draw : int
+        Draw a picture every n_draw iterations. 0 for do not draw.
+    sigmaR : float
+        Amount of regularization of the velocity field used for diffeomorphic transformation,
+        of the form 1/sigmaR^2 * (integral over time of norm velocity squared ).
+    n_iter : int
+        How many iterations of optimization to run.
+    n_e_step : int
+        How many iterations of M step to run before another E step is ran in
+        expectation maximization algorithm for detecting outliers.
+    v_start : int
+        What iteration to start optimizing velocity field.  One may want to compute an affine
+        transformation before beginning to compute a deformation (for example).
+    n_reduce_step : int
+        Simple stepsize reducer for gradient descent optimization. Every this number of steps,
+        we check if objective function is oscillating. If so we reduce the step size.
+    v_expand_factor : float
+        How much bigger than the atlas image should the domain of the velocity field be? This
+        is helpful to avoid wraparound effects caused by discrete Fourier domain calculations.
+        0.2 means 20% larger.
+    v_res_factor : float
+        How much lower resolution should the velocity field be sampled at than the atlas image.
+        This is overrided if you specify dv.
+    dv : None or float or list of 3 floats
+        Explicitly state the resolution of the sampling grid for the velocity field.
+    a : float
+        Constant with units of length.  In velocity regularization, its square is multiplied against the Laplacian.
+        Regularization is of the form 1/2/sigmaR^2 int |(id - a^2 Delta)^p v_t|^2_{L2} dt.
+    p : float
+        Power of the Laplacian operator in regularization of the velocity field.  
+        Regularization is of the form 1/2/sigmaR^2 int |(id - a^2 Delta)^p v_t|^2_{L2} dt.
+        
+    
+    
+        
+    
+        
+    
+    
     
     Returns
     -------
@@ -942,7 +996,7 @@ def emlddmm(**kwargs):
                 'p':2.0,    
                 'aprefactor':0.1, # in terms of voxels in the downsampled atlas
                 'device':None, # cuda:0 if available otherwise cpu
-                'dtype':torch.float,
+                'dtype':torch.double,
                 'downI':[1,1,1],
                 'downJ':[1,1,1],      
                 'W0':None,
@@ -970,6 +1024,7 @@ def emlddmm(**kwargs):
                 'local_contrast':None, # simple local contrast estimation mode, should be a list of ints
                 'reduce_factor':0.9,
                 'auto_stepsize_v':0, # 0 for no auto stepsize, or a number n for updating every n iterations
+                'up_vector':None, # the up vector in the atlas, which should remain up (pointing in the -y direction) in the target
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -1067,6 +1122,12 @@ def emlddmm(**kwargs):
         local_contrast = []
     if local_contrast:
         local_contrast = torch.as_tensor(local_contrast, device=device)
+    # up vector
+    up_vector = kwargs['up_vector']
+    if up_vector is not None:
+        up_vector = torch.tensor(up_vector,device=device,dtype=dtype)
+        if len(up_vector) != 3: raise Exception('problem with up vector')
+    
     
     
     
@@ -1208,7 +1269,7 @@ def emlddmm(**kwargs):
             # note as_tensor will not do a copy if it is the same dtype and device
             # torch.tensor will always copy
             if type(v) == torch.Tensor:
-                v = v.detach().clone()
+                v = torch.tensor(v.detach().clone(),device=device,dtype=dtype)
             else:
                 v = torch.tensor(v,device=device,dtype=dtype) 
             v.requires_grad = True
@@ -1231,7 +1292,7 @@ def emlddmm(**kwargs):
         # A = torch.tensor(A,device=device,dtype=dtype)
         # This is only to bypass the warning message. Gray, Sep. 2022
         if type(A) == torch.Tensor:
-            A = A.detach().clone()
+            A = torch.tensor(A.detach().clone(),device=device,dtype=dtype)
         else:
             A = torch.tensor(A,device=device,dtype=dtype)
         A.requires_grad = True
@@ -1246,7 +1307,7 @@ def emlddmm(**kwargs):
             # A2d = torch.tensor(A2d, device=device, dtype=dtype)
             # This is only to bypass the warning message. Gray, Sep. 2022
             if type(A2d) == torch.Tensor:
-                A2d = A2d.detach().clone()
+                A2d = torch.tensor(A2d.detach().clone(),device=device, dtype=dtype)
             else:
                 A2d = torch.tensor(A2d, device=device, dtype=dtype)
             A2d.requires_grad = True
@@ -1350,6 +1411,9 @@ def emlddmm(**kwargs):
                 # in this case, I still need a column of ones
                 B_ = torch.ones((Nvoxels,AphiI.shape[0]+1),dtype=dtype,device=device)
                 B_[:,1:] = AphiI.reshape(AphiI.shape[0],-1).T
+            elif order == 0:
+                # should be ok, skip contrast estimation
+                pass
             else:
                 raise Exception('Require either order = 1 or order>1 and 1D atlas')
             # note B was size N voxels by N channels
@@ -1381,18 +1445,21 @@ def emlddmm(**kwargs):
         if not slice_matching or (slice_matching and type(local_contrast)!=list and local_contrast[0]==1):
 
             if type(local_contrast)==list:
-                # global contrast mapping
-                with torch.no_grad():                
-                    # multiply by weight
-                    B__ = B_*(WM*W0).reshape(-1)[...,None]
-                    # feb 2, 2022 converted from inv to solve and used double
-                    # august 2022 add id a small constnat times identity, but I'll set it to zero for now so no change
-                    small = 1e-2*0
-                    # september 2023, set to 1e-4, because I was getting nan
-                    small = 1e-4
-                    coeffs = torch.linalg.solve((B__.T@B_).double() + torch.eye(B__.shape[1],device=device,dtype=torch.float64)*small, 
-                                                (B__.T@(J.reshape(J.shape[0],-1).T)).double() ).to(dtype)
-                fAphiI = ((B_@coeffs).T).reshape(J.shape) # there are unnecessary transposes here, probably slowing down, to fix later
+                if order == 0:
+                    fAphiI = AphiI
+                else:
+                    # global contrast mapping
+                    with torch.no_grad():                
+                        # multiply by weight
+                        B__ = B_*(WM*W0).reshape(-1)[...,None]
+                        # feb 2, 2022 converted from inv to solve and used double
+                        # august 2022 add id a small constnat times identity, but I'll set it to zero for now so no change
+                        small = 1e-2*0
+                        # september 2023, set to 1e-4, because I was getting nan
+                        small = 1e-4
+                        coeffs = torch.linalg.solve((B__.T@B_).double() + torch.eye(B__.shape[1],device=device,dtype=torch.float64)*small, 
+                                                    (B__.T@(J.reshape(J.shape[0],-1).T)).double() ).to(dtype)
+                    fAphiI = ((B_@coeffs).T).reshape(J.shape) # there are unnecessary transposes here, probably slowing down, to fix later
             else:
                 # local contrast estimation using refactoring
                 with torch.no_grad():
@@ -1411,6 +1478,7 @@ def emlddmm(**kwargs):
                                               Jpadv.shape[1]*local_contrast[1].item(), 
                                               Jpadv.shape[2]*local_contrast[2].item())
                 fAphiI = fAphiIpad[:,:J.shape[1],:J.shape[2],:J.shape[3]]
+                # todo, symmetric cropping and padding
 
 
         else: # with slice matching I need to solve these equation for every slice
@@ -1418,31 +1486,35 @@ def emlddmm(**kwargs):
             # I need to update
             # TODO
             # recall B_ is size nvoxels by nchannels
-            B_ = B_.reshape(J.shape[1],-1,B_.shape[-1])
-            
-           
-            
-            
-            # now be is nslices x npixels x nchannels B
-            with torch.no_grad():
-                # multiply by weight                
-                B__ = B_*(WM*W0).reshape(WM.shape[0],-1)[...,None]     
-                # B__ is shape nslices x npixels x nchannelsB
-                BB = B__.transpose(-1,-2)@B_
-                # BB is shape nslices x nchannelsb x nchannels b
-                
-                J_ = (J.permute(1,2,3,0).reshape(J.shape[1],-1,J.shape[0]))        
-                # J_ is shape nslices x npixels x nchannelsJ
-                # B__.T is shape nslices x nchannelsB x npixels
-                BJ = (B__.transpose(-1,-2))@ J_
-                # BJ is shape nslices x nchannels B x nchannels J
-                # TODO: add identity to BB
-                coeffs = torch.inverse(BB + torch.eye(BB.shape[-1],device=BB.device,dtype=BB.dtype).repeat((BB.shape[0],1,1))*torch.max(BB)*1e-6) @ BJ
-                # coeffs is shape nslices x nchannelsB x nchannelsJ
-                
-                      
-            fAphiI = (B_[...,None,:]@coeffs[:,None]).reshape(J.shape[1],J.shape[2],J.shape[3],J.shape[0]).permute(-1,0,1,2)
-            
+            if order == 0:
+                fAphiI = AphiI
+            else:
+                B_ = B_.reshape(J.shape[1],-1,B_.shape[-1])
+
+
+
+
+                # now be is nslices x npixels x nchannels B
+                with torch.no_grad():
+                    # multiply by weight                
+                    B__ = B_*(WM*W0).reshape(WM.shape[0],-1)[...,None]     
+                    # B__ is shape nslices x npixels x nchannelsB
+                    BB = B__.transpose(-1,-2)@B_
+                    # BB is shape nslices x nchannelsb x nchannels b
+
+                    J_ = (J.permute(1,2,3,0).reshape(J.shape[1],-1,J.shape[0]))        
+                    # J_ is shape nslices x npixels x nchannelsJ
+                    # B__.T is shape nslices x nchannelsB x npixels
+                    BJ = (B__.transpose(-1,-2))@ J_
+                    # BJ is shape nslices x nchannels B x nchannels J
+                    # TODO: add identity to BB
+                    coeffs = torch.inverse(BB + torch.eye(BB.shape[-1],device=BB.device,dtype=BB.dtype).repeat((BB.shape[0],1,1))*torch.max(BB)*1e-6) @ BJ
+                    # coeffs is shape nslices x nchannelsB x nchannelsJ
+
+
+                fAphiI = (B_[...,None,:]@coeffs[:,None]).reshape(J.shape[1],J.shape[2],J.shape[3],J.shape[0]).permute(-1,0,1,2)
+        
+
         
         err = (fAphiI - J)
         err2 = (err**2*(WM*W0))
@@ -1538,7 +1610,7 @@ def emlddmm(**kwargs):
             T2dsave.append(A2d[:,:2,-1].detach().clone().squeeze().reshape(-1).cpu().numpy())
             L2dsave.append(A2d[:,:2,:2].detach().clone().squeeze().reshape(-1).cpu().numpy())
         # a nice check on step size would be to see if these are oscilating or monotonic
-        if it > 10 and not it%n_reduce_step:
+        if n_reduce_step and (it > 10 and not it%n_reduce_step):
             
             checksign0 = np.sign(maxvsave[-1] - maxvsave[-2])
             checksign1 = np.sign(maxvsave[-2] - maxvsave[-3])
@@ -1580,14 +1652,52 @@ def emlddmm(**kwargs):
             axE[2].set_title('Reg')
 
 
-            _ = draw(AphiI.detach().cpu(),xJ,fig=figI,vmin=vminI,vmax=vmaxI)
-            figI.suptitle('AphiI')
-            _ = draw(fAphiI.detach().cpu(),xJ,fig=figfI,vmin=vminJ,vmax=vmaxJ)
-            figfI.suptitle('fAphiI')
-            _ = draw(fAphiI.detach().cpu() - J.cpu(),xJ,fig=figErr)
-            figErr.suptitle('Err')
-            _ = draw(J.cpu(),xJ,fig=figJ,vmin=vminJ,vmax=vmaxJ)
-            figJ.suptitle('J')
+            
+            # TODO
+            # if slice matching, it would be better to see the reconstructed version
+            if not slice_matching:
+                _ = draw(AphiI.detach().cpu(),xJ,fig=figI,vmin=vminI,vmax=vmaxI)
+                figI.suptitle('AphiI')
+                _ = draw(fAphiI.detach().cpu(),xJ,fig=figfI,vmin=vminJ,vmax=vmaxJ)
+                figfI.suptitle('fAphiI')     
+                
+                _ = draw(fAphiI.detach().cpu() - J.cpu(),xJ,fig=figErr)
+                figErr.suptitle('Err')
+                _ = draw(J.cpu(),xJ,fig=figJ,vmin=vminJ,vmax=vmaxJ)
+                figJ.suptitle('J')
+
+            else:                                     
+                # find a sampling grid
+                A2di = torch.linalg.inv(A2d)
+                meanshift = torch.mean(A2di[:,0:2,-1],dim=0)
+                xJshift = [x.clone() for x in xJ]
+                xJshift[1] += meanshift[0]
+                xJshift[2] += meanshift[1]
+                XJshift = torch.stack(torch.meshgrid(xJshift,indexing='ij'))
+                XJ_ = torch.clone(XJshift)
+                # leave z component the same (x0) and transform others                   
+                XJ_[1:] = ((A2d[:,None,None,:2,:2]@ (XJshift[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)      
+                RiJ = interp(xJ,J,XJ_)
+                
+                Xs_ = ((Ai[:3,:3]@XJshift.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
+                phiiAi_ = interp(xv,phii-XV,Xs_) + Xs_
+        
+                # transform image
+                AphiI_ = interp(xI,I,phiiAi_)                
+                _ = draw(AphiI_.detach().cpu(),xJshift,fig=figI,vmin=vminI,vmax=vmaxI)
+                figI.suptitle('AphiI')
+                
+                fAphiI_ = interp(xJ,fAphiI,XJ_)
+                _ = draw(fAphiI_.detach().cpu(),xJshift,fig=figfI,vmin=vminJ,vmax=vmaxJ)
+                figfI.suptitle('fAphiI')  
+                
+                
+                _ = draw(fAphiI_.detach().cpu() - RiJ.cpu(),xJshift,fig=figErr)
+                figErr.suptitle('Err')
+                _ = draw(RiJ.cpu(),xJ,fig=figJ,vmin=vminJ,vmax=vmaxJ)
+                figJ.suptitle('RiJ')
+            
+            
 
             axA[0].cla()
             axA[0].plot(np.array(Tsave))
@@ -1645,6 +1755,7 @@ def emlddmm(**kwargs):
             # what do I need to do to implement this?
             # the only tricky thing is to resample grad onto the same grid as J            
             if auto_stepsize_v and not it%auto_stepsize_v:
+                # WORKING
                 # first we need to deal with the affine
                 # we will transform J and fAphiI and W back to the space of I
                 Xs = (A[:3,:3]@XI[...,None])[...,0] + A[:3,-1]
@@ -1680,24 +1791,123 @@ def emlddmm(**kwargs):
                 # isotropic (done, really where is normal up?)
                 # TODO normal                
                 # what I really should do is parameterize this group and work out a metric                                
-                u,s,v_ = torch.svd(A[:3,:3])
+                u,s,vh = torch.linalg.svd(A[:3,:3])
                 if slice_matching_isotropic:
                     s = torch.exp(torch.mean(torch.log(s)))*torch.eye(3,device=device,dtype=dtype)
-                    A[:3,:3] = u@s@v_.T  # why transpose? torch svd does not return the transpose, but this will be deprecated
+                    A[:3,:3] = u@s@vh  # why transpose? torch svd does not return the transpose, but this will be deprecated (fixed)
                 
                 if it > slice_matching_start:
                     A2d[:,:2,:3] -= A2dgrad*eA2d # already scaled
-                # project onto rigid
-                # TODO, when not centered at origin, I may need a different projection (see procrustes)
-                u,s,v_ = torch.svd(A2d[:,:2,:2])
-                A2d[:,:2,:2] = u@v_.transpose(1,2)
+                
+                
                 A2d.grad.zero_()
+                
+                
+                # project onto rigid
+                #u,s,v_ = torch.svd(A2d[:,:2,:2])
+                #A2d[:,:2,:2] = u@v_.transpose(1,2)
+                #A2d.grad.zero_()
+                
+                
+                # TODO, when not centered at origin, I may need a different projection (see procrustes)
+                # Let X be the voxel locations in the target image J
+                # then let A2dX = Y be the transformed voxel locations with a nonrigid transform
+                # then we want to find R to minimize |RX - Y|^2
+                # this is done in 2 steps, first we center
+                # then we svd
+                
+                # these are the untransformed points
+                X = torch.clone(XJ[1:])
+                
+                # these are the transformed points Y
+                # we will need to update this, otherwise I'm just projecting onto the same one as last time
+                A2di = torch.linalg.inv(A2d) 
+                Y = ((A2di[:,None,None,:2,:2]@ (X.permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)                            
+                # for linear algebra, vector components at end
+                X = X.permute(1,2,3,0)
+                Y = Y.permute(1,2,3,0)
+                # we want to find a rigid transform of X to match Y (sum over row and column)
+                Xbar = torch.mean(X,dim=(1,2),keepdims=True)
+                Ybar = torch.mean(Y,dim=(1,2),keepdims=True)
+                X = X - Xbar
+                Y = Y - Ybar
+                # now we want to find the best rotation that matches X to Y
+                # we want
+                # min |RX - Y|^2
+                # min tr[(RX-Y)(RX-Y)^T]
+                # min -tr[RXY^T]
+                # max tr[R(XY^T)]
+                # let XY^T = USV^T
+                # then
+                # max tr[R (USV^T)]
+                # max tr[(V^T R U) S]
+                # this is maximized when the bracketted term is identity
+                # so V^T R U = id
+                # R = V U^T
+                # note xyz is first dimension, I will want it to be last
+                # for tanslation
+                # now I need the translation part
+                # but this should just be
+                # R(X-Xbar) = (Y-Ybar)
+                # RX - RXbar = Y-Ybar
+                # RX + [-RXbar + Ybar] = Y
+                S = X.reshape(X.shape[0],-1,2).transpose(-1,-2) @ Y.reshape(X.shape[0],-1,2)
+                U,_,Vh = torch.linalg.svd(S)
+                #R = U.transpose(-1,-2)@Vh.transpose(-1,-2)
+                #R = R.transpose(-1,-2) # ? this seems to work
+                R = Vh.transpose(-1,-2)@U.transpose(-1,-2)
+                T = ((-R[:,None,None,]@Xbar[...,None])[...,0] + Ybar)[:,0,0,:]
+                # now we need to stack them together
+                A2di_ = torch.zeros(T.shape[0],3,3,dtype=dtype,device=device)
+                A2di_[:,:2,:2] = R
+                A2di_[:,:2,-1] = T
+                A2di_[:,-1,-1] = 1
+                A2d.data = torch.linalg.inv(A2di_)
+                
+            
+            
+                
+                
                 
                 # move any xy translation into 2d
                 # to do this I will have to account for any linear transformation
                 vec = A[1:3,-1]
                 A2d[:,:2,-1] += (A2di[:,:2,:2]@vec[...,None])[...,0]
                 A[1:3,-1] = 0
+                
+                if up_vector is not None:
+                    #print(up_vector)
+                    # what direction does the up vector point now?
+                    new_up = A[:3,:3]@up_vector
+                    #print(new_up)
+                    # now we ignore the z component
+                    new_up_2d = new_up[1:]
+                    #print(new_up_2d)
+                    # we'll find the rotation angle, with respect to the -y axis
+                    # use standard approach to find angle from x axis, and add 90 deg
+                    angle = torch.atan2(new_up_2d[0],new_up_2d[1]) + np.pi/2 # of the form x y (TODO double check)
+                    #print(angle*180/np.pi)
+                    # form a rotation matrix by the negative of this angle
+                    rot = torch.tensor([[1.0,0.0,0.0,0.0],[0.0,torch.cos(angle),-torch.sin(angle),0.0],[0.0,torch.sin(angle),torch.cos(angle),0.0],[0.0,0.0,0.0,1.0]],dtype=dtype,device=device)
+                    #print(rot)
+                    # now we have to apply this matrix to the 3D (on the left)
+                    # and its inverse to the 2D (on the right)
+                    # so they will cancel out
+                    # BUT, what do I do about the translation?
+                    # of course, I can add a translation to rot
+                    # but do to the above issue (no xy translation on A), I think it should just be zero
+                    
+                    #print('A before',A)
+                    A[:,:] = rot@A
+                    #print('A after',A)
+                    #print(torch.linalg.inv(rot)[1:,1:])
+                    A2d[:,:,:] = A2d@torch.linalg.inv(rot)[1:,1:]
+                    #double check
+                    #print('test up',A[:3,:3]@up_vector)
+                    # I expect this should now point exactly up
+                    # but it seems to not
+                    
+                    
             
 
             # other terms in m step, these don't actually matter until I update
@@ -1723,23 +1933,24 @@ def emlddmm(**kwargs):
             pass
             
     # outputs
-    out = {'A':A.detach().clone(),
-           'v':v.detach().clone(),
+    out = {'A':A.detach().clone().cpu(),
+           'v':v.detach().clone().cpu(),
            'xv':[x.detach().clone() for x in xv]}
     if slice_matching:
-        out['A2d'] = A2d.detach().clone()
+        out['A2d'] = A2d.detach().clone().cpu()
     if full_outputs:
         # other data I may need
-        out['WM'] = WM.detach().clone()
-        out['WA'] = WA.detach().clone()
-        out['WB'] = WB.detach().clone()
-        out['W0'] = W0.detach().clone()
-        out['muB'] = muB.detach().clone()
-        out['muA'] = muA.detach().clone()
-        out['sigmaB'] = sigmaB.detach().clone()
-        out['sigmaA'] = sigmaA.detach().clone()
-        out['sigmaM'] = sigmaM.detach().clone()
-        out['coeffs'] = coeffs.detach().clone()
+        out['WM'] = WM.detach().clone().cpu()
+        out['WA'] = WA.detach().clone().cpu()
+        out['WB'] = WB.detach().clone().cpu()
+        out['W0'] = W0.detach().clone().cpu()
+        out['muB'] = muB.detach().clone().cpu()
+        out['muA'] = muA.detach().clone().cpu()
+        out['sigmaB'] = sigmaB.detach().clone().cpu()
+        out['sigmaA'] = sigmaA.detach().clone().cpu()
+        out['sigmaM'] = sigmaM.detach().clone().cpu()
+        if order>0:
+            out['coeffs'] = coeffs.detach().clone().cpu()
         # return figures
         if n_draw:
             out['figA'] = figA
@@ -2505,10 +2716,12 @@ def read_vtk_polydata(fname):
         connectivity_counter = -1
         count = 0
         for line in f:
+            #print(line)
             if count == 1:
                 # this line has name
                 name = line.strip()
-            if 'POINTS' in line.upper():
+            if 'POINTS' in line.upper() and count > 1:
+                # we need to make sure we're not detecting the title
                 #print(f'found points {line}')
                 parts = line.split()
                 npoints = int(parts[1])
@@ -2729,7 +2942,7 @@ def write_transform_outputs_(output_dir, output, I, J):
     -------
     None
 
-    TODO
+    Todo
     ----
     Update parameter list.
     
@@ -2804,7 +3017,7 @@ def write_transform_outputs(output_dir, output, I, J):
     -------
     None
 
-    TODO
+    Todo
     ----
     Update parameter list.
     
@@ -3141,20 +3354,21 @@ def write_qc_outputs(output_dir, output, I, J, xS=None, S=None):
 class Transform():    
     '''
     A simple class for storing and applying transforms
-    TODO: add another type for series of 2D transforms
+    
+    
 
     Note that the types of transforms we can support are
-    1) Deformations stored as a displacement field loaded from a vtk file.  
-    These should be a 1x3xrowxcolxslice array.
-    2) Deformations stored as a position field in a python variable.  
-    These are a 3xrowxcolxslice array.
-    3) Velocity fields stored as a python variable.
-    These are ntx3xrowxcolxslice arrays.
-    4) a 4x4 affine transform loaded from a text file
-    5) a 4x4 affine transform stored in a python variable
-    6) a nslices x 3 x 3 sequence of affine transforms stored in an array. *** new and special case ***
+    
+    #. Deformations stored as a displacement field loaded from a vtk file.  These should be a 1x3xrowxcolxslice array.
+    #. Deformations stored as a position field in a python variable. These are a 3xrowxcolxslice array.
+    #. Velocity fields stored as a python variable. These are ntx3xrowxcolxslice arrays.
+    #. a 4x4 affine transform loaded from a text file.
+    #. a 4x4 affine transform stored in a python variable
+    #. a nslices x 3 x 3 sequence of affine transforms stored in an array. *** new and special case ***
 
     Note the data stores position fields or matrices.  If it is a vtk file it will store a position field.
+    
+    
 
     Raise
     -----
@@ -3291,26 +3505,43 @@ class Transform():
             
 # now wrap this into a function
 def compose_sequence(transforms,Xin,direction='f',verbose=False):
-    '''
-    Input can be a list of transforms class.
-    Or a list of filenames (single direction in argument)
-    Or a list of a list of 2 tuples that specify direction (f,b)
-    Or an output directory
+    ''' Compose a set of transformations, to produce a single position field, 
+    suitable for use with :func:`emlddmm.apply_transform_float` for example.
     
-    Note f is default which maps points from atlas to target, 
-    or images from target to atlas.
+    Parameters
+    ----------
+    transforms : 
+        Several types of inputs are supported.
+
+        #. A list of transforms class.
+        #. A list of filenames (single direction in argument)
+        #. A list of a list of 2 tuples that specify direction (f,b)
+        #. An output directory
+        
+    Xin : 3 x slice x row x col array
+        The points we want to transform (e.g. sample points in atlas).  Also supports input as a list of voxel locations,
+        along each axis which will be reshaped as above using meshgrid.
+    direction : char
+        Can be 'f' for foward or 'b' for bakward.  f is default which maps points from atlas to target, 
+        or images from target to atlas.
+        
+    Returns
+    -------
+    Xout :  3 x slicex rowxcol array
+        Points from Xin that have had a sequence of transformations applied to them.
     
-    Xin are the points we want to transform (e.g. sample points in atlas)
-    
-    TODO use os path join
-    TODO support direction as a list, right now direction only is used for a single direction
-    
+        
+        
+    Note
+    ----
     Note, if the input is a string, we assume it is an output directory and get A and V. In this case we use the direction argument.
     If the input is a tuple of length 2, we assume it is an output directory and a direction
     
-    Otherwise, the input must be a list.  It can be a list of strings, or transforms, or string-direction tuples.
+    Otherwise, the input must be a list.  It can be a list of strings, or transforms, or string-direction tuples.  
     
-    What if it is a list of length 1?
+    We check that it is an instace of a list, so it should not be a tuple.
+    
+    
 
     Raises
     ------
@@ -3318,7 +3549,13 @@ def compose_sequence(transforms,Xin,direction='f',verbose=False):
         Transforms must be either output directory,
         or list of objects, or list of filenames,
         or list of tuples storing filename/direction.
-    Exception
+    
+    
+    
+    Todo
+    ----
+    #. use os path join
+    #. support direction as a list, right now direction only is used for a single direction
 
     '''
     
@@ -3376,6 +3613,10 @@ def compose_sequence(transforms,Xin,direction='f',verbose=False):
         raise Exception('Transforms must be either output directory, \
         or list of objects, or list of filenames, \
         or list of tuples storing filename/direction')
+    # oct 2023, support input as a list
+    if isinstance(Xin,list):
+        Xin = [torch.as_tensor(x,device=transforms[0].data.device,dtype=transforms[0].data.dtype) for x in Xin]
+        Xin = torch.stack(torch.meshgrid(*Xin,indexing='ij'))
     Xin = torch.as_tensor(Xin,device=transforms[0].data.device,dtype=transforms[0].data.dtype)    
     Xout = torch.clone(Xin)
     for t in transforms:
@@ -3521,7 +3762,7 @@ def write_outputs_for_pair(output_dir,outputs,
         
     # we will make everything float and cpu
     device = 'cpu'
-    dtype = torch.float32
+    dtype = outputs['A'].dtype
     I = torch.tensor(I,device=device,dtype=dtype)
     xI = [torch.tensor(x,device=device,dtype=dtype) for x in xI]
     J = torch.tensor(J,device=device,dtype=dtype)
@@ -3846,13 +4087,23 @@ def map_image(emlddmm_path, root_dir, from_space_name, to_space_name,
               verbose=False,**kwargs):
     '''
     This function will map imaging data from one space to another. 
+        
+    
+    
     There are four cases:
-    1. 3D to 3D mapping: A single displacement field is used to map data
-    2. 3D to 2D mapping: A single displacement field is used to map data, 
-        a slice filename is needed in addition to a space
-    3. 2D to 2D mapping: A single matrix is used to map data.
-    4. 2D to 3D mapping: Currently not supported. Ideally this will output
-        data, and weights for a single slice, so it can be averaged with other slices.
+    
+    #. 3D to 3D mapping: A single displacement field is used to map data
+    
+    #. 3D to 2D mapping: A single displacement field is used to map data, a slice filename is needed in addition to a space
+    
+    #. 2D to 2D mapping: A single matrix is used to map data.
+    
+    #. 2D to 3D mapping: Currently not supported. Ideally this will output data, and weights for a single slice, so it can be averaged with other slices.
+    
+    Warning
+    -------
+    This function was built for a particular use case at Cold Spring Harbor, and is generally not used.  
+    It may be removed in the future.
     
     
     Parameters
@@ -3875,6 +4126,9 @@ def map_image(emlddmm_path, root_dir, from_space_name, to_space_name,
         When transforming slice based image data only, we also need to know the filename of the slice the data came from.
     use_detjac : bool
         If the image represents a density, it should be transformed and multiplied by the Jacobian of the transformation
+    
+    Keyword Arguments
+    -----------------
     **kwargs : dict
         Arguments passed to torch interpolation (grid_resample), e.g. padding_mode,
     
@@ -4002,11 +4256,20 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
     
     This function will map imaging data from one space to another. 
     There are four cases:
-    1. 3D to 3D mapping: A single displacement field is used to map data
-    2. 3D to 2D mapping: Currently not supported.
-    3. 2D to 2D mapping: A single matrix is used to map data.
-    4. 2D to 3D mapping: A single displacement field is used to map data, 
-        a slice filename is needed in addition to a space
+    
+    #. 3D to 3D mapping: A single displacement field is used to map data
+    
+    #. 3D to 2D mapping: Currently not supported.
+    
+    #. 2D to 2D mapping: A single matrix is used to map data.
+    
+    #. 2D to 3D mapping: A single displacement field is used to map data, a slice filename is needed in addition to a space
+    
+    
+    Warning
+    -------
+    This function was built for a particular use case at Cold Spring Harbor, and is generally not used.  
+    It may be removed in the future.
     
     
     Parameters
@@ -4163,7 +4426,7 @@ def map_points(emlddmm_path, root_dir, from_space_name, to_space_name,
 
 def convert_points_from_json(points, d_high, n_high=None, sidecar=None, z=None, verbose=False):
     '''
-    We load points from a json produced by Samik.
+    We load points from a json produced by Samik at cold spring harbor.
     
     These are indexed to pixels in a high res image, rather than any physical units.
     
@@ -4300,6 +4563,7 @@ def apply_transform_from_file_to_points(q,tform_file):
     Returns
     -----
     Tq : numpy array
+        The transformed set of points.
     '''
     if tform_file.endswith('.txt'):
         # this is a matrix
@@ -4404,6 +4668,321 @@ def orientation_to_orientation(orientation0,orientation1,verbose=False):
     Ao = np.linalg.inv(orientation_to_RAS(orientation1,verbose))@orientation_to_RAS(orientation0,verbose)
     return Ao    
         
+def affine_from_figure(x,shift=1000.0,angle=5.0):
+    ''' 
+    Build small affine transforms by looking at figures generated in draw.
+    
+    Parameters
+    ----------
+    x : str
+        Two letters. "t","m","b" for top row middle row bottom row.
+    
+        Then 'w','e','n','s' for left right up down
+    
+        Or 'r','l' for turn right turn left
+    
+        or 'id' for identity.
+    shift : float
+        How far to shift.
+    angle : float
+        How far to rotate (in degrees)
+        
+    Returns
+    -------
+    A0 : numpy array
+        4x4 numpy array affine transform matrix
+      
+    
+    '''
+    x = x.lower()
+    
+    theta = angle*np.pi/180
+    R = np.array([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]])    
+    A0 = np.eye(4)
+    if x == 'ts' or x == 'be':
+        A0[1,-1] = shift
+    elif x == 'tn' or x == 'bw':
+        A0[1,-1] = -shift
+    elif x == 'te' or x == 'me':
+        A0[2,-1] = shift
+    elif x == 'tw' or x == 'mw':
+        A0[2,-1] = -shift
+    elif x == 'mn' or x == 'bn':
+        A0[0,-1] = -shift
+    elif x == 'ms' or x == 'bs':
+        A0[0,-1] = shift        
+    elif x == 'bl':        
+        A0[((0,0,1,1),(0,1,0,1))]  = R.ravel()
+    elif x == 'br':
+        A0[((0,0,1,1),(0,1,0,1))]  = R.T.ravel()
+    elif x == 'ml':        
+        A0[((0,0,2,2),(0,2,0,2))]  = R.ravel()    
+    elif x == 'mr':        
+        A0[((0,0,2,2),(0,2,0,2))]  = R.T.ravel()
+    elif x == 'tl':
+        A0[((1,1,2,2),(1,2,1,2))]  = R.ravel()    
+    elif x == 'tr':
+        A0[((1,1,2,2),(1,2,1,2))]  = R.T.ravel()    
+    elif x == 'id':
+        pass
+    else:
+        raise Exception('input string not supported.')
+    return A0
+
+
+
+def compute_atlas_from_slices(J,W,ooop,niter=10,I=None,draw=False):
+    ''' 
+    Construct an atlas image by averaging between slices.
+    
+    This uses an MM (also could be interpreted as EM) algorithm for 
+    converting a weighted least squares problem to an ordinary least squares problem.
+    The latter can be solved as a stationary problem, and updated iteratively.
+    
+    Parameters
+    ----------
+    J : array
+        an C x slice x row x col image array.
+    W : array
+        An slice x row x col array of weights
+    ooop : array
+        a 1D array with "slice" elements.  This is a frequency domain
+        one over operator for doing smoothing.
+    niter : int
+        Number of iterations to update in MM algorithm. (default to 10)
+    I : array
+        An C x slice x row x col image array representing an initial guess.
+    draw : int
+        Draw the image every draw iterations.  Do not draw if 0 (default).
+    
+    Note
+    ----
+    This code uses numpy, not torch, since it is not gradient based.
+        
+    Todo
+    ----
+    Better boundary conditions
+    '''
+    if draw:
+        fig = plt.figure()
+    if I is None:
+        I = np.zeros_like(J)
+
+    for it in range(niter):
+        I = np.fft.ifft(np.fft.fft(W*J + (1-W)*I,axis=1)*ooop[None,:,None,None],axis=1).real
+        # question, am I missing something? like divide by the weight?
+        # like, what if the weight is 0.5 everywhere? This will not give the right answer
+        if draw and ( not it%draw or it == niter-1):
+            draw(I,xJ,fig=fig,interpolation='none')
+            fig.suptitle(f'it {it}')
+            fig.canvas.draw()
+    return I
+    
+    
+    
+def atlas_free_reconstruction(**kwargs):
+    ''' Atlas free slice alignment
+    
+    Uses an MM algorithm to align slices.  Minimizes a Sobolev norm over rigid transformations of each slice.
+    
+    All arguments are keword arguments
+    
+    Keword Arguments
+    ----------------
+    xJ : list of arrays
+        Lists of pixel locations in slice row col axes
+    J : array
+        A C x slice x row x col set of 2D image.
+    W : array
+        A slice x row x col set of weights of 2D images.  1 for good quality, to 0 for bad quality or out of bounds.
+    a : float
+        length scale (multiplied by laplacian) for smootheness averaging between slices. Defaults to twice the slice separation.
+    p : float
+        Power of laplacian in somothing. Defaults to 2.    
+    draw : int
+        Draw figure (default false)
+    n_steps : int      
+        Number of iterations of MM algorithm.
+    **kwargs : dict
+        All other keword arguments are passed along to slice matching in the emlddmm algorithm.
+        
+    Returns
+    -------
+    out : dictionary
+        All outputs from emlddmm algorithm, plus the new image I, and reconstructed image Jr
+    out['I'] : numpy array
+        A C x slice x row x col set of 2D images (same size as J), averaged between slices.
+    out['Jr'] : numpy array
+        A C x slice x row x col set of 2D images (same size as J)
+        
+    Todo
+    ----
+    Think about how to do this with some slices fixed.
+        
+    '''
+    if 'J' not in kwargs:
+        raise Exception('J is a required keyword argument')
+    J = np.array(kwargs.pop('J'))
+    
+    if 'xJ' not in kwargs:
+        raise Exception('xJ is a required keyword argument')
+    
+    xJ = [np.array(x) for x in kwargs.pop('xJ')]
+    
+    dJ = np.array([x[1] - x[0] for x in xJ])
+    nJ = np.array(J.shape[1:])
+    if 'W' not in kwargs:
+        W = np.ones_like(J[0])
+    else:
+        W = kwargs.pop('W')
+        
+    if 'n_steps' not in kwargs:
+        n_steps = 10
+    else:
+        n_steps = kwargs.pop('n_steps')
+    # create smoothing operators
+    # define an operator L, it can be a gaussian derivative or whatever
+    #a = dJ[0]*2
+    if 'a' not in kwargs:
+        a = dJ[0]*3
+    else:            
+        a = float(kwargs.pop('a'))    
+    
+    #p = 2.0
+    if 'p' not in kwargs:
+        p = 2.0
+    else:
+        p = float(kwargs.pop('p'))
+
+    fJ = [np.arange(n)/n/d for n,d in zip(nJ,dJ)]
+    # note this operator must have an identity in it to be a solution to our problem.
+    # the scale is then set entirely by a
+    # note it shouldn't really be identity, it should be sigma^2M.
+    # but in our equations, we can just multiply everything through by 1/2/sigmaM**2
+    # (1 + a^2 \Delta )^(2p) (here p = 2, \Delta is the discrete Laplacian) 
+    op = 1.0 + ( (0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
+    op = 1.0 + ( 10*(1.0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
+    # we can use a different kernel in the space domain
+    # here is the objective we solve
+    # estimate R (rigid transforms) and I (atlas image)
+    # |I|^2_{highpass} + |I - R J|^2_{L2}
+    # where |I|^2_{highpass} = \int   |L I|^2 dx and L is a highpass operator
+    # in the past I used power of laplacian for L
+    # we could define L such that it's kernel is a power law (or a guassian or something without ripples)
+    # 
+    ooop = 1.0/op
+    # normalize
+    ooop = ooop/ooop[0] 
+    
+    # let's try this power law
+    op = 1.0 / (xJ[0] - xJ[0][0])
+    op[0] = 0
+    op = np.fft.fft(op).real    # this will build in the necessary symmetry
+    # recall this is the low pass
+    op = 1/(op + 1*0) # now we have the highpass
+    op = op / op[0]
+    ooop = 1.0/op
+    
+    
+    
+    if draw:
+        fig,ax = plt.subplots()
+        ax.plot(fJ[0],ooop)
+        ax.set_xlabel('spatial frequency')
+        ax.set_title('smoothing operator')
+        fig.canvas.draw()
+    if draw:
+        ooop_space = np.fft.ifft(ooop).real
+        fig,ax = plt.subplots()
+        ax.plot(xJ[0],ooop_space)
+        ax.set_xlabel('space')
+        ax.set_title('smoothing operator space')
+        fig.canvas.draw()
+    
+    # set up config for registration
+    A2d = np.eye(3)[None].repeat(J.shape[1],axis=0)
+    config = {
+        'A2d':A2d,
+        'slice_matching':True,
+        'dv':2000.0, # a big number to essentially disable it
+        'v_start':100000, # disable it
+        'n_iter':10, # a small number
+        'ev':0, # disable it
+        'eA':0, # disable it
+        'eA2d':2e2, # this worked reasonably well for my test data
+        'downI':[1,4,4], # extra downsampling for registration
+        'downJ': [1,4,4],
+        'order': 0, # no contrast mapping
+        'full_outputs':True,
+        'sigmaM':0.1,
+        'sigmaB':0.2,
+        'sigmaA':0.5,
+    }
+    config['n_draw'] = 0 # don't draw
+    config.update(kwargs) # update with anything else
+    
+    
+    XJ = np.stack(np.meshgrid(*xJ,indexing='ij'))
+    xJd,Jd = downsample_image_domain(xJ,J,config['downJ'])
+
+    fig = plt.figure()
+    fig2 = plt.figure()
+
+
+
+    # first estimate
+    I = np.ones_like(J)*(np.sum(J*W,axis=(-1,-2,-3),keepdims=True)/np.sum(W,axis=(-1,-2,-3),keepdims=True))
+    I = compute_atlas_from_slices(J,W,ooop,draw=False,I=I)
+    if draw:
+        draw(I,xJ,fig=fig,interpolation='none',vmin=0,vmax=1)
+        fig.suptitle(f'Initial atlas')
+        fig.canvas.draw()    
+    
+    for it in range(n_steps):
+        print(f'starting it {it}')
+        # map it
+        out = emlddmm(I=I,xI=xJ,J=J,xJ=xJ,W0=W,device='cpu',**config)
+        # update Jr and Wr
+
+        tform = compose_sequence([Transform(out['A2d'])],XJ)
+        
+        WM = out['WM'].cpu().numpy()
+        WM = interp(xJd,WM[None],XJ)
+        Wr = W[None]*WM.cpu().numpy()
+        Wr /= Wr.max()
+        
+        # the approach on the next two lines really helped wiht artifacts near the border
+        Jr = apply_transform_float(xJ,J*Wr,tform,padding_mode='border') # default padding is border
+        Wr_ = apply_transform_float(xJ,Wr,tform,padding_mode='border')[0] # default padding is border
+        Jr = Jr/(Wr_[None] + 1e-6)
+        # but I don't think the final Wr is that good, so let's use this        
+        Wr = apply_transform_float(xJ,Wr,tform,padding_mode='zeros')[0] # make sure anything out of bounds is 0
+        #Wr = Wr_
+        
+        
+        if draw:
+            draw(Jr,xJ,fig=fig2,interpolation='none',vmin=0,vmax=1)
+            fig2.suptitle(f'Recon it {it}')
+        # update atlas
+        I = compute_atlas_from_slices(Jr,Wr,ooop,draw=False,I=I)
+        # initialize for next time
+        config['A2d'] = out['A2d']
+        # draw the result
+        if draw:
+            draw(I,xJ,fig=fig,interpolation='none',vmin=0,vmax=1)
+            fig.suptitle(f'Atlas it {it}')
+
+            fig.canvas.draw()
+            fig2.canvas.draw()
+
+        #fig.savefig(join(outdir,f'atlas_it_{it:06d}.jpg'))
+        #fig2.savefig(join(outdir,f'recon_it_{it:06d}.jpg'))
+
+    
+    out['I'] = I
+    out['Jr'] = Jr
+    
+    return out
     
         
 # now we'll start building an interface

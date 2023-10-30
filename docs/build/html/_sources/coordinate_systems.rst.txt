@@ -220,7 +220,7 @@ Our mapping algorithm enforces alignment between data in the common space, and d
 
 * We want no translation in the xy direction of the 3D affine transformation. (this is enforced by our pipeline)
 * We want no shear perpendicular to the z axis in the 3D transformation. (this can be enforced by chosing to limit the affine transformation to rigid, or rigid plus scale)
-* After applying our affine transform we want the up vector to still point up, when projected into the slice plane. (not currently implemented)
+* After applying our affine transform we want the up vector to still point up, when projected into the slice plane. (implemented with the :code:`up_vector` parameter in :py:func:`emlddmm.emlddmm`)
 
 
 
@@ -251,7 +251,9 @@ This convention allows us to convert between spatial locations and pixel indices
 
 Mouse with sagittal sections
 """"""""""""""""""""""""""""
-Using our `Mouse atlas`_, and a sagittaly sectioned dataset in `Input space`_, input space x corresponds to the anterior posterior axis (CHECK!), and input space y corresponds to the dorsal ventral axis.
+Using our `Mouse atlas`_, and a sagittaly sectioned dataset in `Input space`_, input space x corresponds to the anterior posterior axis (note the nose will be on the left), and input space y corresponds to the dorsal ventral axis.
+
+Note from chris, is the first section the left side of the brain or the right side?  TODO ask steve.
 
 Therefore, the x=0 point in registered space corresponds to the anatomy at the z=0 point in the atlas, and the y=0 point in registered space corresponds to the anatomy at the x=0 point in the atlas.
 
@@ -270,6 +272,12 @@ This convention allows us to convert between spatial locations and pixel indices
 Mouse with transverse sections
 """"""""""""""""""""""""""""""
 Using our `Mouse atlas`_, and a transverse sectioned dataset in `Input space`_, input space x corresponds to the anterior posterior axis (CHECK!), and input space y corresponds to the right left axis.
+
+Note from Chris.  First section will be superior, last section most inferior.
+Nose will be at the top of the image (-y), and cerebellum at the bottom (+y).
+The left side of the mouse's brain, will appear on the right side of the image. TODO, draw some pictures to clarify this. 
+
+
 
 Therefore, the x=0 point in registered space corresponds to the anatomy at the z=0 point in the atlas, and the y=0 point in registered space corresponds to the anatomy at the y=0 point in the atlas.
 

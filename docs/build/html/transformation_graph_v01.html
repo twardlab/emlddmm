@@ -41,6 +41,9 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
@@ -116,10 +119,7 @@ of each vertex in array pred and its distance from source in array dist</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>True if a path from src to target is found and False otherwise</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>bool</p>
+<dd class="field-even"><p><em>bool</em> – True if a path from src to target is found and False otherwise</p>
 </dd>
 </dl>
 </dd></dl>
@@ -150,10 +150,7 @@ of each vertex in array pred and its distance from source in array dist</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>image</strong> – transformed image data</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>array</p>
+<dd class="field-even"><p><strong>image</strong> (<em>array</em>) – transformed image data</p>
 </dd>
 </dl>
 <div class="admonition note">
@@ -179,10 +176,7 @@ contained entirely in the 2D affine transforms</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>image</strong> – transformed image data</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>array</p>
+<dd class="field-even"><p><strong>image</strong> (<em>array</em>) – transformed image data</p>
 </dd>
 </dl>
 <div class="admonition note">
@@ -206,10 +200,7 @@ contained entirely in the 2D affine transforms</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>X</strong> – transformed points</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>torch tensor</p>
+<dd class="field-even"><p><strong>X</strong> (<em>torch tensor</em>) – transformed points</p>
 </dd>
 </dl>
 <div class="admonition note">
@@ -238,10 +229,7 @@ Mapping to a 2D slice is harder. But I think we can do it somehow with nearest n
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>X</strong> – transformed points</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>torch tensor</p>
+<dd class="field-even"><p><strong>X</strong> (<em>torch tensor</em>) – transformed points</p>
 </dd>
 </dl>
 <div class="admonition note">
@@ -261,10 +249,7 @@ contained entirely in the 2D affine transforms.</p>
 <dd class="field-odd"><p><strong>new_graph</strong> (<em>emlddmm Graph object</em>) – </p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>graph</strong> – Current graph merged with the new graph.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>emlddmm Graph object</p>
+<dd class="field-even"><p><strong>graph</strong> (<em>emlddmm Graph object</em>) – Current graph merged with the new graph.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -282,10 +267,7 @@ contained entirely in the 2D affine transforms.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>path</strong> – path from target to src using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>list of ints</p>
+<dd class="field-even"><p><strong>path</strong> (<em>list of ints</em>) – path from target to src using integer values of the adjacency list vertices. Integers can be converted to space names by the spaces dict.</p>
 </dd>
 </dl>
 <p class="rubric">Example</p>
@@ -316,10 +298,7 @@ contained entirely in the 2D affine transforms.</p>
 <dd class="field-odd"><p><strong>path</strong> (<em>list</em>) – A path as returned by the self.shortest_path function.</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>transforms</strong> – A list of Transform objects defined in emlddmm.py.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>list</p>
+<dd class="field-even"><p><strong>transforms</strong> (<em>list</em>) – A list of Transform objects defined in emlddmm.py.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -343,6 +322,13 @@ contained entirely in the 2D affine transforms.</p>
 </ul>
 </dd>
 </dl>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>Check why the registered space histology is not working. (march 27, 2023)
+I think the issue is that there is actually no time to do it.
+If I say to reconstruct one space to itself, then it says not connected and gives an error.
+There needs to be another way.</p>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -362,6 +348,13 @@ contained entirely in the 2D affine transforms.</p>
 </ul>
 </dd>
 </dl>
+<div class="admonition-todo admonition" id="id2">
+<p class="admonition-title">Todo</p>
+<p>Check why the registered space histology is not working. (march 27, 2023)
+I think the issue is that there is actually no time to do it.
+If I say to reconstruct one space to itself, then it says not connected and gives an error.
+There needs to be another way.</p>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -385,10 +378,7 @@ displacement fields, and determinant of Jacobian of displacements. Also builds a
 source and target space names, registration configuration settings, and output directory.</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>reg_graph</strong></p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>emlddmm graph</p>
+<dd class="field-even"><p><strong>reg_graph</strong> (<em>emlddmm graph</em>)</p>
 </dd>
 </dl>
 <p class="rubric">Example</p>

@@ -41,6 +41,9 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../coordinate_systems.html">Coordinate Systems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../file_formats.html">File Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../input_specification.html">Input specification via Transformation Graph Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../output_specification.html">Output Specification</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../documentation.html">Function reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../todo.html">To Do</a></li>
@@ -98,9 +101,10 @@
 
 <span class="c1"># display</span>
 <div class="viewcode-block" id="extent_from_x"><a class="viewcode-back" href="../emlddmm.html#emlddmm.extent_from_x">[docs]</a><span class="k">def</span> <span class="nf">extent_from_x</span><span class="p">(</span><span class="n">xJ</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&#39;&#39;&#39; Given a set of pixel locations, returns an extent 4-tuple for use with n    git push --set-upstream origin interface_checking_march_2023</span>
-<span class="sd">p.imshow.</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39; Given a set of pixel locations, returns an extent 4-tuple for use with imshow.</span>
 <span class="sd">    </span>
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
 <span class="sd">    Note inputs are locations of pixels along each axis, i.e. row column not xy.</span>
 <span class="sd">    </span>
 <span class="sd">    Parameters</span>
@@ -113,9 +117,12 @@
 <span class="sd">    extent : tuple</span>
 <span class="sd">        (xmin, xmax, ymin, ymax) tuple</span>
 <span class="sd">    </span>
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    Draw a 2D image stored in J, with pixel locations of rows stored in xJ[0] and pixel locations</span>
+<span class="sd">    of columns stored in xJ[1].</span>
 <span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt; import matplotlib.pyplot as plt</span>
 <span class="sd">    &gt;&gt;&gt; extent_from_x(xJ)</span>
 <span class="sd">    &gt;&gt;&gt; fig,ax = plt.subplots()</span>
 <span class="sd">    &gt;&gt;&gt; ax.imshow(J,extent=extentJ)</span>
@@ -926,20 +933,19 @@
 <span class="sd">    different imaging modalities with possible missing data in one of them</span>
 <span class="sd">    </span>
 <span class="sd">    Details of this algorithm can be found in</span>
-<span class="sd">    [1] Tward, Daniel, et al. &quot;Diffeomorphic registration with intensity </span>
-<span class="sd">    transformation and missing data: Application to 3D digital pathology </span>
-<span class="sd">    of Alzheimer&#39;s disease.&quot; Frontiers in neuroscience 14 (2020): 52.</span>
-<span class="sd">    [2] Tward, Daniel, et al. &quot;3d mapping of serial histology sections </span>
-<span class="sd">    with anomalies using a novel robust deformable registration algorithm.&quot; </span>
-<span class="sd">    Multimodal Brain Image Analysis and Mathematical Foundations of </span>
-<span class="sd">    Computational Anatomy. Springer, Cham, 2019. 162-173.</span>
-<span class="sd">    [3] Tward, Daniel, et al. &quot;Solving the where problem in neuroanatomy: </span>
-<span class="sd">    a generative framework with learned mappings to register multimodal, </span>
-<span class="sd">    incomplete data into a reference brain.&quot; bioRxiv (2020).</span>
+<span class="sd">    </span>
+<span class="sd">    * [1] Tward, Daniel, et al. &quot;Diffeomorphic registration with intensity transformation and missing data: Application to 3D digital pathology of Alzheimer&#39;s disease.&quot; Frontiers in neuroscience 14 (2020): 52.</span>
+<span class="sd">    * [2] Tward, Daniel, et al. &quot;3d mapping of serial histology sections with anomalies using a novel robust deformable registration algorithm.&quot; Multimodal Brain Image Analysis and Mathematical Foundations of Computational Anatomy. Springer, Cham, 2019. 162-173.</span>
+<span class="sd">    * [3] Tward, Daniel, et al. &quot;Solving the where problem in neuroanatomy: a generative framework with learned mappings to register multimodal, incomplete data into a reference brain.&quot; bioRxiv (2020).</span>
+<span class="sd">    * [4] Tward DJ. An optical flow based left-invariant metric for natural gradient descent in affine image registration. Frontiers in Applied Mathematics and Statistics. 2021 Aug 24;7:718607.</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Note all parameters are keyword arguments, but the first four are required.    </span>
+<span class="sd">    </span>
 <span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    Note all parameters are keyword arguments, but the first four are required.    </span>
+<span class="sd">    </span>
 <span class="sd">    xI : list of arrays</span>
 <span class="sd">        xI[i] stores the location of voxels on the i-th axis of the atlas image I (REQUIRED)</span>
 <span class="sd">    I : 4D array (numpy or torch)</span>
@@ -955,10 +961,52 @@
 <span class="sd">    eA : float</span>
 <span class="sd">        Gradient descent step size for affine component (default 1e-5).  It is strongly suggested</span>
 <span class="sd">        that you test this value and not rely on defaults. Note linear and translation components</span>
-<span class="sd">        are combined following [ref] so only one stepsize is required.</span>
+<span class="sd">        are combined following [4] so only one stepsize is required.</span>
 <span class="sd">    ev : float</span>
 <span class="sd">        Gradient descent step size for affine component (default 1e-5).  It is strongly suggested</span>
 <span class="sd">        that you test this value and not rely on defaults.</span>
+<span class="sd">    order : int</span>
+<span class="sd">        Order of the polynomial used for contrast mapping. If using local contranst,</span>
+<span class="sd">        only order 1 is supported.</span>
+<span class="sd">    n_draw : int</span>
+<span class="sd">        Draw a picture every n_draw iterations. 0 for do not draw.</span>
+<span class="sd">    sigmaR : float</span>
+<span class="sd">        Amount of regularization of the velocity field used for diffeomorphic transformation,</span>
+<span class="sd">        of the form 1/sigmaR^2 * (integral over time of norm velocity squared ).</span>
+<span class="sd">    n_iter : int</span>
+<span class="sd">        How many iterations of optimization to run.</span>
+<span class="sd">    n_e_step : int</span>
+<span class="sd">        How many iterations of M step to run before another E step is ran in</span>
+<span class="sd">        expectation maximization algorithm for detecting outliers.</span>
+<span class="sd">    v_start : int</span>
+<span class="sd">        What iteration to start optimizing velocity field.  One may want to compute an affine</span>
+<span class="sd">        transformation before beginning to compute a deformation (for example).</span>
+<span class="sd">    n_reduce_step : int</span>
+<span class="sd">        Simple stepsize reducer for gradient descent optimization. Every this number of steps,</span>
+<span class="sd">        we check if objective function is oscillating. If so we reduce the step size.</span>
+<span class="sd">    v_expand_factor : float</span>
+<span class="sd">        How much bigger than the atlas image should the domain of the velocity field be? This</span>
+<span class="sd">        is helpful to avoid wraparound effects caused by discrete Fourier domain calculations.</span>
+<span class="sd">        0.2 means 20% larger.</span>
+<span class="sd">    v_res_factor : float</span>
+<span class="sd">        How much lower resolution should the velocity field be sampled at than the atlas image.</span>
+<span class="sd">        This is overrided if you specify dv.</span>
+<span class="sd">    dv : None or float or list of 3 floats</span>
+<span class="sd">        Explicitly state the resolution of the sampling grid for the velocity field.</span>
+<span class="sd">    a : float</span>
+<span class="sd">        Constant with units of length.  In velocity regularization, its square is multiplied against the Laplacian.</span>
+<span class="sd">        Regularization is of the form 1/2/sigmaR^2 int |(id - a^2 Delta)^p v_t|^2_{L2} dt.</span>
+<span class="sd">    p : float</span>
+<span class="sd">        Power of the Laplacian operator in regularization of the velocity field.  </span>
+<span class="sd">        Regularization is of the form 1/2/sigmaR^2 int |(id - a^2 Delta)^p v_t|^2_{L2} dt.</span>
+<span class="sd">        </span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">        </span>
+<span class="sd">    </span>
+<span class="sd">        </span>
+<span class="sd">    </span>
+<span class="sd">    </span>
 <span class="sd">    </span>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1043,6 +1091,7 @@
                 <span class="s1">&#39;local_contrast&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span> <span class="c1"># simple local contrast estimation mode, should be a list of ints</span>
                 <span class="s1">&#39;reduce_factor&#39;</span><span class="p">:</span><span class="mf">0.9</span><span class="p">,</span>
                 <span class="s1">&#39;auto_stepsize_v&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="c1"># 0 for no auto stepsize, or a number n for updating every n iterations</span>
+                <span class="s1">&#39;up_vector&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span> <span class="c1"># the up vector in the atlas, which should remain up (pointing in the -y direction) in the target</span>
                <span class="p">}</span>
     <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="n">kwargs</span> <span class="o">=</span> <span class="n">defaults</span>
@@ -1140,6 +1189,12 @@
         <span class="n">local_contrast</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">local_contrast</span><span class="p">:</span>
         <span class="n">local_contrast</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">local_contrast</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="c1"># up vector</span>
+    <span class="n">up_vector</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;up_vector&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">up_vector</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">up_vector</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">up_vector</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">up_vector</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span> <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;problem with up vector&#39;</span><span class="p">)</span>
+    
     
     
     
@@ -1771,6 +1826,40 @@
                 <span class="n">vec</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
                 <span class="n">A2d</span><span class="p">[:,:</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">A2di</span><span class="p">[:,:</span><span class="mi">2</span><span class="p">,:</span><span class="mi">2</span><span class="p">]</span><span class="nd">@vec</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">])[</span><span class="o">...</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
                 <span class="n">A</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                
+                <span class="k">if</span> <span class="n">up_vector</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="c1">#print(up_vector)</span>
+                    <span class="c1"># what direction does the up vector point now?</span>
+                    <span class="n">new_up</span> <span class="o">=</span> <span class="n">A</span><span class="p">[:</span><span class="mi">3</span><span class="p">,:</span><span class="mi">3</span><span class="p">]</span><span class="nd">@up_vector</span>
+                    <span class="c1">#print(new_up)</span>
+                    <span class="c1"># now we ignore the z component</span>
+                    <span class="n">new_up_2d</span> <span class="o">=</span> <span class="n">new_up</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                    <span class="c1">#print(new_up_2d)</span>
+                    <span class="c1"># we&#39;ll find the rotation angle, with respect to the -y axis</span>
+                    <span class="c1"># use standard approach to find angle from x axis, and add 90 deg</span>
+                    <span class="n">angle</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">atan2</span><span class="p">(</span><span class="n">new_up_2d</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">new_up_2d</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span> <span class="c1"># of the form x y (TODO double check)</span>
+                    <span class="c1">#print(angle*180/np.pi)</span>
+                    <span class="c1"># form a rotation matrix by the negative of this angle</span>
+                    <span class="n">rot</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],[</span><span class="mf">0.0</span><span class="p">,</span><span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">angle</span><span class="p">),</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angle</span><span class="p">),</span><span class="mf">0.0</span><span class="p">],[</span><span class="mf">0.0</span><span class="p">,</span><span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angle</span><span class="p">),</span><span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">angle</span><span class="p">),</span><span class="mf">0.0</span><span class="p">],[</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">1.0</span><span class="p">]],</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+                    <span class="c1">#print(rot)</span>
+                    <span class="c1"># now we have to apply this matrix to the 3D (on the left)</span>
+                    <span class="c1"># and its inverse to the 2D (on the right)</span>
+                    <span class="c1"># so they will cancel out</span>
+                    <span class="c1"># BUT, what do I do about the translation?</span>
+                    <span class="c1"># of course, I can add a translation to rot</span>
+                    <span class="c1"># but do to the above issue (no xy translation on A), I think it should just be zero</span>
+                    
+                    <span class="c1">#print(&#39;A before&#39;,A)</span>
+                    <span class="n">A</span><span class="p">[:,:]</span> <span class="o">=</span> <span class="n">rot</span><span class="nd">@A</span>
+                    <span class="c1">#print(&#39;A after&#39;,A)</span>
+                    <span class="c1">#print(torch.linalg.inv(rot)[1:,1:])</span>
+                    <span class="n">A2d</span><span class="p">[:,:,:]</span> <span class="o">=</span> <span class="n">A2d</span><span class="nd">@torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">rot</span><span class="p">)[</span><span class="mi">1</span><span class="p">:,</span><span class="mi">1</span><span class="p">:]</span>
+                    <span class="c1">#double check</span>
+                    <span class="c1">#print(&#39;test up&#39;,A[:3,:3]@up_vector)</span>
+                    <span class="c1"># I expect this should now point exactly up</span>
+                    <span class="c1"># but it seems to not</span>
+                    
+                    
             
 
             <span class="c1"># other terms in m step, these don&#39;t actually matter until I update</span>
@@ -2802,7 +2891,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    None</span>
 
-<span class="sd">    TODO</span>
+<span class="sd">    Todo</span>
 <span class="sd">    ----</span>
 <span class="sd">    Update parameter list.</span>
 <span class="sd">    </span>
@@ -2877,7 +2966,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    None</span>
 
-<span class="sd">    TODO</span>
+<span class="sd">    Todo</span>
 <span class="sd">    ----</span>
 <span class="sd">    Update parameter list.</span>
 <span class="sd">    </span>
@@ -3214,20 +3303,21 @@
 <div class="viewcode-block" id="Transform"><a class="viewcode-back" href="../emlddmm.html#emlddmm.Transform">[docs]</a><span class="k">class</span> <span class="nc">Transform</span><span class="p">():</span>    
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    A simple class for storing and applying transforms</span>
-<span class="sd">    TODO: add another type for series of 2D transforms</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
 
 <span class="sd">    Note that the types of transforms we can support are</span>
-<span class="sd">    1) Deformations stored as a displacement field loaded from a vtk file.  </span>
-<span class="sd">    These should be a 1x3xrowxcolxslice array.</span>
-<span class="sd">    2) Deformations stored as a position field in a python variable.  </span>
-<span class="sd">    These are a 3xrowxcolxslice array.</span>
-<span class="sd">    3) Velocity fields stored as a python variable.</span>
-<span class="sd">    These are ntx3xrowxcolxslice arrays.</span>
-<span class="sd">    4) a 4x4 affine transform loaded from a text file</span>
-<span class="sd">    5) a 4x4 affine transform stored in a python variable</span>
-<span class="sd">    6) a nslices x 3 x 3 sequence of affine transforms stored in an array. *** new and special case ***</span>
+<span class="sd">    </span>
+<span class="sd">    #. Deformations stored as a displacement field loaded from a vtk file.  These should be a 1x3xrowxcolxslice array.</span>
+<span class="sd">    #. Deformations stored as a position field in a python variable. These are a 3xrowxcolxslice array.</span>
+<span class="sd">    #. Velocity fields stored as a python variable. These are ntx3xrowxcolxslice arrays.</span>
+<span class="sd">    #. a 4x4 affine transform loaded from a text file.</span>
+<span class="sd">    #. a 4x4 affine transform stored in a python variable</span>
+<span class="sd">    #. a nslices x 3 x 3 sequence of affine transforms stored in an array. *** new and special case ***</span>
 
 <span class="sd">    Note the data stores position fields or matrices.  If it is a vtk file it will store a position field.</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
 
 <span class="sd">    Raise</span>
 <span class="sd">    -----</span>
@@ -3364,26 +3454,42 @@
             
 <span class="c1"># now wrap this into a function</span>
 <div class="viewcode-block" id="compose_sequence"><a class="viewcode-back" href="../emlddmm.html#emlddmm.compose_sequence">[docs]</a><span class="k">def</span> <span class="nf">compose_sequence</span><span class="p">(</span><span class="n">transforms</span><span class="p">,</span><span class="n">Xin</span><span class="p">,</span><span class="n">direction</span><span class="o">=</span><span class="s1">&#39;f&#39;</span><span class="p">,</span><span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">    Input can be a list of transforms class.</span>
-<span class="sd">    Or a list of filenames (single direction in argument)</span>
-<span class="sd">    Or a list of a list of 2 tuples that specify direction (f,b)</span>
-<span class="sd">    Or an output directory</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39; Compose a set of transformations, to produce a single position field, </span>
+<span class="sd">    suitable for use with :func:`emlddmm.apply_transform_float` for example.</span>
 <span class="sd">    </span>
-<span class="sd">    Note f is default which maps points from atlas to target, </span>
-<span class="sd">    or images from target to atlas.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    transforms : </span>
+<span class="sd">        Several types of inputs are supported.</span>
+
+<span class="sd">        #. A list of transforms class.</span>
+<span class="sd">        #. A list of filenames (single direction in argument)</span>
+<span class="sd">        #. A list of a list of 2 tuples that specify direction (f,b)</span>
+<span class="sd">        #. An output directory</span>
+<span class="sd">        </span>
+<span class="sd">    Xin : 3 x slice x row x col array</span>
+<span class="sd">        The points we want to transform (e.g. sample points in atlas)</span>
+<span class="sd">    direction : char</span>
+<span class="sd">        Can be &#39;f&#39; for foward or &#39;b&#39; for bakward.  f is default which maps points from atlas to target, </span>
+<span class="sd">        or images from target to atlas.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Xout :  3 x slicex rowxcol array</span>
+<span class="sd">        Points from Xin that have had a sequence of transformations applied to them.</span>
 <span class="sd">    </span>
-<span class="sd">    Xin are the points we want to transform (e.g. sample points in atlas)</span>
-<span class="sd">    </span>
-<span class="sd">    TODO use os path join</span>
-<span class="sd">    TODO support direction as a list, right now direction only is used for a single direction</span>
-<span class="sd">    </span>
+<span class="sd">        </span>
+<span class="sd">        </span>
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
 <span class="sd">    Note, if the input is a string, we assume it is an output directory and get A and V. In this case we use the direction argument.</span>
 <span class="sd">    If the input is a tuple of length 2, we assume it is an output directory and a direction</span>
 <span class="sd">    </span>
-<span class="sd">    Otherwise, the input must be a list.  It can be a list of strings, or transforms, or string-direction tuples.</span>
+<span class="sd">    Otherwise, the input must be a list.  It can be a list of strings, or transforms, or string-direction tuples.  </span>
 <span class="sd">    </span>
-<span class="sd">    What if it is a list of length 1?</span>
+<span class="sd">    We check that it is an instace of a list, so it should not be a tuple.</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
@@ -3391,7 +3497,13 @@
 <span class="sd">        Transforms must be either output directory,</span>
 <span class="sd">        or list of objects, or list of filenames,</span>
 <span class="sd">        or list of tuples storing filename/direction.</span>
-<span class="sd">    Exception</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Todo</span>
+<span class="sd">    ----</span>
+<span class="sd">    #. use os path join</span>
+<span class="sd">    #. support direction as a list, right now direction only is used for a single direction</span>
 
 <span class="sd">    &#39;&#39;&#39;</span>
     
@@ -3919,13 +4031,23 @@
               <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    This function will map imaging data from one space to another. </span>
+<span class="sd">        </span>
+<span class="sd">    </span>
+<span class="sd">    </span>
 <span class="sd">    There are four cases:</span>
-<span class="sd">    1. 3D to 3D mapping: A single displacement field is used to map data</span>
-<span class="sd">    2. 3D to 2D mapping: A single displacement field is used to map data, </span>
-<span class="sd">        a slice filename is needed in addition to a space</span>
-<span class="sd">    3. 2D to 2D mapping: A single matrix is used to map data.</span>
-<span class="sd">    4. 2D to 3D mapping: Currently not supported. Ideally this will output</span>
-<span class="sd">        data, and weights for a single slice, so it can be averaged with other slices.</span>
+<span class="sd">    </span>
+<span class="sd">    #. 3D to 3D mapping: A single displacement field is used to map data</span>
+<span class="sd">    </span>
+<span class="sd">    #. 3D to 2D mapping: A single displacement field is used to map data, a slice filename is needed in addition to a space</span>
+<span class="sd">    </span>
+<span class="sd">    #. 2D to 2D mapping: A single matrix is used to map data.</span>
+<span class="sd">    </span>
+<span class="sd">    #. 2D to 3D mapping: Currently not supported. Ideally this will output data, and weights for a single slice, so it can be averaged with other slices.</span>
+<span class="sd">    </span>
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This function was built for a particular use case at Cold Spring Harbor, and is generally not used.  </span>
+<span class="sd">    It may be removed in the future.</span>
 <span class="sd">    </span>
 <span class="sd">    </span>
 <span class="sd">    Parameters</span>
@@ -3948,6 +4070,9 @@
 <span class="sd">        When transforming slice based image data only, we also need to know the filename of the slice the data came from.</span>
 <span class="sd">    use_detjac : bool</span>
 <span class="sd">        If the image represents a density, it should be transformed and multiplied by the Jacobian of the transformation</span>
+<span class="sd">    </span>
+<span class="sd">    Keyword Arguments</span>
+<span class="sd">    -----------------</span>
 <span class="sd">    **kwargs : dict</span>
 <span class="sd">        Arguments passed to torch interpolation (grid_resample), e.g. padding_mode,</span>
 <span class="sd">    </span>
@@ -4075,11 +4200,20 @@
 <span class="sd">    </span>
 <span class="sd">    This function will map imaging data from one space to another. </span>
 <span class="sd">    There are four cases:</span>
-<span class="sd">    1. 3D to 3D mapping: A single displacement field is used to map data</span>
-<span class="sd">    2. 3D to 2D mapping: Currently not supported.</span>
-<span class="sd">    3. 2D to 2D mapping: A single matrix is used to map data.</span>
-<span class="sd">    4. 2D to 3D mapping: A single displacement field is used to map data, </span>
-<span class="sd">        a slice filename is needed in addition to a space</span>
+<span class="sd">    </span>
+<span class="sd">    #. 3D to 3D mapping: A single displacement field is used to map data</span>
+<span class="sd">    </span>
+<span class="sd">    #. 3D to 2D mapping: Currently not supported.</span>
+<span class="sd">    </span>
+<span class="sd">    #. 2D to 2D mapping: A single matrix is used to map data.</span>
+<span class="sd">    </span>
+<span class="sd">    #. 2D to 3D mapping: A single displacement field is used to map data, a slice filename is needed in addition to a space</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This function was built for a particular use case at Cold Spring Harbor, and is generally not used.  </span>
+<span class="sd">    It may be removed in the future.</span>
 <span class="sd">    </span>
 <span class="sd">    </span>
 <span class="sd">    Parameters</span>
@@ -4236,7 +4370,7 @@
 
 <div class="viewcode-block" id="convert_points_from_json"><a class="viewcode-back" href="../emlddmm.html#emlddmm.convert_points_from_json">[docs]</a><span class="k">def</span> <span class="nf">convert_points_from_json</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">d_high</span><span class="p">,</span> <span class="n">n_high</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sidecar</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">    We load points from a json produced by Samik.</span>
+<span class="sd">    We load points from a json produced by Samik at cold spring harbor.</span>
 <span class="sd">    </span>
 <span class="sd">    These are indexed to pixels in a high res image, rather than any physical units.</span>
 <span class="sd">    </span>
@@ -4373,6 +4507,7 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -----</span>
 <span class="sd">    Tq : numpy array</span>
+<span class="sd">        The transformed set of points.</span>
 <span class="sd">    &#39;&#39;&#39;</span>
     <span class="k">if</span> <span class="n">tform_file</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.txt&#39;</span><span class="p">):</span>
         <span class="c1"># this is a matrix</span>

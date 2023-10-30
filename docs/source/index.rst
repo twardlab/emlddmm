@@ -14,8 +14,12 @@ Generative diffeomorphic mapping (GDM) is a deformable image registration algori
    
    introduction
    coordinate_systems
+   file_formats
+   input_specification
+   output_specification
+   examples
    installation
-   documentation
+   documentation   
    todo
 
 
