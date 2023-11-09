@@ -1025,6 +1025,10 @@ def emlddmm(**kwargs):
                 'reduce_factor':0.9,
                 'auto_stepsize_v':0, # 0 for no auto stepsize, or a number n for updating every n iterations
                 'up_vector':None, # the up vector in the atlas, which should remain up (pointing in the -y direction) in the target
+                'slice_deformation':False, # if slice_matching is also true, we will add 2d deformation
+                'ev2d':1e-6,
+                'a2d':None,
+                'p2d':2,
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -1057,6 +1061,7 @@ def emlddmm(**kwargs):
     eA = kwargs['eA']
     ev = kwargs['ev']
     eA2d = kwargs['eA2d']
+    ev2d = kwargs['ev2d']
     reduce_factor = kwargs['reduce_factor']
     auto_stepsize_v = kwargs['auto_stepsize_v']
     if auto_stepsize_v is None:
@@ -4818,6 +4823,7 @@ def atlas_free_reconstruction(**kwargs):
     Todo
     ----
     Think about how to do this with some slices fixed.
+    Think about normalizing slice to slice contrast.
         
     '''
     if 'J' not in kwargs:
@@ -4860,27 +4866,34 @@ def atlas_free_reconstruction(**kwargs):
     # note it shouldn't really be identity, it should be sigma^2M.
     # but in our equations, we can just multiply everything through by 1/2/sigmaM**2
     # (1 + a^2 \Delta )^(2p) (here p = 2, \Delta is the discrete Laplacian) 
-    op = 1.0 + ( (0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
-    op = 1.0 + ( 10*(1.0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
-    # we can use a different kernel in the space domain
-    # here is the objective we solve
-    # estimate R (rigid transforms) and I (atlas image)
-    # |I|^2_{highpass} + |I - R J|^2_{L2}
-    # where |I|^2_{highpass} = \int   |L I|^2 dx and L is a highpass operator
-    # in the past I used power of laplacian for L
-    # we could define L such that it's kernel is a power law (or a guassian or something without ripples)
-    # 
-    ooop = 1.0/op
-    # normalize
-    ooop = ooop/ooop[0] 
     
-    # let's try this power law
-    op = 1.0 / (xJ[0] - xJ[0][0])
-    op[0] = 0
-    op = np.fft.fft(op).real    # this will build in the necessary symmetry
-    # recall this is the low pass
-    op = 1/(op + 1*0) # now we have the highpass
-    op = op / op[0]
+    if 'lddmm_operator' in kwargs:
+        lddmm_operator = kwargs['lddmm_operator']
+    else:
+        lddmm_operator = False
+    if lddmm_operator:
+        op = 1.0 + ( (0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
+        #op = 1.0 + ( 10*(1.0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
+    else:
+        # we can use a different kernel in the space domain
+        # here is the objective we solve
+        # estimate R (rigid transforms) and I (atlas image)
+        # |I|^2_{highpass} + |I - R J|^2_{L2}
+        # where |I|^2_{highpass} = \int   |L I|^2 dx and L is a highpass operator
+        # in the past I used power of laplacian for L
+        # we could define L such that it's kernel is a power law (or a guassian or something without ripples)
+        # 
+        ooop = 1.0/op
+        # normalize
+        ooop = ooop/ooop[0] 
+
+        # let's try this power law
+        op = 1.0 / (xJ[0] - xJ[0][0])
+        op[0] = 0
+        op = np.fft.fft(op).real    # this will build in the necessary symmetry
+        # recall this is the low pass
+        op = 1/(op + 1*0) # now we have the highpass
+        op = op / op[0]
     ooop = 1.0/op
     
     
