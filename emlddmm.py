@@ -21,7 +21,7 @@ import tifffile as tf # for 16 bit tiff
 from scipy.stats import mode
 from scipy.interpolate import interpn
 import PIL # only required for one format conversion function
-PIL.Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error
+PIL.Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error for large files
 
 # display
 def extent_from_x(xJ):
@@ -858,7 +858,9 @@ def reshape_for_local(J,local_contrast):
 def reshape_from_local(Jv,local_contrast=None):
     '''
     After changing contrast, transform back
+    TODO: this did not get used
     '''
+    pass
     
 def emlddmm(**kwargs):
     '''
@@ -1021,14 +1023,15 @@ def emlddmm(**kwargs):
                 'slice_matching':False, # if true include rigid motions and contrast on each slice
                 'slice_matching_start':0,
                 'slice_matching_isotropic':False, # if true 3D affine is isotropic scale
+                'slice_matching_initialize':False, # if True, AND no A2d specified, we will run atlas free as an initializer
                 'local_contrast':None, # simple local contrast estimation mode, should be a list of ints
                 'reduce_factor':0.9,
                 'auto_stepsize_v':0, # 0 for no auto stepsize, or a number n for updating every n iterations
                 'up_vector':None, # the up vector in the atlas, which should remain up (pointing in the -y direction) in the target
-                'slice_deformation':False, # if slice_matching is also true, we will add 2d deformation
-                'ev2d':1e-6,
-                'a2d':None,
-                'p2d':2,
+                'slice_deformation':False, # if slice_matching is also true, we will add 2d deformation. mostly use same parameters
+                'ev2d':1e-6,                                
+                'v2d':None,
+                'slice_deformation_start':250,                
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -1061,7 +1064,7 @@ def emlddmm(**kwargs):
     eA = kwargs['eA']
     ev = kwargs['ev']
     eA2d = kwargs['eA2d']
-    ev2d = kwargs['ev2d']
+    
     reduce_factor = kwargs['reduce_factor']
     auto_stepsize_v = kwargs['auto_stepsize_v']
     if auto_stepsize_v is None:
@@ -1113,6 +1116,8 @@ def emlddmm(**kwargs):
     A = kwargs['A']
     Amode = kwargs['Amode']
     v = kwargs['v']
+    
+    # slice matching
     slice_matching = kwargs['slice_matching']
     if slice_matching is None:
         slice_matching = False
@@ -1120,6 +1125,17 @@ def emlddmm(**kwargs):
         A2d = kwargs['A2d']
     slice_matching_start = kwargs['slice_matching_start']
     slice_matching_isotropic = kwargs['slice_matching_isotropic']
+    
+    # slice deformation
+    slice_deformation = kwargs['slice_deformation']
+    if slice_deformation is None:
+        slice_deformation = False
+    if slice_deformation and not slice_matching:
+        raise Exception('slice deformation is only available if slice matching is True')
+    if slice_deformation:
+        v2d = kwargs['v2d']
+    slice_deformation_start = kwargs['slice_deformation_start']
+    
     
     # local contrast, a list of ints, if empty don't do it
     local_contrast = kwargs['local_contrast']
@@ -1243,7 +1259,7 @@ def emlddmm(**kwargs):
     g2di = torch.inverse(g2d.double()).to(dtype)
 
             
-    # build energy operator for velocity
+    # build energy and smoothing operator for velocity
     fv = [torch.arange(n,device=device,dtype=dtype)/d/n for n,d in zip(nv,dv)]
     FV = torch.stack(torch.meshgrid(fv,indexing='ij'))
 
@@ -1260,7 +1276,13 @@ def emlddmm(**kwargs):
     Kpre = 1.0/LLpre
     KK = K*Kpre
 
-    
+    # build energy and smoothing operator for 2d velocity
+    if slice_deformation:
+        x0v2d = [x[0] - (x[-1]-x[0])*v_expand_factor for x in xJ[1:]]
+        x1v2d = [x[-1] + (x[-1]-x[0])*v_expand_factor for x in xJ[1:]]
+        xv2d = [torch.arange(x0,x1,d,device=device,dtype=dtype) for x0,x1,d in zip(x0v2d,x1v2d,dv)]
+        nv2d = torch.tensor([len(x) for x in xv2d],device=device,dtype=dtype)
+        XV2d = torch.stack(torch.meshgrid(xv2d,indexing='ij'))
     
     
     # now initialize variables and optimizers    
@@ -1273,7 +1295,7 @@ def emlddmm(**kwargs):
         if torch.all(torch.as_tensor(v.shape,device=device,dtype=dtype)==torch.as_tensor(vsize,device=device,dtype=dtype)):
             # note as_tensor will not do a copy if it is the same dtype and device
             # torch.tensor will always copy
-            if type(v) == torch.Tensor:
+            if isinstance(v,torch.Tensor):
                 v = torch.tensor(v.detach().clone(),device=device,dtype=dtype)
             else:
                 v = torch.tensor(v,device=device,dtype=dtype) 
@@ -1285,6 +1307,27 @@ def emlddmm(**kwargs):
             v = sinc_resample_numpy(v.cpu(),vsize)
             v = torch.as_tensor(v,device=device,dtype=dtype)
             v.requires_grad = True
+            
+    if slice_deformation:
+        v2dsize = (nt,2,int(nv[0]),int(nv2d[0]),int(inv2d[1]))
+        if v2d is None:
+            v2d = torch.zeros(v2dsize,dtype=dtype,device=device,requires_grad=True)
+        else:
+            # check the size
+            if torch.all(torch.as_tensor(v2d.shape,device=device,dtype=dtype)==torch.as_tensor(v2dsize,device=device,dtype=dtype)):
+                if isinstance(v2d,torch.Tensor):
+                    v2d = torch.tensor(v2d.detach().clone(),device=device,dtype=dtype)
+                else:
+                    v2d = torch.tensor(v2d,device=device,dtype=dtype)
+                v2d.requires_grad = True
+            else:
+                if v2d.shape[1] != v2dsize[1]:
+                    raise EXception('Initial 2d velocity must have 2 components')
+                # resample it
+                v2d = sinc_resample_numpy(v2d.cpu(),vsize)
+                v2d = torch.as_tensor(v2d,device=device,dtype=dtype)
+                v2d.requires_grad = True
+            
             
             
     # TODO: what if A is a strong because it came from a json file?
@@ -1307,6 +1350,16 @@ def emlddmm(**kwargs):
         if A2d is None:
             A2d = torch.eye(3,device=device,dtype=dtype)[None].repeat(J.shape[1],1,1)
             A2d.requires_grad = True
+            
+            
+            # TODO, here if  slice_matching_initialize is true
+            slice_matching_initialize = kwargs['slice_matching_initialize']
+            if slice_matching_initialize:
+                # do the atlas free reconstruction to start at lowest resolution
+                # TODO
+                pass
+                
+            
         else:
             # use tensor not as tensor to make a copy
             # A2d = torch.tensor(A2d, device=device, dtype=dtype)
@@ -4874,6 +4927,11 @@ def atlas_free_reconstruction(**kwargs):
     if lddmm_operator:
         op = 1.0 + ( (0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
         #op = 1.0 + ( 10*(1.0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
+        
+        ooop = 1.0/op
+        # normalize
+        ooop = ooop/ooop[0] 
+
     else:
         # we can use a different kernel in the space domain
         # here is the objective we solve
@@ -4883,10 +4941,7 @@ def atlas_free_reconstruction(**kwargs):
         # in the past I used power of laplacian for L
         # we could define L such that it's kernel is a power law (or a guassian or something without ripples)
         # 
-        ooop = 1.0/op
-        # normalize
-        ooop = ooop/ooop[0] 
-
+        
         # let's try this power law
         op = 1.0 / (xJ[0] - xJ[0][0])
         op[0] = 0
@@ -4894,7 +4949,7 @@ def atlas_free_reconstruction(**kwargs):
         # recall this is the low pass
         op = 1/(op + 1*0) # now we have the highpass
         op = op / op[0]
-    ooop = 1.0/op
+        ooop = 1.0/op
     
     
     
