@@ -379,10 +379,15 @@ def load_slices(target_name, xJ=None):
         # getting an index out of range issue in the line below (problem was 'missing' versus 'absent')
         #print(dJ,J_[i].shape)
         xJ_ = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(J_[i].shape[:-1], dJ[1:])]
-        J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="border"), (1,2,0))
+        # note, padding mode border means weights will not be appropriate, change on jan 11, 2024
+        #J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="border"), (1,2,0))
+        J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="zeros"), (1,2,0))
         W0_ = np.zeros(W0.shape[1:])
-        W0_[J[i,...,0] > 0.0] = 1.0
-        W0[i] = W0_
+        #W0_[J[i,...,0] > 0.0] = 1.0 # we check if the first channel is greater than 0
+        # jan 11, 2024, I think there is a mistake above, I thnk it should be j
+        W0_[J[j,...,0] > 0.0] = 1.0 # we check if the first channel is greater than 0
+        #W0[i] = W0_
+        W0[j] = W0_
         i += 1
     J = np.transpose(J,(3,0,1,2))
 
@@ -4944,6 +4949,9 @@ def atlas_free_reconstruction(**kwargs):
         
         # let's try this power law
         op = 1.0 / (xJ[0] - xJ[0][0])
+        # jan 11, 2024, it does not decay fast enough, so try below
+        op = 1.0 / (xJ[0] - xJ[0][0])**2
+        op = 1.0 / np.abs((xJ[0] - xJ[0][0]))**1.5/np.sign((xJ[0] - xJ[0][0]))
         op[0] = 0
         op = np.fft.fft(op).real    # this will build in the necessary symmetry
         # recall this is the low pass
@@ -5010,6 +5018,7 @@ def atlas_free_reconstruction(**kwargs):
         print(f'starting it {it}')
         # map it
         out = emlddmm(I=I,xI=xJ,J=J,xJ=xJ,W0=W,device='cpu',**config)
+        # sometimes this gives an error
         # update Jr and Wr
 
         tform = compose_sequence([Transform(out['A2d'])],XJ)
@@ -5020,9 +5029,14 @@ def atlas_free_reconstruction(**kwargs):
         Wr /= Wr.max()
         
         # the approach on the next two lines really helped wiht artifacts near the border
+        '''
         Jr = apply_transform_float(xJ,J*Wr,tform,padding_mode='border') # default padding is border
         Wr_ = apply_transform_float(xJ,Wr,tform,padding_mode='border')[0] # default padding is border
         Jr = Jr/(Wr_[None] + 1e-6)
+        '''
+        
+        # the alternative is this
+        Jr = apply_transform_float(xJ,J,tform,padding_mode='zeros') # default padding is border
         # but I don't think the final Wr is that good, so let's use this        
         Wr = apply_transform_float(xJ,Wr,tform,padding_mode='zeros')[0] # make sure anything out of bounds is 0
         #Wr = Wr_
