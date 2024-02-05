@@ -44,6 +44,7 @@
 <li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
@@ -252,6 +253,28 @@ locations in corresponding axis.</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.affine_from_figure">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">affine_from_figure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shift</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#affine_from_figure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.affine_from_figure" title="Permalink to this definition"></a></dt>
+<dd><p>Build small affine transforms by looking at figures generated in draw.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>str</em>) – <p>Two letters. “t”,”m”,”b” for top row middle row bottom row.</p>
+<p>Then ‘w’,’e’,’n’,’s’ for left right up down</p>
+<p>Or ‘r’,’l’ for turn right turn left</p>
+<p>or ‘id’ for identity.</p>
+</p></li>
+<li><p><strong>shift</strong> (<em>float</em>) – How far to shift.</p></li>
+<li><p><strong>angle</strong> (<em>float</em>) – How far to rotate (in degrees)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>A0</strong> (<em>numpy array</em>) – 4x4 numpy array affine transform matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="emlddmm.apply_transform_float">
 <span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">apply_transform_float</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xout</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#apply_transform_float"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.apply_transform_float" title="Permalink to this definition"></a></dt>
 <dd><p>Apply transform to image
@@ -300,6 +323,49 @@ transform stored in Xout</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.atlas_free_reconstruction">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">atlas_free_reconstruction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#atlas_free_reconstruction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.atlas_free_reconstruction" title="Permalink to this definition"></a></dt>
+<dd><p>Atlas free slice alignment</p>
+<p>Uses an MM algorithm to align slices.  Minimizes a Sobolev norm over rigid transformations of each slice.</p>
+<p>All arguments are keword arguments</p>
+<div class="section" id="keword-arguments">
+<h2>Keword Arguments<a class="headerlink" href="#keword-arguments" title="Permalink to this heading"></a></h2>
+<dl class="simple">
+<dt>xJ<span class="classifier">list of arrays</span></dt><dd><p>Lists of pixel locations in slice row col axes</p>
+</dd>
+<dt>J<span class="classifier">array</span></dt><dd><p>A C x slice x row x col set of 2D image.</p>
+</dd>
+<dt>W<span class="classifier">array</span></dt><dd><p>A slice x row x col set of weights of 2D images.  1 for good quality, to 0 for bad quality or out of bounds.</p>
+</dd>
+<dt>a<span class="classifier">float</span></dt><dd><p>length scale (multiplied by laplacian) for smootheness averaging between slices. Defaults to twice the slice separation.</p>
+</dd>
+<dt>p<span class="classifier">float</span></dt><dd><p>Power of laplacian in somothing. Defaults to 2.</p>
+</dd>
+<dt>draw<span class="classifier">int</span></dt><dd><p>Draw figure (default false)</p>
+</dd>
+<dt>n_steps<span class="classifier">int</span></dt><dd><p>Number of iterations of MM algorithm.</p>
+</dd>
+<dt><a href="#id2"><span class="problematic" id="id3">**</span></a>kwargs<span class="classifier">dict</span></dt><dd><p>All other keword arguments are passed along to slice matching in the emlddmm algorithm.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">returns</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>out</strong> (<em>dictionary</em>) – All outputs from emlddmm algorithm, plus the new image I, and reconstructed image Jr</p></li>
+<li><p><strong>out[‘I’]</strong> (<em>numpy array</em>) – A C x slice x row x col set of 2D images (same size as J), averaged between slices.</p></li>
+<li><p><strong>out[‘Jr’]</strong> (<em>numpy array</em>) – A C x slice x row x col set of 2D images (same size as J)</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition-todo admonition" id="id4">
+<p class="admonition-title">Todo</p>
+<p>Think about how to do this with some slices fixed.
+Think about normalizing slice to slice contrast.</p>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="emlddmm.compose_sequence">
 <span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">compose_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transforms</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'f'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#compose_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.compose_sequence" title="Permalink to this definition"></a></dt>
 <dd><p>Compose a set of transformations, to produce a single position field,
@@ -315,7 +381,8 @@ suitable for use with <a class="reference internal" href="#emlddmm.apply_transfo
 <li><p>An output directory</p></li>
 </ol>
 </p></li>
-<li><p><strong>Xin</strong> (<em>3 x slice x row x col array</em>) – The points we want to transform (e.g. sample points in atlas)</p></li>
+<li><p><strong>Xin</strong> (<em>3 x slice x row x col array</em>) – The points we want to transform (e.g. sample points in atlas).  Also supports input as a list of voxel locations,
+along each axis which will be reshaped as above using meshgrid.</p></li>
 <li><p><strong>direction</strong> (<em>char</em>) – Can be ‘f’ for foward or ‘b’ for bakward.  f is default which maps points from atlas to target,
 or images from target to atlas.</p></li>
 </ul>
@@ -338,12 +405,42 @@ If the input is a tuple of length 2, we assume it is an output directory and a d
     or list of tuples storing filename/direction.</p>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id2">
+<div class="admonition-todo admonition" id="id5">
 <p class="admonition-title">Todo</p>
 <ol class="arabic simple">
 <li><p>use os path join</p></li>
 <li><p>support direction as a list, right now direction only is used for a single direction</p></li>
 </ol>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.compute_atlas_from_slices">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">compute_atlas_from_slices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">J</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">W</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ooop</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">niter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">I</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">draw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#compute_atlas_from_slices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.compute_atlas_from_slices" title="Permalink to this definition"></a></dt>
+<dd><p>Construct an atlas image by averaging between slices.</p>
+<p>This uses an MM (also could be interpreted as EM) algorithm for
+converting a weighted least squares problem to an ordinary least squares problem.
+The latter can be solved as a stationary problem, and updated iteratively.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>J</strong> (<em>array</em>) – an C x slice x row x col image array.</p></li>
+<li><p><strong>W</strong> (<em>array</em>) – An slice x row x col array of weights</p></li>
+<li><p><strong>ooop</strong> (<em>array</em>) – a 1D array with “slice” elements.  This is a frequency domain
+one over operator for doing smoothing.</p></li>
+<li><p><strong>niter</strong> (<em>int</em>) – Number of iterations to update in MM algorithm. (default to 10)</p></li>
+<li><p><strong>I</strong> (<em>array</em>) – An C x slice x row x col image array representing an initial guess.</p></li>
+<li><p><strong>draw</strong> (<em>int</em>) – Draw the image every draw iterations.  Do not draw if 0 (default).</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This code uses numpy, not torch, since it is not gradient based.</p>
+</div>
+<div class="admonition-todo admonition" id="id6">
+<p class="admonition-title">Todo</p>
+<p>Better boundary conditions</p>
 </div>
 </dd></dl>
 
@@ -376,7 +473,7 @@ but for 3D it will have to be input manually if we do not have a sidecar file.</
 <p class="rubric">Notes</p>
 <p>If we are applying 3D transforms, we need a z coordinate.  This can be determined either by specifying it
 or by using a sidecar file.  If we have neither, it ill be set to 0.</p>
-<div class="admonition-todo admonition" id="id3">
+<div class="admonition-todo admonition" id="id7">
 <p class="admonition-title">Todo</p>
 <p>Consider setting z to nan instead of zero.</p>
 </div>
@@ -555,7 +652,7 @@ include cmap=’gray’ for a gray colormap</p></li>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">example</span> <span class="n">test</span>
 </pre></div>
 </div>
-<div class="admonition-todo admonition" id="id4">
+<div class="admonition-todo admonition" id="id8">
 <p class="admonition-title">Todo</p>
 <p>Put interpolation=’none’ in keywords</p>
 </div>
@@ -608,9 +705,9 @@ is helpful to avoid wraparound effects caused by discrete Fourier domain calcula
 This is overrided if you specify dv.</p></li>
 <li><p><strong>dv</strong> (<em>None</em><em> or </em><em>float</em><em> or </em><em>list</em><em> of </em><em>3 floats</em>) – Explicitly state the resolution of the sampling grid for the velocity field.</p></li>
 <li><p><strong>a</strong> (<em>float</em>) – Constant with units of length.  In velocity regularization, its square is multiplied against the Laplacian.
-Regularization is of the form 1/2/sigmaR^2 int <a href="#id5"><span class="problematic" id="id6">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p></li>
+Regularization is of the form 1/2/sigmaR^2 int <a href="#id9"><span class="problematic" id="id10">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p></li>
 <li><p><strong>p</strong> (<em>float</em>) – Power of the Laplacian operator in regularization of the velocity field.
-Regularization is of the form 1/2/sigmaR^2 int <a href="#id7"><span class="problematic" id="id8">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p></li>
+Regularization is of the form 1/2/sigmaR^2 int <a href="#id11"><span class="problematic" id="id12">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -994,7 +1091,7 @@ component of vector field.</p></li>
 <dd class="field-even"><p><strong>If data not written in big endian</strong> – Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian=”l” if you want little</p>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id9">
+<div class="admonition-todo admonition" id="id13">
 <p class="admonition-title">Todo</p>
 <p>Torch does not support negative strides.  This has lead to an error where x has a negative stride.
 I should flip instead of negative stride, or copy afterward.</p>
@@ -1059,7 +1156,8 @@ Assume file contains xyz order, they are converted to zyx for python</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="emlddmm.reshape_from_local">
 <span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">reshape_from_local</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Jv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_contrast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#reshape_from_local"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.reshape_from_local" title="Permalink to this definition"></a></dt>
-<dd><p>After changing contrast, transform back</p>
+<dd><p>After changing contrast, transform back
+TODO: this did not get used</p>
 </dd></dl>
 
 <dl class="py function">
@@ -1172,7 +1270,7 @@ but we write outputs in xyz order</p>
 </ul>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id10">
+<div class="admonition-todo admonition" id="id14">
 <p class="admonition-title">Todo</p>
 <p>Implement QC figures.</p>
 <p>Check device more carefully, probably better to put everything on cpu.</p>
@@ -1221,7 +1319,7 @@ and 2D affine transforms for each slice if applicable.</p>
 <dd class="field-even"><p><em>None</em></p>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id11">
+<div class="admonition-todo admonition" id="id15">
 <p class="admonition-title">Todo</p>
 <p>Update parameter list.</p>
 </div>
@@ -1245,7 +1343,7 @@ and 2D affine transforms for each slice if applicable.</p>
 <dd class="field-even"><p><em>None</em></p>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id12">
+<div class="admonition-todo admonition" id="id16">
 <p class="admonition-title">Todo</p>
 <p>Update parameter list.</p>
 </div>

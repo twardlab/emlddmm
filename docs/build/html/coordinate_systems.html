@@ -93,6 +93,7 @@
 <li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
@@ -133,7 +134,7 @@
 <p>We adopt the Allen Institute’s Common Coordinate Framework (CCF) atlas, and use its structure annotations, its 3D Nissl image, and its 3D STPT average template image.</p>
 <p>Note that the STPT image and annotations are left right symmetric in this data.  Nissl images are not left right symmetric.</p>
 <p>The CCF NRRD files do not specify a coordinate system correctly.  We build our own right handed coordinate system which is described below.</p>
-<p>FIGURE HERE.</p>
+<a class="reference internal image-reference" href="_images/mouse_coords.png"><img alt="_images/mouse_coords.png" src="_images/mouse_coords.png" style="width: 400px;" /></a>
 <div class="section" id="coordinate-directions">
 <h4>Coordinate directions<a class="headerlink" href="#coordinate-directions" title="Permalink to this heading"></a></h4>
 <p>We chose “x” to point from the brain’s superior to inferior, “y” to point from the brain’s left to right (note this is often displayed by pointing from the right side of the screen to the left, i.e. radiological convention), and “z” to point from posterior to anterior (caudal to rostral).</p>
@@ -166,8 +167,9 @@
 </div>
 <div class="section" id="marmoset-atlas">
 <h3>Marmoset atlas<a class="headerlink" href="#marmoset-atlas" title="Permalink to this heading"></a></h3>
-<p>For marmoset we typically use the RIKEN atlas described in Woodward 2018 (<a class="reference external" href="https://www.nature.com/articles/sdata20189">https://www.nature.com/articles/sdata20189</a>).</p>
-<p>FIGURE HERE.</p>
+<p>For marmoset we typically use the RIKEN atlas described in Woodward 2018 (<a class="reference external" href="https://www.nature.com/articles/sdata20189">https://www.nature.com/articles/sdata20189</a>).  An image of our coordinate system convention is shown below.</p>
+<a class="reference internal image-reference" href="_images/marmoset_coords.png"><img alt="_images/marmoset_coords.png" src="_images/marmoset_coords.png" style="width: 400px;" /></a>
+<a class="reference internal image-reference" href="_images/marmoset_coords_2.png"><img alt="_images/marmoset_coords_2.png" src="_images/marmoset_coords_2.png" style="width: 400px;" /></a>
 <div class="section" id="id1">
 <h4>Coordinate directions<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h4>
 <p>We use an RAS (right, anterior, superior) coordinate system where the “x” direction points from left to right, the “y” direction points from posterior to anterior, and the “z” direction points from inferior to superior.</p>
@@ -195,8 +197,8 @@ with images:</p>
 </div>
 <div class="section" id="human-atlas">
 <h3>Human atlas<a class="headerlink" href="#human-atlas" title="Permalink to this heading"></a></h3>
-<p>We use the Montreal Neurological Institute - International Consortium for Brain Mapping (MNI-ICBM) coordinate system, which is described here: <a class="reference external" href="https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear">https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear</a> .</p>
-<p>figure here</p>
+<p>We use the Montreal Neurological Institute - International Consortium for Brain Mapping (MNI-ICBM) coordinate system, which is described here: <a class="reference external" href="https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear">https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear</a> .  An example is shown below.</p>
+<a class="reference internal image-reference" href="_images/marmoset_coords_2.png"><img alt="_images/marmoset_coords_2.png" src="_images/marmoset_coords_2.png" style="width: 400px;" /></a>
 <div class="section" id="id4">
 <h4>Coordinate directions<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h4>
 <p>The atlas is based on the Talarach Tournoux coordinate system which is RAS.  “x” points from left to right, “y” points from posterior to anterior (posterior commissure to anterior commissure), and “z” points from inferior to superior.</p>
@@ -217,7 +219,7 @@ with images:</p>
 <p>Currently can be downloaded form the web at the above link <a class="reference external" href="https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear">https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear</a> .</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Jai suggests MNI-Colin27 and not ICBM152 nonlinear. Human brain project uses this. Maybe we will prefer this one.
+<p>Another possibility is MNI-Colin27 and not ICBM152 nonlinear.
 <a class="reference external" href="https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/colin-27-2008">https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/colin-27-2008</a></p>
 <p>Note that the difference is the 4mm offset.</p>
 </div>

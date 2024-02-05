@@ -18,7 +18,9 @@ Note that the STPT image and annotations are left right symmetric in this data. 
 The CCF NRRD files do not specify a coordinate system correctly.  We build our own right handed coordinate system which is described below.
 
 
-FIGURE HERE.
+.. image:: mouse_coords.png
+   :width: 400
+  
 
 Coordinate directions
 """""""""""""""""""""
@@ -57,10 +59,17 @@ Other information
 Marmoset atlas
 ^^^^^^^^^^^^^^
 
-For marmoset we typically use the RIKEN atlas described in Woodward 2018 (https://www.nature.com/articles/sdata20189).  
+For marmoset we typically use the RIKEN atlas described in Woodward 2018 (https://www.nature.com/articles/sdata20189).  An image of our coordinate system convention is shown below.
 
 
-FIGURE HERE.
+.. image:: marmoset_coords.png
+   :width: 400
+
+
+
+.. image:: marmoset_coords_2.png
+   :width: 400   
+  
 
 Coordinate directions
 """""""""""""""""""""
@@ -96,10 +105,11 @@ Human atlas
 ^^^^^^^^^^^
 
 
-We use the Montreal Neurological Institute - International Consortium for Brain Mapping (MNI-ICBM) coordinate system, which is described here: https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear .
+We use the Montreal Neurological Institute - International Consortium for Brain Mapping (MNI-ICBM) coordinate system, which is described here: https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear .  An example is shown below.
 
 
-figure here
+.. image:: marmoset_coords_2.png
+   :width: 400   
 
 
 Coordinate directions
@@ -130,7 +140,7 @@ Currently can be downloaded form the web at the above link https://www.mcgill.ca
 
 
 .. note::
-   Jai suggests MNI-Colin27 and not ICBM152 nonlinear. Human brain project uses this. Maybe we will prefer this one. 
+   Another possibility is MNI-Colin27 and not ICBM152 nonlinear.
    https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/colin-27-2008
 
    Note that the difference is the 4mm offset.
