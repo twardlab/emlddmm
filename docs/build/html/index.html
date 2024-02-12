@@ -17,6 +17,7 @@
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
         <script src="_static/sphinx_highlight.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -41,14 +42,14 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
 <li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">Work in progress</a></li>
 </ul>
 
         </div>
@@ -78,90 +79,38 @@
   <div class="section" id="welcome-to-gdm-s-documentation">
 <h1>Welcome to GDM’s documentation!<a class="headerlink" href="#welcome-to-gdm-s-documentation" title="Permalink to this heading"></a></h1>
 <p>Generative diffeomorphic mapping (GDM) is a deformable image registration algorithm designed for aligning multimodal neuroimaging datasets to one another for subsequent analysis.  Our package has several important novel features including estimation of any differences in contrast or color between datasets, identification of missing tissues or artifactions, diverse geometries such as mapping 3D volumes to a sequence of 2D datasets, and complex multimodality registration setups described by transformation graphs.</p>
+<p>This documentation can automatically be rendered as a pdf using the sphinx package but is best viewed in html (<a class="reference external" href="https://twardlab.github.io/emlddmm/build/html/index.html">https://twardlab.github.io/emlddmm/build/html/index.html</a>).  The pdf may have missing or broken links and images.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="introduction.html#example-workflow-stp-mapping">Example workflow: STP mapping</a></li>
-<li class="toctree-l2"><a class="reference internal" href="introduction.html#example-workflow-alternating-sections-to-atlases">Example workflow: Alternating sections to atlases</a></li>
-<li class="toctree-l2"><a class="reference internal" href="introduction.html#example-workflow-ex-vivo-mri">Example workflow: Ex vivo MRI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="introduction.html#example-workflow-arbitrary-layout">Example workflow: Arbitrary layout</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="coordinate_systems.html#atlas-spaces">Atlas spaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="coordinate_systems.html#input-space">Input space</a></li>
-<li class="toctree-l2"><a class="reference internal" href="coordinate_systems.html#registered-space">Registered space</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#json-geometry-files">JSON geometry files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#dataset-lists">Dataset lists</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#legacy-csv-geometry-files">Legacy CSV geometry files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#samik-legacy-geometry-files">Samik legacy geometry files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#d-imaging-data">3D imaging data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#d-microscopy-images-from-cold-spring-harbor">2D microscopy images from Cold Spring Harbor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#d-datasets-for-registration">2D datasets for registration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#affine-transformations">Affine Transformations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#deformations">Deformations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#velocity-fields">Velocity fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#annotations">Annotations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#point-sets">Point sets</a></li>
-<li class="toctree-l2"><a class="reference internal" href="file_formats.html#pixel-indexed-point-sets">Pixel indexed point sets</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="input_specification.html#names-of-spaces">Names of spaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="input_specification.html#names-of-images">Names of images</a></li>
-<li class="toctree-l2"><a class="reference internal" href="input_specification.html#filenames">Filenames</a></li>
-<li class="toctree-l2"><a class="reference internal" href="input_specification.html#registration-tuples">Registration tuples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="input_specification.html#registration-configurations">Registration Configurations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="input_specification.html#reconstruction-tuples">Reconstruction tuples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="input_specification.html#example">Example</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="output_specification.html#example">Example</a></li>
-<li class="toctree-l2"><a class="reference internal" href="output_specification.html#notes">Notes</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="examples.html#a-3d-to-3d-example">A 3D to 3D example</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples.html#a-3d-to-2d-example">A 3D to 2D example</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="genindex.html">Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="py-modindex.html">Module Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="search.html">Search Page</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="todo.html#blockface-imaging">Blockface imaging</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">Work in progress</a></li>
 </ul>
 </div>
-</div>
-<div class="section" id="module-and-function-documentation">
-<h1>Module and function documentation<a class="headerlink" href="#module-and-function-documentation" title="Permalink to this heading"></a></h1>
 </div>
 <div class="section" id="installing">
 <h1>Installing<a class="headerlink" href="#installing" title="Permalink to this heading"></a></h1>
 <ul class="simple">
-<li><p>requirements</p></li>
-<li><p>github</p></li>
-<li><p>pip</p></li>
+<li><p>Make sure you have python 3 installed with pip</p></li>
+<li><p>Use pip to install the packages in the requirements.txt file (pip in stall -r requrements.txt)</p></li>
+<li><p>Clone the repository on github (git clone <a class="reference external" href="https://github.com/twardlab/emlddmm">https://github.com/twardlab/emlddmm</a>)</p></li>
+<li><p>When running interactively in python, make sure you add the path (import sys; sys.path.append(‘/LOCATION/OF/REPOSITORY’))</p></li>
 </ul>
 </div>
 <div class="section" id="examples">
 <h1>Examples<a class="headerlink" href="#examples" title="Permalink to this heading"></a></h1>
+<p>We include data and code for two examples, in the “examples” folder.
+Both examples show code run interactively in a jupyter notebook, and show how the command line interface is used.</p>
 <ul class="simple">
-<li><p>Run emlddmm registration (jupyter notebook?)</p></li>
-<li><p>Run multi scale emlddmm registration (jupyter notebook?)</p></li>
-<li><p>Run multiple transformations (command line interface)</p></li>
-<li><p>Apply transformations to new datasets (command line interface)</p></li>
+<li><p>3D Human MRI example</p></li>
+<li><p>Mouse Nissl serial section alignment example.</p></li>
 </ul>
 </div>
 <div class="section" id="important-functions">
@@ -169,16 +118,26 @@
 <div class="section" id="python-functions-to-be-run-interactively">
 <h2>Python functions to be run interactively<a class="headerlink" href="#python-functions-to-be-run-interactively" title="Permalink to this heading"></a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="emlddmm.html#emlddmm.emlddmm" title="emlddmm.emlddmm"><code class="xref py py-func docutils literal notranslate"><span class="pre">emlddmm.emlddmm()</span></code></a>: Run the emlddmm algorithm, example here: TODO</p></li>
-<li><p><a class="reference internal" href="emlddmm.html#emlddmm.emlddmm_multiscale" title="emlddmm.emlddmm_multiscale"><code class="xref py py-func docutils literal notranslate"><span class="pre">emlddmm.emlddmm_multiscale()</span></code></a>: Run the emlddmm algorithm iteratively at different scales, example here: TODO</p></li>
+<li><p><a class="reference internal" href="emlddmm.html#emlddmm.emlddmm" title="emlddmm.emlddmm"><code class="xref py py-func docutils literal notranslate"><span class="pre">emlddmm.emlddmm()</span></code></a>: Run the emlddmm algorithm.</p></li>
+<li><p><a class="reference internal" href="emlddmm.html#emlddmm.emlddmm_multiscale" title="emlddmm.emlddmm_multiscale"><code class="xref py py-func docutils literal notranslate"><span class="pre">emlddmm.emlddmm_multiscale()</span></code></a>: Run the emlddmm algorithm iteratively at different scales.</p></li>
 </ul>
 </div>
 <div class="section" id="command-line-functions">
 <h2>Command line functions<a class="headerlink" href="#command-line-functions" title="Permalink to this heading"></a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="transformation_graph_v01.html#module-transformation_graph_v01" title="transformation_graph_v01"><code class="xref py py-mod docutils literal notranslate"><span class="pre">transformation_graph_v01</span></code></a>: Run the transformation graph</p></li>
+<li><p><a class="reference internal" href="transformation_graph_v01.html#module-transformation_graph_v01" title="transformation_graph_v01"><code class="xref py py-mod docutils literal notranslate"><span class="pre">transformation_graph_v01</span></code></a>: Run registration between two or more datasets using the transformation graph command line interface.</p></li>
 </ul>
 </div>
+</div>
+<div class="section" id="module-and-function-documentation">
+<h1>Module and function documentation<a class="headerlink" href="#module-and-function-documentation" title="Permalink to this heading"></a></h1>
+<p>All functions are automatically documented with sphinx and napoleon.  See the Function Reference section.</p>
+</div>
+<div class="section" id="web-interface">
+<h1>Web interface<a class="headerlink" href="#web-interface" title="Permalink to this heading"></a></h1>
+<p>To improve accessibility, we provide a web interface at <a class="reference external" href="https://twardlab.com/reg">https://twardlab.com/reg</a> which can be used for small jobs.
+Please email the Daniel Tward (<a class="reference external" href="mailto:dtward&#37;&#52;&#48;mednet&#46;ucla&#46;edu">dtward<span>&#64;</span>mednet<span>&#46;</span>ucla<span>&#46;</span>edu</a>) to request an account.
+We provide a guest account for review purposes.  Username: guest, password: 84983c60.  No identifying information is recorded in the guest account.  We request email addresses when creating your own account.</p>
 </div>
 
 
@@ -191,7 +150,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, Daniel Tward, Bryson Gray, Partha Mitra.</p>
+    <p>&#169; Copyright 2024, Daniel Tward.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

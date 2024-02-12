@@ -17,11 +17,12 @@
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
         <script src="_static/sphinx_highlight.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="File Formats" href="file_formats.html" />
-    <link rel="prev" title="Introduction" href="introduction.html" /> 
+    <link rel="prev" title="Installation" href="installation.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -42,6 +43,7 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Coordinate Systems</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#atlas-spaces">Atlas spaces</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#mouse-atlas">Mouse atlas</a><ul>
@@ -70,9 +72,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#id7">Coordinate directions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id8">Coordinate origin</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id9">Voxel size</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#example-dataset-mouse-coronal">Example dataset: Mouse coronal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#example-dataset-mouse-sagittal">Example dataset: Mouse sagittal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#example-dataset-mouse-transverse">Example dataset: Mouse transverse</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#registered-space">Registered space</a><ul>
@@ -94,9 +93,8 @@
 <li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">Work in progress</a></li>
 </ul>
 
         </div>
@@ -176,8 +174,7 @@
 </div>
 <div class="section" id="id2">
 <h4>Coordinate origin<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h4>
-<p>In the common marmoset, the horizontal zero plane is defined as the plane passing through the lower margin of the orbit and the center of the external auditory meatus (Figure B) (note you cannot see bregma on marmoset, it is fused too tightly to see). In an imaging apparatus, the skull is fixed through the ears, so this is a good choice. The anteroposterior zero plane is defined as the plane perpendicular to the horizontal zero plane which passes the centers of the external auditory meati. The left-right zero plane is the midsagittal plane (Saavedra and Mazzuchelli, 1969; Stephan et al., 1980).</p>
-<p>See figure 6</p>
+<p>In the common marmoset, the horizontal zero plane is defined as the plane passing through the lower margin of the orbit and the center of the external auditory meatus (see figure) (note you cannot see bregma on marmoset, it is fused too tightly to see). In an imaging apparatus, the skull is fixed through the ears, so this is a good choice. The anteroposterior zero plane is defined as the plane perpendicular to the horizontal zero plane which passes the centers of the external auditory meati. The left-right zero plane is the midsagittal plane (Saavedra and Mazzuchelli, 1969; Stephan et al., 1980).</p>
 </div>
 <div class="section" id="id3">
 <h4>Other information<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h4>
@@ -253,18 +250,6 @@ with images:</p>
 <p>In a typical workflow, an image is created with resolution 0.46umx0.46micron, with a slice thickness of 10 micron.  For registration purposes these are typically downsampled by a factor of 32 in the x and y directions, making the resolution 14.72um before they are input to the pipeline.</p>
 </div>
 </div>
-<div class="section" id="example-dataset-mouse-coronal">
-<h3>Example dataset: Mouse coronal<a class="headerlink" href="#example-dataset-mouse-coronal" title="Permalink to this heading"></a></h3>
-<p>TODO figure with arrows</p>
-</div>
-<div class="section" id="example-dataset-mouse-sagittal">
-<h3>Example dataset: Mouse sagittal<a class="headerlink" href="#example-dataset-mouse-sagittal" title="Permalink to this heading"></a></h3>
-<p>TODO figure with arrows</p>
-</div>
-<div class="section" id="example-dataset-mouse-transverse">
-<h3>Example dataset: Mouse transverse<a class="headerlink" href="#example-dataset-mouse-transverse" title="Permalink to this heading"></a></h3>
-<p>TODO figure with arrows</p>
-</div>
 </div>
 <div class="section" id="registered-space">
 <h2>Registered space<a class="headerlink" href="#registered-space" title="Permalink to this heading"></a></h2>
@@ -313,7 +298,6 @@ x &amp;= 0.46 j + (-5695.0)"/></p>
 <div class="section" id="mouse-with-sagittal-sections">
 <h4>Mouse with sagittal sections<a class="headerlink" href="#mouse-with-sagittal-sections" title="Permalink to this heading"></a></h4>
 <p>Using our <a class="reference internal" href="#mouse-atlas">Mouse atlas</a>, and a sagittaly sectioned dataset in <a class="reference internal" href="#input-space">Input space</a>, input space x corresponds to the anterior posterior axis (note the nose will be on the left), and input space y corresponds to the dorsal ventral axis.</p>
-<p>Note from chris, is the first section the left side of the brain or the right side?  TODO ask steve.</p>
 <p>Therefore, the x=0 point in registered space corresponds to the anatomy at the z=0 point in the atlas, and the y=0 point in registered space corresponds to the anatomy at the x=0 point in the atlas.</p>
 <p>When reconstructing imaging data in this space we chose a set of sample points for voxels that will cover the anatomy.  Therefore, we sample x starting at -7970.0 um, ending at 5220.04, and using 28675 samples equally spaced by 0.46 microns.  Similarly, we sample y starting at -870.0 um, ending at 7120.2 um, and using 17371 samples equally spaced by 0.46 microns.</p>
 <p>This convention allows us to convert between spatial locations and pixel indices (row=i,col=j, starting at 0), using the follow formulas:</p>
@@ -326,9 +310,6 @@ x &amp;= 0.46 j + (-7970.0)"/></p>
 <div class="section" id="mouse-with-transverse-sections">
 <h4>Mouse with transverse sections<a class="headerlink" href="#mouse-with-transverse-sections" title="Permalink to this heading"></a></h4>
 <p>Using our <a class="reference internal" href="#mouse-atlas">Mouse atlas</a>, and a transverse sectioned dataset in <a class="reference internal" href="#input-space">Input space</a>, input space x corresponds to the anterior posterior axis (CHECK!), and input space y corresponds to the right left axis.</p>
-<p>Note from Chris.  First section will be superior, last section most inferior.
-Nose will be at the top of the image (-y), and cerebellum at the bottom (+y).
-The left side of the mouse’s brain, will appear on the right side of the image. TODO, draw some pictures to clarify this.</p>
 <p>Therefore, the x=0 point in registered space corresponds to the anatomy at the z=0 point in the atlas, and the y=0 point in registered space corresponds to the anatomy at the y=0 point in the atlas.</p>
 <p>When reconstructing imaging data in this space we chose a set of sample points for voxels that will cover the anatomy.  Therefore, we sample x starting at -7970.0 um, ending at 5220.04, and using 28675 samples equally spaced by 0.46 microns.  Similarly, we sample y starting at -5695.0 um, ending at 5695.09 um, and using 24762 samples equally spaced by 0.46 microns.</p>
 <p>This convention allows us to convert between spatial locations and pixel indices (row=i,col=j, starting at 0), using the follow formulas:</p>
@@ -346,14 +327,14 @@ x &amp;= 0.46 j + (-7970.0)"/></p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="introduction.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="file_formats.html" class="btn btn-neutral float-right" title="File Formats" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, Daniel Tward, Bryson Gray, Partha Mitra.</p>
+    <p>&#169; Copyright 2024, Daniel Tward.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

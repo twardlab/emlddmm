@@ -17,6 +17,7 @@
         <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
         <script src="../_static/sphinx_highlight.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" /> 
@@ -40,14 +41,14 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../coordinate_systems.html">Coordinate Systems</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../file_formats.html">File Formats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../input_specification.html">Input specification via Transformation Graph Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../output_specification.html">Output Specification</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../documentation.html">Function reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../todo.html">To Do</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../todo.html">Work in progress</a></li>
 </ul>
 
         </div>
@@ -135,6 +136,40 @@
                <span class="p">(</span><span class="n">xJ</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">dJ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mf">2.0</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
                <span class="p">(</span><span class="n">xJ</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">dJ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mf">2.0</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
     <span class="k">return</span> <span class="n">extentJ</span></div>
+
+
+<div class="viewcode-block" id="labels_to_rgb"><a class="viewcode-back" href="../emlddmm.html#emlddmm.labels_to_rgb">[docs]</a><span class="k">def</span> <span class="nf">labels_to_rgb</span><span class="p">(</span><span class="n">S</span><span class="p">,</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">black_label</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">white_label</span><span class="o">=</span><span class="mi">255</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39; Convert an integer valued label image into a randomly colored image </span>
+<span class="sd">    for visualization with the draw function</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    S : numpy array</span>
+<span class="sd">        An array storing integer labels.  Expected to be 4D (1 x slices x rows x columns), </span>
+<span class="sd">        but can be 3D (slices x rows x columns).</span>
+<span class="sd">    seed : int</span>
+<span class="sd">        Random seed for reproducibility</span>
+<span class="sd">    black_label : int</span>
+<span class="sd">        Color to assign black.  Usually for background.</span>
+<span class="sd">    </span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">S</span><span class="p">,</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>        
+        <span class="n">Scopy</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">Scopy</span> <span class="o">=</span> <span class="n">S</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">labels</span><span class="p">,</span><span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">Scopy</span><span class="p">,</span><span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">),</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">colors</span><span class="p">[</span><span class="n">labels</span><span class="o">==</span><span class="n">black_label</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">colors</span><span class="p">[</span><span class="n">labels</span><span class="o">==</span><span class="n">white_label</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+    
+    <span class="n">SRGB</span> <span class="o">=</span> <span class="n">colors</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="c1"># move colors to first axis</span>
+    <span class="n">SRGB</span> <span class="o">=</span> <span class="n">SRGB</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]))</span>
+    
+    <span class="k">return</span> <span class="n">SRGB</span></div>
+    
+    
+
 <div class="viewcode-block" id="draw"><a class="viewcode-back" href="../emlddmm.html#emlddmm.draw">[docs]</a><span class="k">def</span> <span class="nf">draw</span><span class="p">(</span><span class="n">J</span><span class="p">,</span><span class="n">xJ</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">fig</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">n_slices</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span><span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">disp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">cbar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">slices_start_end</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">],</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>    
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Draw 3D imaging data.</span>
 <span class="sd">    </span>
@@ -314,10 +349,7 @@
 <span class="sd">        A nslices x nrows x ncols numpy array containing weights.  Weights are 0 where there </span>
 <span class="sd">        was padding</span>
 <span class="sd">    </span>
-<span class="sd">    References</span>
-<span class="sd">    ----------</span>
-<span class="sd">    Document describing dataset format here: TODO XXXXX</span>
-<span class="sd">    documented XXXX</span>
+<span class="sd">    </span>
 <span class="sd">    </span>
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
@@ -1471,7 +1503,8 @@
         <span class="c1">#muB = torch.tensor([torch.min(J_[W0&gt;0]) for J_ in J],dtype=dtype,device=device)  </span>
         <span class="n">muB</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span> <span class="p">(</span><span class="n">J_</span><span class="p">[</span><span class="n">W0</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="mf">0.001</span> <span class="p">),</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">J_</span> <span class="ow">in</span> <span class="n">J</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span> <span class="c1"># if we input a value we&#39;ll just use that</span>
-        <span class="n">muB</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">muB</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>        
+        <span class="n">muB</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">muB</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>    
+    
     <span class="c1"># TODO update to covariance, for now just diagonal</span>
     <span class="n">DJ</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">dJ</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">sigmaM</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1664,7 +1697,7 @@
         <span class="k">if</span> <span class="n">update_sigmaM</span><span class="p">:</span>
             <span class="n">sigmaM</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sseM</span><span class="o">/</span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">WM</span><span class="o">*</span><span class="n">W0</span><span class="p">))</span><span class="c1">#*DJ</span>
         
-        <span class="n">sigmaMsave</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sigmaM</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+        <span class="n">sigmaMsave</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sigmaM</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>        
         <span class="n">JmmuA2</span> <span class="o">=</span> <span class="p">(</span><span class="n">J</span> <span class="o">-</span> <span class="n">muA</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span>
         <span class="n">JmmuB2</span> <span class="o">=</span> <span class="p">(</span><span class="n">J</span> <span class="o">-</span> <span class="n">muB</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span>
                 
@@ -3013,6 +3046,7 @@
         <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span>
         <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">mask</span> <span class="o">=</span> <span class="n">downsample</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span><span class="n">down</span><span class="p">)</span>
+        <span class="c1"># TODO account for weights in mask when downsampling image</span>
         <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">mask</span></div>
 
 <div class="viewcode-block" id="Image.fnames"><a class="viewcode-back" href="../emlddmm.html#emlddmm.Image.fnames">[docs]</a>    <span class="k">def</span> <span class="nf">fnames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -5112,10 +5146,11 @@
 <span class="sd">        Jr = Jr/(Wr_[None] + 1e-6)</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         
+        
         <span class="c1"># the alternative is this</span>
         <span class="n">Jr</span> <span class="o">=</span> <span class="n">apply_transform_float</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span><span class="n">J</span><span class="p">,</span><span class="n">tform</span><span class="p">,</span><span class="n">padding_mode</span><span class="o">=</span><span class="s1">&#39;zeros&#39;</span><span class="p">)</span> <span class="c1"># default padding is border</span>
         <span class="c1"># but I don&#39;t think the final Wr is that good, so let&#39;s use this        </span>
-        <span class="n">Wr</span> <span class="o">=</span> <span class="n">apply_transform_float</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span><span class="n">Wr</span><span class="p">,</span><span class="n">tform</span><span class="p">,</span><span class="n">padding_mode</span><span class="o">=</span><span class="s1">&#39;zeros&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># make sure anything out of bounds is 0</span>
+        <span class="n">Wr</span> <span class="o">=</span> <span class="n">apply_transform_float</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span><span class="n">Wr</span><span class="p">,</span><span class="n">tform</span><span class="p">,</span><span class="n">padding_mode</span><span class="o">=</span><span class="s1">&#39;zeros&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># make sure anything out of bounds is 0        </span>
         <span class="c1">#Wr = Wr_</span>
         
         
@@ -5470,7 +5505,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, Daniel Tward, Bryson Gray, Partha Mitra.</p>
+    <p>&#169; Copyright 2024, Daniel Tward.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

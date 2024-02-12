@@ -17,6 +17,7 @@
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
         <script src="_static/sphinx_highlight.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" /> 
@@ -40,14 +41,14 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
 <li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">Work in progress</a></li>
 </ul>
 
         </div>
@@ -813,6 +814,23 @@ This is the input image resampled at the points stored in phii.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.labels_to_rgb">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">labels_to_rgb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">S</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">black_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">white_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">255</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#labels_to_rgb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.labels_to_rgb" title="Permalink to this definition"></a></dt>
+<dd><p>Convert an integer valued label image into a randomly colored image
+for visualization with the draw function</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>S</strong> (<em>numpy array</em>) – An array storing integer labels.  Expected to be 4D (1 x slices x rows x columns),
+but can be 3D (slices x rows x columns).</p></li>
+<li><p><strong>seed</strong> (<em>int</em>) – Random seed for reproducibility</p></li>
+<li><p><strong>black_label</strong> (<em>int</em>) – Color to assign black.  Usually for background.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="emlddmm.load_slices">
 <span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">load_slices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xJ</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#load_slices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.load_slices" title="Permalink to this definition"></a></dt>
 <dd><p>Load a slice dataset.</p>
@@ -837,11 +855,6 @@ was padding</p></li>
 </ul>
 </p>
 </dd>
-</dl>
-<p class="rubric">References</p>
-<p>Document describing dataset format here: TODO XXXXX
-documented XXXX</p>
-<dl class="field-list simple">
 <dt class="field-odd">Raises</dt>
 <dd class="field-odd"><p><strong>Exception</strong> – If the first image is not present in the image series.</p>
 </dd>
@@ -1407,7 +1420,7 @@ size number of points by number of dimensions (expected to be 3)</p></li>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, Daniel Tward, Bryson Gray, Partha Mitra.</p>
+    <p>&#169; Copyright 2024, Daniel Tward.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

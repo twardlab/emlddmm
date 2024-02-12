@@ -58,6 +58,40 @@ def extent_from_x(xJ):
                (xJ[0][-1] + dJ[0]/2.0).item(),
                (xJ[0][0] - dJ[0]/2.0).item())
     return extentJ
+
+
+def labels_to_rgb(S,seed=0,black_label=0,white_label=255):
+    ''' Convert an integer valued label image into a randomly colored image 
+    for visualization with the draw function
+    
+    Parameters
+    ----------
+    S : numpy array
+        An array storing integer labels.  Expected to be 4D (1 x slices x rows x columns), 
+        but can be 3D (slices x rows x columns).
+    seed : int
+        Random seed for reproducibility
+    black_label : int
+        Color to assign black.  Usually for background.
+    
+    '''
+    if isinstance(S,torch.Tensor):        
+        Scopy = S.clone().detach().cpu().numpy()
+    else:
+        Scopy = S
+    np.random.seed(seed)
+    labels,ind = np.unique(Scopy,return_inverse=True)
+    colors = np.random.rand(len(labels),3)
+    colors[labels==black_label] = 0.0
+    colors[labels==white_label] = 1.0
+    
+    SRGB = colors[ind].T # move colors to first axis
+    SRGB = SRGB.reshape((3,S.shape[1],S.shape[2],S.shape[3]))
+    
+    return SRGB
+    
+    
+
 def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,slices_start_end=[None,None,None],**kwargs):    
     """ Draw 3D imaging data.
     
@@ -237,10 +271,7 @@ def load_slices(target_name, xJ=None):
         A nslices x nrows x ncols numpy array containing weights.  Weights are 0 where there 
         was padding
     
-    References
-    ----------
-    Document describing dataset format here: TODO XXXXX
-    documented XXXX
+    
     
     Raises
     ------
@@ -1394,7 +1425,8 @@ def emlddmm(**kwargs):
         #muB = torch.tensor([torch.min(J_[W0>0]) for J_ in J],dtype=dtype,device=device)  
         muB = torch.tensor([torch.tensor(np.quantile( (J_[W0>0]).cpu().numpy(), 0.001 ),dtype=dtype,device=device) for J_ in J],dtype=dtype,device=device)
     else: # if we input a value we'll just use that
-        muB = torch.tensor(muB,dtype=dtype,device=device)        
+        muB = torch.tensor(muB,dtype=dtype,device=device)    
+    
     # TODO update to covariance, for now just diagonal
     DJ = torch.prod(dJ)
     if sigmaM is None:
@@ -1587,7 +1619,7 @@ def emlddmm(**kwargs):
         if update_sigmaM:
             sigmaM = torch.sqrt(sseM/torch.sum(WM*W0))#*DJ
         
-        sigmaMsave.append(sigmaM.detach().clone().cpu().numpy())
+        sigmaMsave.append(sigmaM.detach().clone().cpu().numpy())        
         JmmuA2 = (J - muA[...,None,None,None])**2
         JmmuB2 = (J - muB[...,None,None,None])**2
                 
@@ -2936,6 +2968,7 @@ class Image:
         mask = self.mask
         if mask is not None:
             mask = downsample(mask,down)
+        # TODO account for weights in mask when downsampling image
         return x, data, mask
 
     def fnames(self):
@@ -5035,10 +5068,11 @@ def atlas_free_reconstruction(**kwargs):
         Jr = Jr/(Wr_[None] + 1e-6)
         '''
         
+        
         # the alternative is this
         Jr = apply_transform_float(xJ,J,tform,padding_mode='zeros') # default padding is border
         # but I don't think the final Wr is that good, so let's use this        
-        Wr = apply_transform_float(xJ,Wr,tform,padding_mode='zeros')[0] # make sure anything out of bounds is 0
+        Wr = apply_transform_float(xJ,Wr,tform,padding_mode='zeros')[0] # make sure anything out of bounds is 0        
         #Wr = Wr_
         
         
