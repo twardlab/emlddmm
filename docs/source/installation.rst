@@ -17,7 +17,7 @@ When running interactively in python, add the appropriate path::
 
 When running from command line::
 
-   python PATH_TO_EMLDDMM_LIBRARY/transformation_graph_v01.py OTHER_INPUTS ...
+   python PATH_TO_EMLDDMM_LIBRARY/transformation_graph_v01.py --in INPUT_FILENAME
    
 For details on the command line interface, see :doc:`input specification <input_specification>`.
    

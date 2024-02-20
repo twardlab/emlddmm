@@ -21,7 +21,7 @@ import tifffile as tf # for 16 bit tiff
 from scipy.stats import mode
 from scipy.interpolate import interpn
 import PIL # only required for one format conversion function
-PIL.Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error
+PIL.Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error for large files
 
 # display
 def extent_from_x(xJ):
@@ -58,6 +58,40 @@ def extent_from_x(xJ):
                (xJ[0][-1] + dJ[0]/2.0).item(),
                (xJ[0][0] - dJ[0]/2.0).item())
     return extentJ
+
+
+def labels_to_rgb(S,seed=0,black_label=0,white_label=255):
+    ''' Convert an integer valued label image into a randomly colored image 
+    for visualization with the draw function
+    
+    Parameters
+    ----------
+    S : numpy array
+        An array storing integer labels.  Expected to be 4D (1 x slices x rows x columns), 
+        but can be 3D (slices x rows x columns).
+    seed : int
+        Random seed for reproducibility
+    black_label : int
+        Color to assign black.  Usually for background.
+    
+    '''
+    if isinstance(S,torch.Tensor):        
+        Scopy = S.clone().detach().cpu().numpy()
+    else:
+        Scopy = S
+    np.random.seed(seed)
+    labels,ind = np.unique(Scopy,return_inverse=True)
+    colors = np.random.rand(len(labels),3)
+    colors[labels==black_label] = 0.0
+    colors[labels==white_label] = 1.0
+    
+    SRGB = colors[ind].T # move colors to first axis
+    SRGB = SRGB.reshape((3,S.shape[1],S.shape[2],S.shape[3]))
+    
+    return SRGB
+    
+    
+
 def draw(J,xJ=None,fig=None,n_slices=5,vmin=None,vmax=None,disp=True,cbar=False,slices_start_end=[None,None,None],**kwargs):    
     """ Draw 3D imaging data.
     
@@ -237,10 +271,7 @@ def load_slices(target_name, xJ=None):
         A nslices x nrows x ncols numpy array containing weights.  Weights are 0 where there 
         was padding
     
-    References
-    ----------
-    Document describing dataset format here: TODO XXXXX
-    documented XXXX
+    
     
     Raises
     ------
@@ -379,10 +410,15 @@ def load_slices(target_name, xJ=None):
         # getting an index out of range issue in the line below (problem was 'missing' versus 'absent')
         #print(dJ,J_[i].shape)
         xJ_ = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(J_[i].shape[:-1], dJ[1:])]
-        J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="border"), (1,2,0))
+        # note, padding mode border means weights will not be appropriate, change on jan 11, 2024
+        #J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="border"), (1,2,0))
+        J[j] = np.transpose(interp(xJ_, J_[i].transpose(2,0,1), XJ[1:,0], interp2d=True, padding_mode="zeros"), (1,2,0))
         W0_ = np.zeros(W0.shape[1:])
-        W0_[J[i,...,0] > 0.0] = 1.0
-        W0[i] = W0_
+        #W0_[J[i,...,0] > 0.0] = 1.0 # we check if the first channel is greater than 0
+        # jan 11, 2024, I think there is a mistake above, I thnk it should be j
+        W0_[J[j,...,0] > 0.0] = 1.0 # we check if the first channel is greater than 0
+        #W0[i] = W0_
+        W0[j] = W0_
         i += 1
     J = np.transpose(J,(3,0,1,2))
 
@@ -858,7 +894,9 @@ def reshape_for_local(J,local_contrast):
 def reshape_from_local(Jv,local_contrast=None):
     '''
     After changing contrast, transform back
+    TODO: this did not get used
     '''
+    pass
     
 def emlddmm(**kwargs):
     '''
@@ -1021,14 +1059,15 @@ def emlddmm(**kwargs):
                 'slice_matching':False, # if true include rigid motions and contrast on each slice
                 'slice_matching_start':0,
                 'slice_matching_isotropic':False, # if true 3D affine is isotropic scale
+                'slice_matching_initialize':False, # if True, AND no A2d specified, we will run atlas free as an initializer
                 'local_contrast':None, # simple local contrast estimation mode, should be a list of ints
                 'reduce_factor':0.9,
                 'auto_stepsize_v':0, # 0 for no auto stepsize, or a number n for updating every n iterations
                 'up_vector':None, # the up vector in the atlas, which should remain up (pointing in the -y direction) in the target
-                'slice_deformation':False, # if slice_matching is also true, we will add 2d deformation
-                'ev2d':1e-6,
-                'a2d':None,
-                'p2d':2,
+                'slice_deformation':False, # if slice_matching is also true, we will add 2d deformation. mostly use same parameters
+                'ev2d':1e-6,                                
+                'v2d':None,
+                'slice_deformation_start':250,                
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -1061,7 +1100,7 @@ def emlddmm(**kwargs):
     eA = kwargs['eA']
     ev = kwargs['ev']
     eA2d = kwargs['eA2d']
-    ev2d = kwargs['ev2d']
+    
     reduce_factor = kwargs['reduce_factor']
     auto_stepsize_v = kwargs['auto_stepsize_v']
     if auto_stepsize_v is None:
@@ -1113,6 +1152,8 @@ def emlddmm(**kwargs):
     A = kwargs['A']
     Amode = kwargs['Amode']
     v = kwargs['v']
+    
+    # slice matching
     slice_matching = kwargs['slice_matching']
     if slice_matching is None:
         slice_matching = False
@@ -1120,6 +1161,17 @@ def emlddmm(**kwargs):
         A2d = kwargs['A2d']
     slice_matching_start = kwargs['slice_matching_start']
     slice_matching_isotropic = kwargs['slice_matching_isotropic']
+    
+    # slice deformation
+    slice_deformation = kwargs['slice_deformation']
+    if slice_deformation is None:
+        slice_deformation = False
+    if slice_deformation and not slice_matching:
+        raise Exception('slice deformation is only available if slice matching is True')
+    if slice_deformation:
+        v2d = kwargs['v2d']
+    slice_deformation_start = kwargs['slice_deformation_start']
+    
     
     # local contrast, a list of ints, if empty don't do it
     local_contrast = kwargs['local_contrast']
@@ -1243,7 +1295,7 @@ def emlddmm(**kwargs):
     g2di = torch.inverse(g2d.double()).to(dtype)
 
             
-    # build energy operator for velocity
+    # build energy and smoothing operator for velocity
     fv = [torch.arange(n,device=device,dtype=dtype)/d/n for n,d in zip(nv,dv)]
     FV = torch.stack(torch.meshgrid(fv,indexing='ij'))
 
@@ -1260,7 +1312,13 @@ def emlddmm(**kwargs):
     Kpre = 1.0/LLpre
     KK = K*Kpre
 
-    
+    # build energy and smoothing operator for 2d velocity
+    if slice_deformation:
+        x0v2d = [x[0] - (x[-1]-x[0])*v_expand_factor for x in xJ[1:]]
+        x1v2d = [x[-1] + (x[-1]-x[0])*v_expand_factor for x in xJ[1:]]
+        xv2d = [torch.arange(x0,x1,d,device=device,dtype=dtype) for x0,x1,d in zip(x0v2d,x1v2d,dv)]
+        nv2d = torch.tensor([len(x) for x in xv2d],device=device,dtype=dtype)
+        XV2d = torch.stack(torch.meshgrid(xv2d,indexing='ij'))
     
     
     # now initialize variables and optimizers    
@@ -1273,7 +1331,7 @@ def emlddmm(**kwargs):
         if torch.all(torch.as_tensor(v.shape,device=device,dtype=dtype)==torch.as_tensor(vsize,device=device,dtype=dtype)):
             # note as_tensor will not do a copy if it is the same dtype and device
             # torch.tensor will always copy
-            if type(v) == torch.Tensor:
+            if isinstance(v,torch.Tensor):
                 v = torch.tensor(v.detach().clone(),device=device,dtype=dtype)
             else:
                 v = torch.tensor(v,device=device,dtype=dtype) 
@@ -1285,6 +1343,27 @@ def emlddmm(**kwargs):
             v = sinc_resample_numpy(v.cpu(),vsize)
             v = torch.as_tensor(v,device=device,dtype=dtype)
             v.requires_grad = True
+            
+    if slice_deformation:
+        v2dsize = (nt,2,int(nv[0]),int(nv2d[0]),int(inv2d[1]))
+        if v2d is None:
+            v2d = torch.zeros(v2dsize,dtype=dtype,device=device,requires_grad=True)
+        else:
+            # check the size
+            if torch.all(torch.as_tensor(v2d.shape,device=device,dtype=dtype)==torch.as_tensor(v2dsize,device=device,dtype=dtype)):
+                if isinstance(v2d,torch.Tensor):
+                    v2d = torch.tensor(v2d.detach().clone(),device=device,dtype=dtype)
+                else:
+                    v2d = torch.tensor(v2d,device=device,dtype=dtype)
+                v2d.requires_grad = True
+            else:
+                if v2d.shape[1] != v2dsize[1]:
+                    raise EXception('Initial 2d velocity must have 2 components')
+                # resample it
+                v2d = sinc_resample_numpy(v2d.cpu(),vsize)
+                v2d = torch.as_tensor(v2d,device=device,dtype=dtype)
+                v2d.requires_grad = True
+            
             
             
     # TODO: what if A is a strong because it came from a json file?
@@ -1307,6 +1386,16 @@ def emlddmm(**kwargs):
         if A2d is None:
             A2d = torch.eye(3,device=device,dtype=dtype)[None].repeat(J.shape[1],1,1)
             A2d.requires_grad = True
+            
+            
+            # TODO, here if  slice_matching_initialize is true
+            slice_matching_initialize = kwargs['slice_matching_initialize']
+            if slice_matching_initialize:
+                # do the atlas free reconstruction to start at lowest resolution
+                # TODO
+                pass
+                
+            
         else:
             # use tensor not as tensor to make a copy
             # A2d = torch.tensor(A2d, device=device, dtype=dtype)
@@ -1336,7 +1425,8 @@ def emlddmm(**kwargs):
         #muB = torch.tensor([torch.min(J_[W0>0]) for J_ in J],dtype=dtype,device=device)  
         muB = torch.tensor([torch.tensor(np.quantile( (J_[W0>0]).cpu().numpy(), 0.001 ),dtype=dtype,device=device) for J_ in J],dtype=dtype,device=device)
     else: # if we input a value we'll just use that
-        muB = torch.tensor(muB,dtype=dtype,device=device)        
+        muB = torch.tensor(muB,dtype=dtype,device=device)    
+    
     # TODO update to covariance, for now just diagonal
     DJ = torch.prod(dJ)
     if sigmaM is None:
@@ -1529,7 +1619,7 @@ def emlddmm(**kwargs):
         if update_sigmaM:
             sigmaM = torch.sqrt(sseM/torch.sum(WM*W0))#*DJ
         
-        sigmaMsave.append(sigmaM.detach().clone().cpu().numpy())
+        sigmaMsave.append(sigmaM.detach().clone().cpu().numpy())        
         JmmuA2 = (J - muA[...,None,None,None])**2
         JmmuB2 = (J - muB[...,None,None,None])**2
                 
@@ -2878,6 +2968,7 @@ class Image:
         mask = self.mask
         if mask is not None:
             mask = downsample(mask,down)
+        # TODO account for weights in mask when downsampling image
         return x, data, mask
 
     def fnames(self):
@@ -4874,6 +4965,11 @@ def atlas_free_reconstruction(**kwargs):
     if lddmm_operator:
         op = 1.0 + ( (0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
         #op = 1.0 + ( 10*(1.0 + a**2/dJ[0]**2*(1.0 - np.cos(fJ[0]*dJ[0]*np.pi*2) )) )**(2.0*p) # note there must be a 1+ here
+        
+        ooop = 1.0/op
+        # normalize
+        ooop = ooop/ooop[0] 
+
     else:
         # we can use a different kernel in the space domain
         # here is the objective we solve
@@ -4883,18 +4979,18 @@ def atlas_free_reconstruction(**kwargs):
         # in the past I used power of laplacian for L
         # we could define L such that it's kernel is a power law (or a guassian or something without ripples)
         # 
-        ooop = 1.0/op
-        # normalize
-        ooop = ooop/ooop[0] 
-
+        
         # let's try this power law
         op = 1.0 / (xJ[0] - xJ[0][0])
+        # jan 11, 2024, it does not decay fast enough, so try below
+        op = 1.0 / (xJ[0] - xJ[0][0])**2
+        op = 1.0 / np.abs((xJ[0] - xJ[0][0]))**1.5/np.sign((xJ[0] - xJ[0][0]))
         op[0] = 0
         op = np.fft.fft(op).real    # this will build in the necessary symmetry
         # recall this is the low pass
         op = 1/(op + 1*0) # now we have the highpass
         op = op / op[0]
-    ooop = 1.0/op
+        ooop = 1.0/op
     
     
     
@@ -4955,6 +5051,7 @@ def atlas_free_reconstruction(**kwargs):
         print(f'starting it {it}')
         # map it
         out = emlddmm(I=I,xI=xJ,J=J,xJ=xJ,W0=W,device='cpu',**config)
+        # sometimes this gives an error
         # update Jr and Wr
 
         tform = compose_sequence([Transform(out['A2d'])],XJ)
@@ -4965,11 +5062,17 @@ def atlas_free_reconstruction(**kwargs):
         Wr /= Wr.max()
         
         # the approach on the next two lines really helped wiht artifacts near the border
+        '''
         Jr = apply_transform_float(xJ,J*Wr,tform,padding_mode='border') # default padding is border
         Wr_ = apply_transform_float(xJ,Wr,tform,padding_mode='border')[0] # default padding is border
         Jr = Jr/(Wr_[None] + 1e-6)
+        '''
+        
+        
+        # the alternative is this
+        Jr = apply_transform_float(xJ,J,tform,padding_mode='zeros') # default padding is border
         # but I don't think the final Wr is that good, so let's use this        
-        Wr = apply_transform_float(xJ,Wr,tform,padding_mode='zeros')[0] # make sure anything out of bounds is 0
+        Wr = apply_transform_float(xJ,Wr,tform,padding_mode='zeros')[0] # make sure anything out of bounds is 0        
         #Wr = Wr_
         
         

@@ -17,6 +17,7 @@
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
         <script src="_static/sphinx_highlight.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="#" />
     <link rel="search" title="Search" href="search.html" /> 
@@ -40,19 +41,19 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="coordinate_systems.html">Coordinate Systems</a></li>
 <li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="documentation.html">Function reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Index</a></li>
 <li class="toctree-l2"><a class="reference internal" href="py-modindex.html">Module Index</a></li>
 <li class="toctree-l2"><a class="reference internal" href="search.html">Search Page</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">Work in progress</a></li>
 </ul>
 
         </div>
@@ -117,6 +118,8 @@
 </li>
       <li><a href="transformation_graph_v01.html#transformation_graph_v01.Graph.adj">adj (transformation_graph_v01.Graph attribute)</a>
 </li>
+      <li><a href="emlddmm.html#emlddmm.affine_from_figure">affine_from_figure() (in module emlddmm)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="emlddmm.html#emlddmm.Transform.apply">apply() (emlddmm.Transform method)</a>
@@ -128,6 +131,8 @@
       <li><a href="emlddmm.html#emlddmm.apply_transform_int">apply_transform_int() (in module emlddmm)</a>
 </li>
       <li><a href="transformation_graph.html#transformation_graph.apply_transformation">apply_transformation() (in module transformation_graph)</a>
+</li>
+      <li><a href="emlddmm.html#emlddmm.atlas_free_reconstruction">atlas_free_reconstruction() (in module emlddmm)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -149,10 +154,12 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="emlddmm.html#emlddmm.compose_sequence">compose_sequence() (in module emlddmm)</a>
 </li>
-      <li><a href="emlddmm.html#emlddmm.convert_points_from_json">convert_points_from_json() (in module emlddmm)</a>
+      <li><a href="emlddmm.html#emlddmm.compute_atlas_from_slices">compute_atlas_from_slices() (in module emlddmm)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="emlddmm.html#emlddmm.convert_points_from_json">convert_points_from_json() (in module emlddmm)</a>
+</li>
       <li>
     curve_annotator
 
@@ -275,6 +282,10 @@
 
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="emlddmm.html#emlddmm.labels_to_rgb">labels_to_rgb() (in module emlddmm)</a>
+</li>
+  </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="emlddmm.html#emlddmm.load_slices">load_slices() (in module emlddmm)</a>
 </li>
@@ -510,7 +521,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, Daniel Tward, Bryson Gray, Partha Mitra.</p>
+    <p>&#169; Copyright 2024, Daniel Tward.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

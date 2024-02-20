@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.abspath('../../tests/'))
 # -- Project information -----------------------------------------------------
 
 project = 'GDM'
-copyright = '2022, Daniel Tward, Bryson Gray, Partha Mitra'
-author = 'Daniel Tward, Bryson Gray, Partha Mitra'
+copyright = '2024, Daniel Tward'
+author = 'Daniel Tward, Bryson Gray'
 
 # The full version, including alpha/beta/rc tags
 release = '0.0.1'
@@ -36,7 +36,8 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.graphviz',
     'sphinx.ext.imgmath',
-    'sphinx.ext.todo'
+    'sphinx.ext.todo',
+    'nbsphinx',
 ]
 
 

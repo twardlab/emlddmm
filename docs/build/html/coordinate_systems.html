@@ -17,11 +17,12 @@
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
         <script src="_static/sphinx_highlight.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="File Formats" href="file_formats.html" />
-    <link rel="prev" title="Introduction" href="introduction.html" /> 
+    <link rel="prev" title="Installation" href="installation.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -42,6 +43,7 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Coordinate Systems</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#atlas-spaces">Atlas spaces</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#mouse-atlas">Mouse atlas</a><ul>
@@ -70,9 +72,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#id7">Coordinate directions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id8">Coordinate origin</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id9">Voxel size</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#example-dataset-mouse-coronal">Example dataset: Mouse coronal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#example-dataset-mouse-sagittal">Example dataset: Mouse sagittal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#example-dataset-mouse-transverse">Example dataset: Mouse transverse</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#registered-space">Registered space</a><ul>
@@ -93,9 +92,9 @@
 <li class="toctree-l1"><a class="reference internal" href="file_formats.html">File Formats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="input_specification.html">Input specification via Transformation Graph Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output_specification.html">Output Specification</a></li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Function reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="todo.html">To Do</a></li>
+<li class="toctree-l1"><a class="reference internal" href="todo.html">Work in progress</a></li>
 </ul>
 
         </div>
@@ -133,7 +132,7 @@
 <p>We adopt the Allen Institute’s Common Coordinate Framework (CCF) atlas, and use its structure annotations, its 3D Nissl image, and its 3D STPT average template image.</p>
 <p>Note that the STPT image and annotations are left right symmetric in this data.  Nissl images are not left right symmetric.</p>
 <p>The CCF NRRD files do not specify a coordinate system correctly.  We build our own right handed coordinate system which is described below.</p>
-<p>FIGURE HERE.</p>
+<a class="reference internal image-reference" href="_images/mouse_coords.png"><img alt="_images/mouse_coords.png" src="_images/mouse_coords.png" style="width: 400px;" /></a>
 <div class="section" id="coordinate-directions">
 <h4>Coordinate directions<a class="headerlink" href="#coordinate-directions" title="Permalink to this heading"></a></h4>
 <p>We chose “x” to point from the brain’s superior to inferior, “y” to point from the brain’s left to right (note this is often displayed by pointing from the right side of the screen to the left, i.e. radiological convention), and “z” to point from posterior to anterior (caudal to rostral).</p>
@@ -166,16 +165,16 @@
 </div>
 <div class="section" id="marmoset-atlas">
 <h3>Marmoset atlas<a class="headerlink" href="#marmoset-atlas" title="Permalink to this heading"></a></h3>
-<p>For marmoset we typically use the RIKEN atlas described in Woodward 2018 (<a class="reference external" href="https://www.nature.com/articles/sdata20189">https://www.nature.com/articles/sdata20189</a>).</p>
-<p>FIGURE HERE.</p>
+<p>For marmoset we typically use the RIKEN atlas described in Woodward 2018 (<a class="reference external" href="https://www.nature.com/articles/sdata20189">https://www.nature.com/articles/sdata20189</a>).  An image of our coordinate system convention is shown below.</p>
+<a class="reference internal image-reference" href="_images/marmoset_coords.png"><img alt="_images/marmoset_coords.png" src="_images/marmoset_coords.png" style="width: 400px;" /></a>
+<a class="reference internal image-reference" href="_images/marmoset_coords_2.png"><img alt="_images/marmoset_coords_2.png" src="_images/marmoset_coords_2.png" style="width: 400px;" /></a>
 <div class="section" id="id1">
 <h4>Coordinate directions<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h4>
 <p>We use an RAS (right, anterior, superior) coordinate system where the “x” direction points from left to right, the “y” direction points from posterior to anterior, and the “z” direction points from inferior to superior.</p>
 </div>
 <div class="section" id="id2">
 <h4>Coordinate origin<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h4>
-<p>In the common marmoset, the horizontal zero plane is defined as the plane passing through the lower margin of the orbit and the center of the external auditory meatus (Figure B) (note you cannot see bregma on marmoset, it is fused too tightly to see). In an imaging apparatus, the skull is fixed through the ears, so this is a good choice. The anteroposterior zero plane is defined as the plane perpendicular to the horizontal zero plane which passes the centers of the external auditory meati. The left-right zero plane is the midsagittal plane (Saavedra and Mazzuchelli, 1969; Stephan et al., 1980).</p>
-<p>See figure 6</p>
+<p>In the common marmoset, the horizontal zero plane is defined as the plane passing through the lower margin of the orbit and the center of the external auditory meatus (see figure) (note you cannot see bregma on marmoset, it is fused too tightly to see). In an imaging apparatus, the skull is fixed through the ears, so this is a good choice. The anteroposterior zero plane is defined as the plane perpendicular to the horizontal zero plane which passes the centers of the external auditory meati. The left-right zero plane is the midsagittal plane (Saavedra and Mazzuchelli, 1969; Stephan et al., 1980).</p>
 </div>
 <div class="section" id="id3">
 <h4>Other information<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h4>
@@ -195,8 +194,8 @@ with images:</p>
 </div>
 <div class="section" id="human-atlas">
 <h3>Human atlas<a class="headerlink" href="#human-atlas" title="Permalink to this heading"></a></h3>
-<p>We use the Montreal Neurological Institute - International Consortium for Brain Mapping (MNI-ICBM) coordinate system, which is described here: <a class="reference external" href="https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear">https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear</a> .</p>
-<p>figure here</p>
+<p>We use the Montreal Neurological Institute - International Consortium for Brain Mapping (MNI-ICBM) coordinate system, which is described here: <a class="reference external" href="https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear">https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear</a> .  An example is shown below.</p>
+<a class="reference internal image-reference" href="_images/marmoset_coords_2.png"><img alt="_images/marmoset_coords_2.png" src="_images/marmoset_coords_2.png" style="width: 400px;" /></a>
 <div class="section" id="id4">
 <h4>Coordinate directions<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h4>
 <p>The atlas is based on the Talarach Tournoux coordinate system which is RAS.  “x” points from left to right, “y” points from posterior to anterior (posterior commissure to anterior commissure), and “z” points from inferior to superior.</p>
@@ -217,7 +216,7 @@ with images:</p>
 <p>Currently can be downloaded form the web at the above link <a class="reference external" href="https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear">https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear</a> .</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Jai suggests MNI-Colin27 and not ICBM152 nonlinear. Human brain project uses this. Maybe we will prefer this one.
+<p>Another possibility is MNI-Colin27 and not ICBM152 nonlinear.
 <a class="reference external" href="https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/colin-27-2008">https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/colin-27-2008</a></p>
 <p>Note that the difference is the 4mm offset.</p>
 </div>
@@ -250,18 +249,6 @@ with images:</p>
 <p class="admonition-title">Note</p>
 <p>In a typical workflow, an image is created with resolution 0.46umx0.46micron, with a slice thickness of 10 micron.  For registration purposes these are typically downsampled by a factor of 32 in the x and y directions, making the resolution 14.72um before they are input to the pipeline.</p>
 </div>
-</div>
-<div class="section" id="example-dataset-mouse-coronal">
-<h3>Example dataset: Mouse coronal<a class="headerlink" href="#example-dataset-mouse-coronal" title="Permalink to this heading"></a></h3>
-<p>TODO figure with arrows</p>
-</div>
-<div class="section" id="example-dataset-mouse-sagittal">
-<h3>Example dataset: Mouse sagittal<a class="headerlink" href="#example-dataset-mouse-sagittal" title="Permalink to this heading"></a></h3>
-<p>TODO figure with arrows</p>
-</div>
-<div class="section" id="example-dataset-mouse-transverse">
-<h3>Example dataset: Mouse transverse<a class="headerlink" href="#example-dataset-mouse-transverse" title="Permalink to this heading"></a></h3>
-<p>TODO figure with arrows</p>
 </div>
 </div>
 <div class="section" id="registered-space">
@@ -311,7 +298,6 @@ x &amp;= 0.46 j + (-5695.0)"/></p>
 <div class="section" id="mouse-with-sagittal-sections">
 <h4>Mouse with sagittal sections<a class="headerlink" href="#mouse-with-sagittal-sections" title="Permalink to this heading"></a></h4>
 <p>Using our <a class="reference internal" href="#mouse-atlas">Mouse atlas</a>, and a sagittaly sectioned dataset in <a class="reference internal" href="#input-space">Input space</a>, input space x corresponds to the anterior posterior axis (note the nose will be on the left), and input space y corresponds to the dorsal ventral axis.</p>
-<p>Note from chris, is the first section the left side of the brain or the right side?  TODO ask steve.</p>
 <p>Therefore, the x=0 point in registered space corresponds to the anatomy at the z=0 point in the atlas, and the y=0 point in registered space corresponds to the anatomy at the x=0 point in the atlas.</p>
 <p>When reconstructing imaging data in this space we chose a set of sample points for voxels that will cover the anatomy.  Therefore, we sample x starting at -7970.0 um, ending at 5220.04, and using 28675 samples equally spaced by 0.46 microns.  Similarly, we sample y starting at -870.0 um, ending at 7120.2 um, and using 17371 samples equally spaced by 0.46 microns.</p>
 <p>This convention allows us to convert between spatial locations and pixel indices (row=i,col=j, starting at 0), using the follow formulas:</p>
@@ -324,9 +310,6 @@ x &amp;= 0.46 j + (-7970.0)"/></p>
 <div class="section" id="mouse-with-transverse-sections">
 <h4>Mouse with transverse sections<a class="headerlink" href="#mouse-with-transverse-sections" title="Permalink to this heading"></a></h4>
 <p>Using our <a class="reference internal" href="#mouse-atlas">Mouse atlas</a>, and a transverse sectioned dataset in <a class="reference internal" href="#input-space">Input space</a>, input space x corresponds to the anterior posterior axis (CHECK!), and input space y corresponds to the right left axis.</p>
-<p>Note from Chris.  First section will be superior, last section most inferior.
-Nose will be at the top of the image (-y), and cerebellum at the bottom (+y).
-The left side of the mouse’s brain, will appear on the right side of the image. TODO, draw some pictures to clarify this.</p>
 <p>Therefore, the x=0 point in registered space corresponds to the anatomy at the z=0 point in the atlas, and the y=0 point in registered space corresponds to the anatomy at the y=0 point in the atlas.</p>
 <p>When reconstructing imaging data in this space we chose a set of sample points for voxels that will cover the anatomy.  Therefore, we sample x starting at -7970.0 um, ending at 5220.04, and using 28675 samples equally spaced by 0.46 microns.  Similarly, we sample y starting at -5695.0 um, ending at 5695.09 um, and using 24762 samples equally spaced by 0.46 microns.</p>
 <p>This convention allows us to convert between spatial locations and pixel indices (row=i,col=j, starting at 0), using the follow formulas:</p>
@@ -344,14 +327,14 @@ x &amp;= 0.46 j + (-7970.0)"/></p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="introduction.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="file_formats.html" class="btn btn-neutral float-right" title="File Formats" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, Daniel Tward, Bryson Gray, Partha Mitra.</p>
+    <p>&#169; Copyright 2024, Daniel Tward.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

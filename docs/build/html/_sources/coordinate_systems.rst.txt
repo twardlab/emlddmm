@@ -18,7 +18,9 @@ Note that the STPT image and annotations are left right symmetric in this data. 
 The CCF NRRD files do not specify a coordinate system correctly.  We build our own right handed coordinate system which is described below.
 
 
-FIGURE HERE.
+.. image:: mouse_coords.png
+   :width: 400
+  
 
 Coordinate directions
 """""""""""""""""""""
@@ -57,10 +59,17 @@ Other information
 Marmoset atlas
 ^^^^^^^^^^^^^^
 
-For marmoset we typically use the RIKEN atlas described in Woodward 2018 (https://www.nature.com/articles/sdata20189).  
+For marmoset we typically use the RIKEN atlas described in Woodward 2018 (https://www.nature.com/articles/sdata20189).  An image of our coordinate system convention is shown below.
 
 
-FIGURE HERE.
+.. image:: marmoset_coords.png
+   :width: 400
+
+
+
+.. image:: marmoset_coords_2.png
+   :width: 400   
+  
 
 Coordinate directions
 """""""""""""""""""""
@@ -69,9 +78,7 @@ We use an RAS (right, anterior, superior) coordinate system where the “x” di
 
 Coordinate origin
 """""""""""""""""
-In the common marmoset, the horizontal zero plane is defined as the plane passing through the lower margin of the orbit and the center of the external auditory meatus (Figure B) (note you cannot see bregma on marmoset, it is fused too tightly to see). In an imaging apparatus, the skull is fixed through the ears, so this is a good choice. The anteroposterior zero plane is defined as the plane perpendicular to the horizontal zero plane which passes the centers of the external auditory meati. The left-right zero plane is the midsagittal plane (Saavedra and Mazzuchelli, 1969; Stephan et al., 1980).
-
-See figure 6
+In the common marmoset, the horizontal zero plane is defined as the plane passing through the lower margin of the orbit and the center of the external auditory meatus (see figure) (note you cannot see bregma on marmoset, it is fused too tightly to see). In an imaging apparatus, the skull is fixed through the ears, so this is a good choice. The anteroposterior zero plane is defined as the plane perpendicular to the horizontal zero plane which passes the centers of the external auditory meati. The left-right zero plane is the midsagittal plane (Saavedra and Mazzuchelli, 1969; Stephan et al., 1980).
 
 
 Other information
@@ -96,10 +103,11 @@ Human atlas
 ^^^^^^^^^^^
 
 
-We use the Montreal Neurological Institute - International Consortium for Brain Mapping (MNI-ICBM) coordinate system, which is described here: https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear .
+We use the Montreal Neurological Institute - International Consortium for Brain Mapping (MNI-ICBM) coordinate system, which is described here: https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/icbm152-non-linear .  An example is shown below.
 
 
-figure here
+.. image:: marmoset_coords_2.png
+   :width: 400   
 
 
 Coordinate directions
@@ -130,7 +138,7 @@ Currently can be downloaded form the web at the above link https://www.mcgill.ca
 
 
 .. note::
-   Jai suggests MNI-Colin27 and not ICBM152 nonlinear. Human brain project uses this. Maybe we will prefer this one. 
+   Another possibility is MNI-Colin27 and not ICBM152 nonlinear.
    https://www.mcgill.ca/bic/software/tools-data-analysis/anatomical-mri/atlases/colin-27-2008
 
    Note that the difference is the 4mm offset.
@@ -173,20 +181,6 @@ Voxel size is an input parameter to the pipeline (e.g. stored in json sidecar fi
    In a typical workflow, an image is created with resolution 0.46umx0.46micron, with a slice thickness of 10 micron.  For registration purposes these are typically downsampled by a factor of 32 in the x and y directions, making the resolution 14.72um before they are input to the pipeline.
 
 
-Example dataset: Mouse coronal 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TODO figure with arrows
-
-
-Example dataset: Mouse sagittal
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TODO figure with arrows
-
-
-Example dataset: Mouse transverse
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TODO figure with arrows
-
 
 Registered space
 ----------------
@@ -223,8 +217,6 @@ Our mapping algorithm enforces alignment between data in the common space, and d
 * After applying our affine transform we want the up vector to still point up, when projected into the slice plane. (implemented with the :code:`up_vector` parameter in :py:func:`emlddmm.emlddmm`)
 
 
-
-
 Other information
 ^^^^^^^^^^^^^^^^^
 
@@ -253,8 +245,6 @@ Mouse with sagittal sections
 """"""""""""""""""""""""""""
 Using our `Mouse atlas`_, and a sagittaly sectioned dataset in `Input space`_, input space x corresponds to the anterior posterior axis (note the nose will be on the left), and input space y corresponds to the dorsal ventral axis.
 
-Note from chris, is the first section the left side of the brain or the right side?  TODO ask steve.
-
 Therefore, the x=0 point in registered space corresponds to the anatomy at the z=0 point in the atlas, and the y=0 point in registered space corresponds to the anatomy at the x=0 point in the atlas.
 
 When reconstructing imaging data in this space we chose a set of sample points for voxels that will cover the anatomy.  Therefore, we sample x starting at -7970.0 um, ending at 5220.04, and using 28675 samples equally spaced by 0.46 microns.  Similarly, we sample y starting at -870.0 um, ending at 7120.2 um, and using 17371 samples equally spaced by 0.46 microns.
@@ -272,11 +262,6 @@ This convention allows us to convert between spatial locations and pixel indices
 Mouse with transverse sections
 """"""""""""""""""""""""""""""
 Using our `Mouse atlas`_, and a transverse sectioned dataset in `Input space`_, input space x corresponds to the anterior posterior axis (CHECK!), and input space y corresponds to the right left axis.
-
-Note from Chris.  First section will be superior, last section most inferior.
-Nose will be at the top of the image (-y), and cerebellum at the bottom (+y).
-The left side of the mouse's brain, will appear on the right side of the image. TODO, draw some pictures to clarify this. 
-
 
 
 Therefore, the x=0 point in registered space corresponds to the anatomy at the z=0 point in the atlas, and the y=0 point in registered space corresponds to the anatomy at the y=0 point in the atlas.
