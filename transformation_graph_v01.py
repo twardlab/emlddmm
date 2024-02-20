@@ -1213,7 +1213,7 @@ def main():
             sip[space] = {} # these will be the registered spaces
     
 
-    if "transform_all" in input_dict and input_dict["transform_all"] == True:
+    if "transform_all" in input_dict and (input_dict["transform_all"] == True or input_dict["transform_all"].lower() == 'true'):
         for src_space in sip:
             #print(f'starting to transform from source {src_space}')
             # now what if there are no images in this space, we still want to output transforms
