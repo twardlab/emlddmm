@@ -1291,7 +1291,9 @@
             <span class="n">sip</span><span class="p">[</span><span class="n">space</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span> <span class="c1"># these will be the registered spaces</span>
     
 
-    <span class="k">if</span> <span class="s2">&quot;transform_all&quot;</span> <span class="ow">in</span> <span class="n">input_dict</span> <span class="ow">and</span> <span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;transform_all&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+
+    <span class="k">if</span> <span class="s2">&quot;transform_all&quot;</span> <span class="ow">in</span> <span class="n">input_dict</span> <span class="ow">and</span> <span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;transform_all&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">True</span> <span class="ow">or</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;transform_all&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;true&#39;</span><span class="p">):</span>
+
         <span class="k">for</span> <span class="n">src_space</span> <span class="ow">in</span> <span class="n">sip</span><span class="p">:</span>
             <span class="c1">#print(f&#39;starting to transform from source {src_space}&#39;)</span>
             <span class="c1"># now what if there are no images in this space, we still want to output transforms</span>
