@@ -136,11 +136,13 @@ A typical workflow is to register new imaging data to a well characterized atlas
 
 ##### Mouse
 
-##### Marmoset
-TODO
+We use the allen CCF version 3
+
 
 ##### Human
-TODO
+
+We use MNI space atlases including those from mricloud.org.
+
 
 
 #### Other images
@@ -245,36 +247,5 @@ This supports an arbitrary number of folders.
   Qc (optional)
     Composite_{image slice name}_QC.jpg
 ```
-
-
-
-
-## Python Interface
-Example TODO
-
-## Comand Line Interface
-Example TODO
-
-## Pipelines
-
-Link here to several pipelines. TODO
-
-### Mouse:
-
-TODO: 3D registration pipeline with STP
-
-TODO 3D to 2D registration pipeline with Nissl series
-
-3D to 2D registration pipeline with alternating series
-
-
-### Marmoset:
-
-TODO 3D registration MR to MR
-
-
-
-### Human:
-TODO MRI to MRI
 
 
