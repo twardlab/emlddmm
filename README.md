@@ -262,20 +262,20 @@ Two small datasets are included in the examples folder of the github repository.
 
 
 
-## System requirements
+### System requirements
 This software is cross platform and should run on any system that supports python.  The python interface has been tested on linux, windows, and mac using jupyter notebooks.  The command line interface has been tested only on linux.
 
 Required libraries and their version numbers are listed in requirements.txt.
 
 No non-standard hardware is required, but this library uses pytorch which can use gpu acceleration if a gpu is available.
 
-## Installation guide
+### Installation guide
 
 Installation instructions are typical for python modules, and can be found (here)[https://twardlab.github.io/emlddmm/build/html/installation.html].
 
 Installation consists of cloning source code from github (about 1 minute), and installing dependencies using pip (about 10 minutes).
 
-## Demo
+### Demo
 Examples are in the examples folder of the github repository, and are illustrated in our documentation (here)[https://twardlab.github.io/emlddmm/build/html/examples.html].
 
 Each example shows how to run the code interactively in a jupyter notebook, as well as how to save config files and run it from a linux command line.
@@ -284,6 +284,6 @@ The jupyter notebook produces visualizations but no outputs (mappings are stored
 
 The demos provided take less than 20 minutes to run on a desktop computer with no gpu accelleration.
 
-## Instructions for use.
+### Instructions for use.
 
 Full documentation is located (here)[https://twardlab.github.io/emlddmm/build/html/index.html].  Workflows for specific examples are shown in the examples section.
