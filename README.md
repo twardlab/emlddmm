@@ -1,4 +1,8 @@
 # EMLDDMM
+
+Please see our online documentation [here](https://twardlab.github.io/emlddmm/build/html/index.html).  This document provides only a brief overview.  As an additional resource a web interface is provided, including an example dataset, [here](https://twardlab.com/reg).
+
+
 ## Introduction
 Expectation Maximization Large Deformation Diffeomorphic Metric Mapping is an image registration method for aligning datasets in the presence of differing contrast profiles and missing tissue or artifacts.
 
@@ -248,4 +252,22 @@ This supports an arbitrary number of folders.
     Composite_{image slice name}_QC.jpg
 ```
 
+
+## Software Checklist
+Source code is provided in the github repository at https://github.com/twardlab/emlddmm.  It has also been set up for use at https://twardlab.com/reg.  A guest account is provided with username guest and password  84983c60.
+
+Two small datasets are included in the examples folder of the github repository.  Another small dataset is available for download from the website.
+
+
+
+
+
+## System requirements
+This software is cross platform and should run on any system that supports python.  The python interface has been tested on linux, windows, and mac using jupyter notebooks.  The command line interface has been tested only on linux.
+
+Required libraries and their version numbers are listed in requirements.txt.
+
+No non-standard hardware is required, but this library uses pytorch which can use gpu acceleration if a gpu is available.
+
+## Installation guide
 
