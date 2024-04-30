@@ -800,7 +800,7 @@ def interp(x, I, phii, interp2d=False, **kwargs):
     # what order do the other 3 need to be in?    
     # feb 2022
     if 'padding_mode' not in kwargs:
-        kwargs['padding_mode'] = 'border' # note that default is zero
+        kwargs['padding_mode'] = 'border' # note that default is zero, but we switchthe default to border
     if interp2d==True:
         phii = phii.flip(0).permute((1,2,0))[None]
     else:
@@ -814,7 +814,7 @@ def interp(x, I, phii, interp2d=False, **kwargs):
     
 # now we need to create a flow
 # timesteps will be along the first axis
-def v_to_phii(xv,v):
+def v_to_phii(xv,v,**kwargs):
     '''
     Use Euler's method to construct a position field from a velocity field
     by integrating over time.
@@ -844,7 +844,7 @@ def v_to_phii(xv,v):
     dt = 1.0/v.shape[0]
     for t in range(v.shape[0]):
         Xs = XV - v[t]*dt
-        phii = interp(xv,phii-XV,Xs)+Xs
+        phii = interp(xv,phii-XV,Xs,**kwargs)+Xs
     return phii
         
     
@@ -1065,9 +1065,11 @@ def emlddmm(**kwargs):
                 'auto_stepsize_v':0, # 0 for no auto stepsize, or a number n for updating every n iterations
                 'up_vector':None, # the up vector in the atlas, which should remain up (pointing in the -y direction) in the target
                 'slice_deformation':False, # if slice_matching is also true, we will add 2d deformation. mostly use same parameters
-                'ev2d':1e-6,                                
-                'v2d':None,
-                'slice_deformation_start':250,                
+                'ev2d':1e-6, #TODO
+                'v2d':None, #TODO
+                'slice_deformation_start':250, #TODO
+                'slice_to_neighbor_sigma':None, # add a loss function for aligning slices to neighbors by simple least squres
+                'slice_to_average_a': None,
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -1132,6 +1134,26 @@ def emlddmm(**kwargs):
     else:
         W0 = torch.as_tensor(W0,device=device,dtype=dtype)
     N = torch.sum(W0) 
+    # missing slices
+    # slice to neighbor
+    slice_to_neighbor_sigma = kwargs['slice_to_neighbor_sigma']
+    # this will be either a float, or None for skip it
+    if slice_to_neighbor_sigma is not None:
+        # we need to identify missing slices, and find the next slice
+        # if we did contrast matching we would also want to provide the previous slice
+        # we want to align by maching Jhat[:,this_slice] to Jhat[:,next_slice]        
+        this_slice_ = []        
+        for i in range(W0.shape[0]):
+            if not torch.all(W0[i]==0):
+                this_slice_.append(i)
+        this_slice = torch.tensor(this_slice_[:-1],device=device)
+        next_slice = torch.tensor(this_slice_[1:],device=device)
+    slice_to_average_a = kwargs['slice_to_average_a']
+    if (slice_to_average_a is not None) and (slice_to_neighbor_sigma is not None):
+        raise Exception('You can specify slice to neighbor or slice to average approaches but not both')
+        
+        
+            
     priors = kwargs['priors']
     update_priors = kwargs['update_priors']
     if priors is None and not update_priors:        
@@ -1161,6 +1183,10 @@ def emlddmm(**kwargs):
         A2d = kwargs['A2d']
     slice_matching_start = kwargs['slice_matching_start']
     slice_matching_isotropic = kwargs['slice_matching_isotropic']
+    
+    
+    
+    
     
     # slice deformation
     slice_deformation = kwargs['slice_deformation']
@@ -1603,7 +1629,7 @@ def emlddmm(**kwargs):
                     BJ = (B__.transpose(-1,-2))@ J_
                     # BJ is shape nslices x nchannels B x nchannels J
                     # TODO: add identity to BB
-                    coeffs = torch.inverse(BB + torch.eye(BB.shape[-1],device=BB.device,dtype=BB.dtype).repeat((BB.shape[0],1,1))*torch.max(BB)*1e-6) @ BJ
+                    coeffs = torch.inverse(BB + torch.eye(BB.shape[-1],device=BB.device,dtype=BB.dtype).repeat((BB.shape[0],1,1))*torch.max(BB)*1e-20) @ BJ
                     # coeffs is shape nslices x nchannelsB x nchannelsJ
 
 
@@ -1654,6 +1680,77 @@ def emlddmm(**kwargs):
             # sum of squares when it is known (note sseM includes weights)
             EM = torch.sum(sseM/sigmaM**2)*DJ/2.0
             # here I have a DJ
+            # and for slice to neighbor
+            if slice_to_neighbor_sigma is not None:
+                A2di = torch.linalg.inv(A2d)
+                meanshift = torch.mean(A2di[:,0:2,-1],dim=0)
+                xJshift = [x.clone() for x in xJ]
+                xJshift[1] += meanshift[0]
+                xJshift[2] += meanshift[1]
+                XJshift = torch.stack(torch.meshgrid(xJshift,indexing='ij'))
+                XJ_ = torch.clone(XJshift)
+                # leave z component the same (x0) and transform others                   
+                XJ_[1:] = ((A2d[:,None,None,:2,:2]@ (XJshift[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)      
+                RiJ = interp(xJ,J,XJ_)
+                RiW = interp(xJ,W0[None],XJ_)
+                
+                # there is an issue here with missing data
+                # i.e.the boundaries of the image
+                # we don't want to line up the boundaries, that would be bad
+                # so we should probably have some kind of weight
+                # the problem with these weights is that generally we can decrease the cost by just moving it off screen
+                EN = torch.sum((RiJ[:,this_slice] - RiJ[:,next_slice])**2*RiW[:,this_slice]*RiW[:,next_slice])/2.0/slice_to_neighbor_sigma**2*DJ
+                
+            if slice_to_average_a is not None:
+                # on the first iteration we'll do some setup
+                with torch.no_grad():
+                                                            
+                    meanshift = torch.mean(A2di[:,0:2,-1],dim=0)
+                    xJshift = [x.clone() for x in xJ]
+                    xJshift[1] += meanshift[0]
+                    xJshift[2] += meanshift[1]
+                    XJshift = torch.stack(torch.meshgrid(xJshift,indexing='ij'))
+                    XJ__ = torch.clone(XJshift)
+                    # leave z component the same (x0) and transform others                   
+                    XJ__[1:] = ((A2d[:,None,None,:2,:2]@ (XJshift[1:].permute(1,2,3,0)[...,None]))[...,0] + A2d[:,None,None,:2,-1]).permute(3,0,1,2)      
+                    RiJ = interp(xJ,J,XJ__)
+                    RiW0 = (interp(xJ,W0[None],XJ__)==1) # I want this to be a hard weight
+                    RiW = RiW0*interp(xJ,WM[None],XJ__)/sigmaM**2
+                    
+                    # TODO: padding
+                    npadblur = 5
+                    fz = torch.arange(nJ[1]+2*npadblur)/dJ[0]/(nJ[1]+2*npadblur)
+                    # discrete laplacian in the Fourier domain
+                    # since it is laplacian it is negative definite
+                    Lblur = slice_to_average_a**2*2*(torch.cos(2.0*np.pi*fz*dJ[0]) - 1.0)/dJ[0]**2                         
+                    
+               
+                    if 'Jblur' not in locals():
+                        Jblur = RiJ.clone().detach()*0 # initialize
+                    niter_Jblur = 1
+                    for it_Jblur in range(niter_Jblur):
+                        # normalize the weights so max is 1
+                        # TODO add padding here
+                        Wnorm = torch.max(RiW)                        
+                        RiWnorm = RiW / Wnorm
+                        Jblur = RiJ*RiWnorm + Jblur*(1-RiWnorm)
+                        # pad it
+                        Jblur = torch.nn.functional.pad(Jblur,(0,0,0,0,npadblur,npadblur),mode='reflect')
+                        Jblurhat = torch.fft.fftn(Jblur,dim=1)/( (1.0 + Lblur**2/Wnorm)[None,:,None,None] )
+                        Jblur = torch.fft.ifftn(Jblurhat,dim=1)[:,npadblur:-npadblur].real
+                        
+                    # calculate the energy of this J
+                    # not sure this is right due to padding
+                    EN = torch.sum(    torch.abs(Jblurhat)**2*Lblur[None,:,None,None]**2  )/(J.shape[1]+2*npadblur)/2.0 * DJ
+                # apply A2d to Jblur, and match to AphiI
+                # we need to sample at the points XJ_ above   , this is A2di@XJ                 
+                RJblur = interp(xJshift,Jblur,XJ_)
+                EN = EN + torch.sum((J - RJblur)**2*WM[None]*W0[None])/2.0/sigmaM**2*DJ
+                
+
+                
+                
+                
         
         
         # reg cost (note that with no complex, there are two elements on the last axis)
@@ -1673,6 +1770,8 @@ def emlddmm(**kwargs):
 
         # total cost 
         E = EM + ER
+        if (slice_to_neighbor_sigma is not None) or (slice_to_average_a is not None):            
+            E = E + EN
         
 
         # gradient
@@ -1697,7 +1796,10 @@ def emlddmm(**kwargs):
             
 
         # plotting
-        Esave.append([E.detach().cpu(),EM.detach().cpu(),ER.detach().cpu()])        
+        if (slice_to_neighbor_sigma is None) and (slice_to_average_a is None):
+            Esave.append([E.detach().cpu(),EM.detach().cpu(),ER.detach().cpu()])        
+        else:
+            Esave.append([E.detach().cpu(),EM.detach().cpu(),ER.detach().cpu(),EN.detach().cpu()])
         Tsave.append(A[:3,-1].detach().clone().squeeze().cpu().numpy())
         Lsave.append(A[:3,:3].detach().clone().squeeze().reshape(-1).cpu().numpy())
         maxvsave.append(torch.max(torch.abs(v.detach())).clone().cpu().numpy())
@@ -1737,10 +1839,14 @@ def emlddmm(**kwargs):
             axE[0].cla()
             axE[0].plot(np.array(Esave)[:,0])
             axE[0].plot(np.array(Esave)[:,1])
-            #axE[0].plot(np.array(Esave)[:,2])
+            if slice_to_neighbor_sigma is not None:
+                axE[0].plot(np.array(Esave)[:,3])
+                
             axE[0].set_title('Energy')
             axE[1].cla()
             axE[1].plot(np.array(Esave)[:,1])
+            if (slice_to_neighbor_sigma is not None) or (slice_to_average_a is not None):
+                axE[1].plot(np.array(Esave)[:,3])
             axE[1].set_title('Matching')
             axE[2].cla()
             axE[2].plot(np.array(Esave)[:,2])
@@ -1748,7 +1854,7 @@ def emlddmm(**kwargs):
 
 
             
-            # TODO
+            
             # if slice matching, it would be better to see the reconstructed version
             if not slice_matching:
                 _ = draw(AphiI.detach().cpu(),xJ,fig=figI,vmin=vminI,vmax=vmaxI)
@@ -1791,6 +1897,26 @@ def emlddmm(**kwargs):
                 figErr.suptitle('Err')
                 _ = draw(RiJ.cpu(),xJ,fig=figJ,vmin=vminJ,vmax=vmaxJ)
                 figJ.suptitle('RiJ')
+                
+                
+                if slice_to_average_a is not None:
+                    if 'figN' not in locals():
+                        figN = plt.figure()
+                    _ = draw(Jblur.cpu(),xJshift,fig=figN,vmin=vminJ,vmax=vmaxJ)
+                    figN.suptitle('Jblur')
+                    # save them for debugging!
+                    figN.savefig(f'Jblurtmp/Jblur_{it:06d}.jpg')
+                    
+                    # TODO during debugging                
+                    figJ.savefig(f'Jblurtmp/Jrecon_{it:06d}.jpg')
+                    
+                    #if 'figN_' not in locals():
+                    #    figN_ = plt.figure()
+                    #_ = draw(RJblur.cpu(),xJ,fig=figN_,vmin=vminJ,vmax=vmaxJ)
+                    #figN_.suptitle('RJblur')
+                    #figN_.canvas.draw()
+                    
+                    
             
             
 
@@ -1838,6 +1964,8 @@ def emlddmm(**kwargs):
             figJ.canvas.draw()
             if slice_matching:
                 figA2d.canvas.draw()
+            if slice_to_average_a is not None:
+                figN.canvas.draw()
 
 
         # update
@@ -3480,7 +3608,7 @@ class Transform():
         When specifying a mapping, if the direction is 'b' (backward).
 
     '''
-    def __init__(self, data, direction='f', domain=None, dtype=torch.float, device='cpu', verbose=False):
+    def __init__(self, data, direction='f', domain=None, dtype=torch.float, device='cpu', verbose=False, **kwargs):
         if isinstance(data,str):
             if verbose: print(f'Your data is a string, attempting to load files')
             # If the data is a string, we assume it is a filename and load it
@@ -3542,10 +3670,10 @@ class Transform():
                 if self.domain is None:
                     raise Exception('Domain is required when inputting velocity field')
                 if self.direction == 'b':
-                    self.data = v_to_phii(self.domain,self.data)
+                    self.data = v_to_phii(self.domain,self.data,**kwargs)
                     if verbose: print(f'Integrated inverse from velocity field')
                 else:
-                    self.data = v_to_phii(self.domain,-torch.flip(self.data,(0,)))
+                    self.data = v_to_phii(self.domain,-torch.flip(self.data,(0,)),**kwargs)
                     if verbose: print(f'Integrated velocity field')            
         elif self.data.ndim == 2:# if it is a matrix check size
             if verbose: print(f'Found 2D dataset, this is an affine matrix.')
@@ -3709,7 +3837,7 @@ def compose_sequence(transforms,Xin,direction='f',verbose=False):
         raise Exception('Transforms must be either output directory, \
         or list of objects, or list of filenames, \
         or list of tuples storing filename/direction')
-    # oct 2023, support input as a list
+    # oct 2023, support input as a list of zyx coords
     if isinstance(Xin,list):
         Xin = [torch.as_tensor(x,device=transforms[0].data.device,dtype=transforms[0].data.dtype) for x in Xin]
         Xin = torch.stack(torch.meshgrid(*Xin,indexing='ij'))
@@ -3834,6 +3962,8 @@ def write_outputs_for_pair(output_dir,outputs,
     Get determinant of jacobian. (done)
     
     Write velocity out and affine
+    
+    Get a list of files to name outputs.
     
     
     
@@ -3977,7 +4107,7 @@ def write_outputs_for_pair(output_dir,outputs,
 
 
         # to atlas space from registered target space
-        from_space_name = target_space_name + '_registered'
+        from_space_name = target_space_name + '-registered'
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir, exist_ok=exist_ok)
         # to atlas space from registered target space transforms    
@@ -4042,7 +4172,7 @@ def write_outputs_for_pair(output_dir,outputs,
         # 
         
         
-        to_space_name = target_space_name + '_registered'
+        to_space_name = target_space_name + '-registered'
         to_space_dir = join(output_dir,to_space_name)
         os.makedirs(to_space_dir,exist_ok=exist_ok)
         # from input
@@ -4108,7 +4238,7 @@ def write_outputs_for_pair(output_dir,outputs,
         # TODO: i can write the original images here
         
         # registered to input
-        from_space_name = target_space_name + '_registered'
+        from_space_name = target_space_name + '-registered'
         from_space_dir = join(to_space_dir,f'{from_space_name}_to_{to_space_name}')
         os.makedirs(from_space_dir,exist_ok=exist_ok)
         # images, NONE        
