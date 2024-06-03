@@ -49,46 +49,68 @@ from os.path import basename, join, split, splitext
 def main(args):
     verbose = args.verbose
     if verbose: print(f'Reading moving image {args.moving_image_file}')
-    I = plt.imread(args.moving_image_file)
-    nI = np.array(I.shape)
-    if verbose: print(f'Found nI: {nI}')
-    dI = np.array((args.moving_resolution_row,args.moving_resolution_col))    
-    if verbose: print(f'Found dI: {dI}')
-    if args.moving_origin_row is None:
-        if verbose: print(f'Setting row origin to center')
-        xI0 = np.arange(nI[0])*dI[0] - (nI[0]-1)/2*dI[0]
+    xI0 = None
+    if args.moving_image_file.endswith('.vtk'):
+        print('ends with vtk')
+        import emlddmm
+        xI,I,titleI,namesI = emlddmm.read_data(args.moving_image_file)
+        xI0 = xI.pop(0)
+        dI = [x[1] - x[0] for x in xI]
+        # move color channel last?  and convert 3D to 2D
+        I = I.transpose(1,2,3,0).squeeze()
+        nI = np.array(I.shape)
     else:
-        if verbose: print(f'found row origin {args.moving_origin_row}')
-        xI0 = np.arange(nI[0])*dI[0] + args.moving_origin_row
-    if args.moving_origin_col is None:
-        if verbose: print(f'Setting col origin to center')
-        xI1 = np.arange(nI[1])*dI[1] - (nI[1]-1)/2*dI[1]
-    else:
-        if verbose: print(f'Found col origin {args.moving_origin_col}')
-        xI1 = np.arange(nI[1])*dI[1] + args.moving_origin_col
-    xI = [xI0,xI1]
+        I = plt.imread(args.moving_image_file) #
+        nI = np.array(I.shape)
+        if verbose: print(f'Found nI: {nI}')
+        dI = np.array((args.moving_resolution_row,args.moving_resolution_col))    
+        if verbose: print(f'Found dI: {dI}')
+        if args.moving_origin_row is None:
+            if verbose: print(f'Setting row origin to center')
+            xI0 = np.arange(nI[0])*dI[0] - (nI[0]-1)/2*dI[0]
+        else:
+            if verbose: print(f'found row origin {args.moving_origin_row}')
+            xI0 = np.arange(nI[0])*dI[0] + args.moving_origin_row
+        if args.moving_origin_col is None:
+            if verbose: print(f'Setting col origin to center')
+            xI1 = np.arange(nI[1])*dI[1] - (nI[1]-1)/2*dI[1]
+        else:
+            if verbose: print(f'Found col origin {args.moving_origin_col}')
+            xI1 = np.arange(nI[1])*dI[1] + args.moving_origin_col
+        xI = [xI0,xI1]
     extentI = (xI[1][0]-dI[1]/2, xI[1][-1]+dI[1]/2, xI[0][-1]+dI[0]/2, xI[0][0]-dI[0])
         
 
     if verbose: print(f'Reading fixed image {args.fixed_image_file}')
-    J = plt.imread(args.fixed_image_file)
-    nJ = np.array(J.shape)
-    if verbose: print(f'Found nJ: {nJ}')
-    dJ = np.array((args.fixed_resolution_row,args.fixed_resolution_col))    
-    if verbose: print(f'Found dJ: {dJ}')
-    if args.fixed_origin_row is None:
-        if verbose: print(f'Setting row origin to center')
-        xJ0 = np.arange(nJ[0])*dJ[0] - (nJ[0]-1)/2*dJ[0]
+    xJ0 = None
+    if args.fixed_image_file.endswith('.vtk'):
+        print('ends with vtk')
+        import emlddmm
+        xJ,J,titleJ,namesJ = emlddmm.read_data(args.fixed_image_file)
+        xJ0 = xJ.pop(0)
+        dJ = [x[1] - x[0] for x in xJ]
+        # move color channel last?  and convert 3D to 2D
+        J = J.transpose(1,2,3,0).squeeze()
+        nJ = np.array(J.shape)
     else:
-        if verbose: print(f'found row origin {args.fixed_origin_row}')
-        xJ0 = np.arange(nJ[0])*dJ[0] + args.fixed_origin_row
-    if args.fixed_origin_col is None:
-        if verbose: print(f'Setting col origin to center')
-        xJ1 = np.arange(nJ[1])*dJ[1] - (nJ[1]-1)/2*dJ[1]
-    else:
-        if verbose: print(f'Found col origin {args.fixed_origin_col}')
-        xJ1 = np.arange(nJ[1])*dJ[1] + args.fixed_origin_col
-    xJ = [xJ0,xJ1]
+        J = plt.imread(args.fixed_image_file)
+        nJ = np.array(J.shape)
+        if verbose: print(f'Found nJ: {nJ}')
+        dJ = np.array((args.fixed_resolution_row,args.fixed_resolution_col))    
+        if verbose: print(f'Found dJ: {dJ}')
+        if args.fixed_origin_row is None:
+            if verbose: print(f'Setting row origin to center')
+            xJ0 = np.arange(nJ[0])*dJ[0] - (nJ[0]-1)/2*dJ[0]
+        else:
+            if verbose: print(f'found row origin {args.fixed_origin_row}')
+            xJ0 = np.arange(nJ[0])*dJ[0] + args.fixed_origin_row
+        if args.fixed_origin_col is None:
+            if verbose: print(f'Setting col origin to center')
+            xJ1 = np.arange(nJ[1])*dJ[1] - (nJ[1]-1)/2*dJ[1]
+        else:
+            if verbose: print(f'Found col origin {args.fixed_origin_col}')
+            xJ1 = np.arange(nJ[1])*dJ[1] + args.fixed_origin_col
+        xJ = [xJ0,xJ1]
     extentJ = (xJ[1][0]-dJ[1]/2, xJ[1][-1]+dJ[1]/2, xJ[0][-1]+dJ[0]/2, xJ[0][0]-dJ[0])
 
     if args.normalization is None:
@@ -134,6 +156,8 @@ def main(args):
     # that means to compute the image in registered space, we don't take the inverse
     # when I use my previous result as an initializer here, it doesn't quite seem to line up
     # the translation seems to be off    
+    # fixed
+    # NOTE both images are sampled on the points in J
     print('transforming moving image with')
     print(A0)
     AI = interpn(xI,I,(A0[:2,:2]@XJ[...,None])[...,0] + A0[:2,-1],bounds_error=False,fill_value=0)
@@ -241,7 +265,7 @@ def main(args):
         Xs = (Ai[:2,:2]@XJ[...,None])[...,0] + Ai[:2,-1]
         print(f'transforming moving image using matrix')
         print(Ai)
-        AAI = interpn(xI,AI,Xs,bounds_error=False,fill_value=0)
+        AAI = interpn(xJ,AI,Xs,bounds_error=False,fill_value=0) # note both images are sampled on the pixels in J
         if h_imageIJ is not None:
             h_imageIJ.remove()
         h_imageIJ = ax[2].imshow(AAI*Squares + AJ*(1.0 - Squares),extent=extentJ)
@@ -317,7 +341,17 @@ def main(args):
         Xs = (Ai_[:2,:2]@XJ[...,None])[...,0] + Ai_[:2,-1]
         AAI = interpn(xI,I,Xs,bounds_error=False,fill_value=0)
         
-        plt.imsave(args.moving_output_file, AAI.clip(0,1))
+        if args.moving_output_file.endswith('.vtk'):
+            if xI0 is not None:
+                print(f'Setting origin to 0 and and slice thickness to 20 for vtk output')
+                xJuse = [[0.0,20.0],xJ[0],xJ[1]]
+            else:
+                print(f'Setting slice thickness to 20 for vtk output')
+                xJuse = [[xI0,xI0+20.0],xJ[0],xJ[1]]
+            emlddmm.write_data(args.moving_output_file, xJuse, AAI[None].transpose(-1,0,1,2), 'manually edited' )
+            
+        else:
+            plt.imsave(args.moving_output_file, AAI.clip(0,1))
         
         
     # we don't need to output the fixed image because it is not changing
