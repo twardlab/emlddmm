@@ -325,11 +325,11 @@ def load_slices(target_name, xJ=None):
             # J_.append(np.array([[[0.0,0.0,0.0]]]))
             continue
         namekey = data[i,0]
-        print(namekey)
+        #print(namekey)
         searchstring = join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')
-        print(searchstring)
+        #print(searchstring)
         jsonfile = glob.glob(searchstring)
-        print(jsonfile)
+        #print(jsonfile)
         with open(jsonfile[0]) as f:
             jsondata = json.load(f)
         #nJ_[i] = np.array(jsondata['Sizes'])
