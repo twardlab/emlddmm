@@ -27,6 +27,24 @@ Maybe for now just output the transformed image.  Then this can be used for the 
 
 Workflow for correcting a nissl series by aligning to neighbors
 ---------------------------------------------------------------
+Take the fixed image as a registered space vtk file for the neighbor which is good.
+Take the moving image as the original (downsampled) tif file for the slice which is not good.
+The defaults for reading tifs should match csh standards (origin in middle, pixel size =0.46*32).
+
+For inputs
+"-t","rigid",
+"-f","/home/dtward/data/csh_data/Mouse_CCF/mouse_registered_may_31_2024/coronal_registered_v02/Nissl_nissl_MD961-N302-2023.09.23-13.14.25_MD961_3_0906_to_Nissl-registered_nissl_MD961-N302-2023.09.23-13.14.25_MD961_3_0906_20um.vtk",
+"-m","/home/dtward/mounts/mg5root/nfs/data/main/M38/mba_converted_imaging_data/MD961/MD961/MD961-N303-2023.09.20-18.45.35_MD961_1_0907.tif",
+
+                
+For outputs
+"-o","output_matrix_907.txt",
+"-i","inverse_output_matrix_907.txt",
+"--moving-output-file","moving_output_907.vtk"
+
+Note this image and these two matrices should be used to replace previous low quality versions.  
+So likely they will ultimately be given the same names as the files they replace.
+
 
 
 Workflow for correcting a nissl series by aligning to a 3D atlas
