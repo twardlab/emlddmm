@@ -316,16 +316,20 @@ def load_slices(target_name, xJ=None):
     nJ_ = np.zeros((data.shape[0],3),dtype=int)
     origin = np.zeros((data.shape[0],3),dtype=float)
     slice_status = data[:,3]
-    J_ = []
+    J_ = []    
     for i in range(data.shape[0]):
-        if not slice_status[i] == 'present':            
+        #if not (slice_status[i].lower() == 'present' or slice_status[i].lower() == 'true'):
+        if slice_status[i].lower() in ['missing','absent',False,'False','false']:
             # if i == 0:
             #     raise Exception('First image is not present')
             # J_.append(np.array([[[0.0,0.0,0.0]]]))
             continue
         namekey = data[i,0]
+        print(namekey)
         searchstring = join(target_name,'*'+os.path.splitext(namekey)[0]+'*.json')
+        print(searchstring)
         jsonfile = glob.glob(searchstring)
+        print(jsonfile)
         with open(jsonfile[0]) as f:
             jsondata = json.load(f)
         #nJ_[i] = np.array(jsondata['Sizes'])
