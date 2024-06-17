@@ -21,8 +21,12 @@ import tifffile as tf # for 16 bit tiff
 from scipy.stats import mode
 from scipy.interpolate import interpn
 import PIL # only required for one format conversion function
-PIL.Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error for large files
-
+try:    
+    PIL.Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error for large files
+except:
+    from PIL import Image
+    Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error for large files
+    
 # display
 def extent_from_x(xJ):
     ''' Given a set of pixel locations, returns an extent 4-tuple for use with imshow.
@@ -1071,7 +1075,7 @@ def emlddmm(**kwargs):
                 'slice_deformation_start':250, #TODO
                 'slice_to_neighbor_sigma':None, # add a loss function for aligning slices to neighbors by simple least squres
                 'slice_to_average_a': None,
-                'small':1e-10, # for matrix inverse
+                'small':1e-7, # for matrix inverse
                }
     defaults.update(kwargs)
     kwargs = defaults
