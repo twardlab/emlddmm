@@ -5228,6 +5228,142 @@ def atlas_free_reconstruction(**kwargs):
     
     return out
     
+def weighted_intraclass_variance(bbox,Ji):
+    '''
+    Returns weighted intraclass variance (as in Otsu's method) for an image with a given bounding box.
+    
+    Parameters
+    ----------
+    bbox : list
+        A tuple of 4 ints. [row0, col0, row1, col1].
+    Ji : numpy array
+        Row x col x n_channels numpy array to find bounding box
+        
+    Returns
+    -------
+    E : float
+        The weighted intraclass variance between inside and outside the bounding box.
+    
+    '''
+    bbox = np.round(bbox).astype(int)
+    mask = np.zeros_like(Ji[...,0],dtype=bool)
+    mask[bbox[0]:bbox[2],bbox[1]:bbox[3]] = 1
+    mask_ = np.logical_not(mask)
+    E = np.sum(mask)*np.sum(np.var(Ji[mask],axis=0)) + np.sum(mask_)*np.sum(np.var(Ji[mask_],axis=0))
+    return E    
+
+def find_bounding_box(Ji,startoff=30,search=20,n_iter=10):    
+    '''
+    Computes a bounding box using an Otsu intraclass variance objective function.
+    
+    Parameters
+    ----------
+    Ji : numpy array
+        Row x col x n_channels numpy array to find bounding box
+    startoff : int
+        How far away from boundary to put initial guess.  Default 30.
+    search : int
+        How far to move bounding box edges at each iteration.  Default +/- 10.
+    n_iter : int
+        How many loops through top, left, bottom, right.
+        
+    Returns
+    -------
+    bbox : list
+        A tuple of 4 ints. [row0, col0, row1, col1].
+    
+    '''
+    if not Ji.size:
+        return np.array([0,0,0,0])  
+
+    
+    bbox = np.array([startoff,startoff,Ji.shape[0]-startoff-1,Ji.shape[1]-startoff-1])
+    E = weighted_intraclass_variance(bbox,Ji)
+   
+
+    
+    for sideloop in range(n_iter):
+        Estart = E
+        # optimize bbox0
+        
+        start = np.clip(bbox[0]-search,a_min=0,a_max=bbox[2]-1)
+        end = np.clip(bbox[0]+search,a_min=0,a_max=bbox[2]-1)
+        E_ = []
+        for i in range(start,end+1):
+            bbox_ = np.array(bbox)
+            bbox_[0] = i
+            E_.append( weighted_intraclass_variance(bbox_,Ji))
+        ind = np.argmin(E_)
+        bbox[0] = start+ind
+       
+    
+        E = E_[ind]
+        
+    
+        # optimize bbox 1
+        start = np.clip(bbox[1]-search,a_min=0,a_max=bbox[3]-1)
+        end = np.clip(bbox[1]+search,a_min=0,a_max=bbox[3]-1)
+        E_ = []
+        for i in range(start,end+1):
+            bbox_ = np.array(bbox)
+            bbox_[1] = i
+            E_.append( weighted_intraclass_variance(bbox_,Ji))
+        ind = np.argmin(E_)
+        bbox[1] = start+ind
+       
+    
+        E = E_[ind]
+        
+        
+        # optimize bbox 2     
+        start = np.clip(bbox[2]-search,a_min=bbox[0]+1,a_max=Ji.shape[0]-1)
+        end = np.clip(bbox[2]+search,a_min=bbox[0]+1,a_max=Ji.shape[0]-1)
+        E_ = []
+        for i in range(start,end+1):
+            bbox_ = np.array(bbox)
+            bbox_[2] = i
+            E_.append( weighted_intraclass_variance(bbox_,Ji))
+        ind = np.argmin(E_)
+        bbox[2] = start+ind
+       
+    
+        E = E_[ind]
+        
+        
+        # optimize bbox 3   
+        start = np.clip(bbox[3]-search,a_min=bbox[1]+1,a_max=Ji.shape[1]-1)
+        end = np.clip(bbox[3]+search,a_min=bbox[1]+1,a_max=Ji.shape[1]-1)
+        E_ = []
+        for i in range(start,end+1):
+            bbox_ = np.array(bbox)
+            bbox_[3] = i
+            E_.append( weighted_intraclass_variance(bbox_,Ji))
+        ind = np.argmin(E_)
+        bbox[3] = start+ind
+       
+    
+        E = E_[ind]
+        
+        if E == Estart:
+            break
+
+            
+        
+    return bbox
+
+def initialize_A2d_with_bbox(J,xJ):
+    '''
+    Use bounding boxes to find an initial guess of A2d.
+    
+    On each slice we will compute a bounding box.
+    
+    Then we will compute a translation vector which will move the slice to the center of the field of view.
+    
+    Then we will return the inverse.
+    
+    TODO
+    '''
+    
         
 # now we'll start building an interface
 if __name__ == '__main__':
