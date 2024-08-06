@@ -8,6 +8,8 @@ import os
 import pickle
 import matplotlib.pyplot as plt
 
+DEBUG = False
+
 if torch.cuda.is_available():
     device = 'cuda:0'
 else:
@@ -285,7 +287,7 @@ class Graph:
 
                     # TODO (done)
                     # for each z coordinate, find the closest slice
-                    # then map the xy coordinates based on the matrix for there closest slice
+                    # then map the xy coordinates based on the matrix for their closest slice
                     # also, snap the z coordinate exactly to the slice, I think this will be necessary for interpolation      
                     # this will happen when mapping imaging data from a 2d space
                     # in this case we need slice_locations as an optional argument
@@ -310,10 +312,14 @@ class Graph:
                         Xnew[0,ind] = X0
                         Xnew[1:,ind] = X12
                         X = Xnew
+
+            else:
+                # simple case
+                X = t.apply(X)
                                             
                     
 
-        
+        # not doing this
         #X = emlddmm.compose_sequence(transforms, XI)
         if xy_shift is not None:
             X[1:] += xy_shift[...,None,None,None]
@@ -737,6 +743,12 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
     # backward transform, map the points in target space J back to the source space
     path = graph.shortest_path(target_space_idx, src_space_idx)
     transforms = graph.transforms(path)
+    if DEBUG:
+        print(transforms)
+        for t in transforms:
+            if t.data.shape == torch.Size([4,4]):
+                print(t.data)        
+
     XJ = torch.stack(torch.meshgrid(xJ, indexing='ij'))    
     if from_series and not to_series:
         # special case for mapping 2D data to 3D
@@ -768,6 +780,13 @@ def graph_reconstruct(graph, out, I, target_space, target_fnames=[]):
                 fI = torch.as_tensor(fI,dtype=torch.uint32) 
         else:
             fI = graph.map_image(I.space, I.data, target_space, fXJ)
+        
+        # write out a qc file        
+        fig,ax = emlddmm.draw(fI,xJ)
+        qc_out = os.path.join(out, f'{target_space}/{I.space}_to_{target_space}/qc/')
+        os.makedirs(qc_out, exist_ok=True)
+        fig.savefig(os.path.join(qc_out,f'{I.space}_{I.name}_to_{target_space}_full.jpg'))
+        
     else:
         fI = None
 
@@ -1213,26 +1232,32 @@ def main():
             sip[space] = {} # these will be the registered spaces
     
 
-
+    
     if "transform_all" in input_dict and (input_dict["transform_all"] == True or input_dict['transform_all'].lower() == 'true'):
-
+        if DEBUG: 
+            print('Starting transform_all')
+            
         for src_space in sip:
-            #print(f'starting to transform from source {src_space}')
+            if DEBUG:
+                print(f'starting to transform from source {src_space}')
             # now what if there are no images in this space, we still want to output transforms
-            images_to_iterate = sip[src_space]
+            images_to_iterate = sip[src_space]            
             if not images_to_iterate:
-                #print('*'*80)
-                #print('No images to iterate over, adding a None')
+                if DEBUG:
+                    print('*'*80)
+                    print('No images to iterate over, adding a None')
                 images_to_iterate = [None]                
             for src_image in images_to_iterate:
-                #print(f'starting to transform from source {src_space} image {src_image}')
+                if DEBUG:
+                    print(f'starting to transform from source {src_space} image {src_image}')
                 
                 if src_image is not None:
                     src_path = sip[src_space][src_image]
                     I = emlddmm.Image(src_space, src_image, src_path, x=graph.spaces[src_space][1])
                 else:
                     # we need to get a dummy image
-                    #print('No image here, getting a dummy image')
+                    if DEBUG:
+                        print('No image here, getting a dummy image')
                     # give it a None for path
                     source_space_unregistered = src_space.replace('_registered','')                        
                     source_image = list(sip[source_space_unregistered].keys())[0] # get the first image. This is just to get file names if it is a series.
@@ -1252,15 +1277,17 @@ def main():
                         target_image = list(sip[target_space].keys())[0] # get the first image. This is just to get file names if it is a series.
                         target_path = sip[target_space][target_image]
                     else:
-                        #print('*'*80)
-                        #print(f'hi registered space {target_space}')
+                        if DEBUG:
+                            print('*'*80)
+                            print(f'hi registered space {target_space}')
                         # in this case we still need the fnames for naming the outputs
                         target_space_unregistered = target_space.replace('_registered','')
                         #print(f'looking at this space {target_space_unregistered}')
                         target_image = list(sip[target_space_unregistered].keys())[0] # get the first iasdfmage. This is just to get file names if it is a series.
                         target_path = sip[target_space_unregistered][target_image]
-
-                    if os.path.splitext(target_path)[-1] == '':
+                    if DEBUG:
+                        print('about to start graph_reconstruct')
+                    if os.path.splitext(target_path)[-1] == '': # this means a slice dataset
                         fnames = emlddmm.fnames(target_path)
                         graph_reconstruct(graph, output, I, target_space, target_fnames=fnames)
                     else:
