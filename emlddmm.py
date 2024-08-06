@@ -5228,7 +5228,7 @@ def atlas_free_reconstruction(**kwargs):
     
     return out
     
-def weighted_intraclass_variance(bbox,Ji):
+def weighted_intraclass_variance(bbox,Ji,ellipse=True):
     '''
     Returns weighted intraclass variance (as in Otsu's method) for an image with a given bounding box.
     
@@ -5246,13 +5246,24 @@ def weighted_intraclass_variance(bbox,Ji):
     
     '''
     bbox = np.round(bbox).astype(int)
-    mask = np.zeros_like(Ji[...,0],dtype=bool)
-    mask[bbox[0]:bbox[2],bbox[1]:bbox[3]] = 1
+    
+    if not ellipse:
+        mask = np.zeros_like(Ji[...,0],dtype=bool)
+        mask[bbox[0]:bbox[2],bbox[1]:bbox[3]] = 1
+    else:
+        # 
+        mask = np.zeros_like(Ji[...,0],dtype=bool)
+        mask0 = mask[bbox[0]:bbox[2],bbox[1]:bbox[3]]
+        x = [np.linspace(-1.0,1.0,ni) for ni in mask0.shape]
+        X = np.meshgrid(*x,indexing='ij')
+        R2 = X[0]**2 + X[1]**2
+        mask0 = R2 <= 1
+        mask[bbox[0]:bbox[2],bbox[1]:bbox[3]] = mask0
     mask_ = np.logical_not(mask)
     E = np.sum(mask)*np.sum(np.var(Ji[mask],axis=0)) + np.sum(mask_)*np.sum(np.var(Ji[mask_],axis=0))
     return E    
 
-def find_bounding_box(Ji,startoff=30,search=20,n_iter=10):    
+def find_bounding_box(Ji,startoff=30,search=20,n_iter=10,bbox=None,fixsize=False):    
     '''
     Computes a bounding box using an Otsu intraclass variance objective function.
     
@@ -5277,7 +5288,14 @@ def find_bounding_box(Ji,startoff=30,search=20,n_iter=10):
         return np.array([0,0,0,0])  
 
     
-    bbox = np.array([startoff,startoff,Ji.shape[0]-startoff-1,Ji.shape[1]-startoff-1])
+    if bbox is None:
+        bbox = np.array([startoff,startoff,Ji.shape[0]-startoff-1,Ji.shape[1]-startoff-1])
+    else:
+        print('Using initial bounding box and ignoring the startoff option')
+    
+    if fixsize:
+        size0 = bbox[2] - bbox[0]
+        size1 = bbox[3] - bbox[1]
     E = weighted_intraclass_variance(bbox,Ji)
    
 
@@ -5292,9 +5310,13 @@ def find_bounding_box(Ji,startoff=30,search=20,n_iter=10):
         for i in range(start,end+1):
             bbox_ = np.array(bbox)
             bbox_[0] = i
+            if fixsize:
+                bbox_[2] = bbox_[0] + size0
             E_.append( weighted_intraclass_variance(bbox_,Ji))
         ind = np.argmin(E_)
         bbox[0] = start+ind
+        if fixsize:
+            bbox[2] = bbox[0] + size0
        
     
         E = E_[ind]
@@ -5307,12 +5329,20 @@ def find_bounding_box(Ji,startoff=30,search=20,n_iter=10):
         for i in range(start,end+1):
             bbox_ = np.array(bbox)
             bbox_[1] = i
+            if fixsize:
+                bbox_[3] = bbox_[1] + size1
             E_.append( weighted_intraclass_variance(bbox_,Ji))
         ind = np.argmin(E_)
         bbox[1] = start+ind
+        if fixsize:
+            bbox[3] = bbox[1] + size1
        
     
         E = E_[ind]
+        if fixsize:
+            if E == Estart:
+                break
+            continue
         
         
         # optimize bbox 2     
