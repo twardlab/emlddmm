@@ -906,6 +906,46 @@ def reshape_from_local(Jv,local_contrast=None):
     '''
     pass
     
+    
+def project_affine_to_rigid(A,XJ):
+    ''' This function finds the closest rigid transform to the given affine transform.
+    
+    Close is defined in terms of the action of A^{-1} on XJ
+    
+    That is, we find R to minimize || A^{-1}XJ - R^{-1}XJ||^2_F = || R (A^{-1}XJ) - XJ ||^2_F.
+    
+    We use a standard procurstes method.
+    
+    Parameters
+    ----------
+    A : torch tensor
+        A 4x4 affine transformation matrix
+    XJ : torch tensor
+        A 3 x slice x row x col array of coordinates in the space of the target image
+    
+    Returns
+    -------
+    R : torch tensor
+        A 4x43 rigid affine transformation matrix.
+    
+    '''
+    Ai = torch.linalg.inv(A)
+    AiXJ = ( (Ai[:3,:3]@XJ.permute(1,2,3,0)[...,None])[...,0] + Ai[:3,-1] ).permute(-1,0,1,2)
+    YJ = AiXJ
+    YJbar = torch.mean(YJ,(1,2,3),keepdims=True)
+    XJbar = torch.mean(XJ,(1,2,3),keepdims=True)
+    YJ0 = YJ - YJbar
+    XJ0 = XJ - XJbar
+    Sigma = YJ0.reshape(3,-1)@XJ0.reshape(3,-1).T 
+    u,s,vh = torch.linalg.svd(Sigma)    
+    R = (u@vh).T
+    T = XJbar.squeeze() - R@YJbar.squeeze()
+    A.data[:3,:3] = R
+    A.data[:3,-1] = T
+    return A
+
+
+
 def emlddmm(**kwargs):
     '''
     Run the EMLDDMM algorithm for deformable registration between two
@@ -1002,7 +1042,7 @@ def emlddmm(**kwargs):
     Exception
         If order > 1. Local contrast transform not implemented yet except for linear.
     Exception
-        Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale).
+        Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale), or 3 (rigid using XJ for projection).
     
     
     '''
@@ -1057,7 +1097,7 @@ def emlddmm(**kwargs):
                 'sigmaB':None,                
                 'sigmaM':None,                
                 'A':None,
-                'Amode':0, # 0 for standard, 1 for rigid, 2 for rigid+scale
+                'Amode':0, # 0 for standard, 1 for rigid, 2 for rigid+scale, 3 for rigid using XJ for projection
                 'v':None,
                 'A2d':None,     
                 'eA2d':1e-3, # removed eL and eT using metric, need to double check 2d case works well
@@ -2005,8 +2045,22 @@ def emlddmm(**kwargs):
                 A[:3,:3] = (U@VH)*torch.exp(torch.mean(torch.log(S)))
             elif Amode==0: # 0 means nothing
                 pass
+            elif Amode == 3:
+                # here we use the sample points to do the projection
+                # that is, we want to find the R which is closets to A
+                # in the sense that it maps voxels to similar locations
+                # so which voxels to use? We could either use the target voxels
+                # or the template voxels
+                # it makes more sense to me to use the target voxels
+                # argmin_R |R^{-1}XJ - A^{-1}XJ|^2_W
+                # where W are my weights from above
+                # for now I'll skip the weights
+                # here XJ is a 4xN vector where N is the number of voxels
+                # then we can use a procrustes method to find the solution for R^{-1}
+                # 
+                A = project_affine_to_rigid(A,XJ)                
             else:
-                raise Exception('Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale)')
+                raise Exception('Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale), or 3 (rigid using XJ for projection)')
             A.grad.zero_()
             
             if slice_matching:
