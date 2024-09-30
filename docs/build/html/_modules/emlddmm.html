@@ -99,8 +99,12 @@
 <span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">mode</span>
 <span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">interpn</span>
 <span class="kn">import</span> <span class="nn">PIL</span> <span class="c1"># only required for one format conversion function</span>
-<span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">MAX_IMAGE_PIXELS</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># prevent decompression bomb error for large files</span>
-
+<span class="k">try</span><span class="p">:</span>    
+    <span class="n">PIL</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">MAX_IMAGE_PIXELS</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># prevent decompression bomb error for large files</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+    <span class="n">Image</span><span class="o">.</span><span class="n">MAX_IMAGE_PIXELS</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># prevent decompression bomb error for large files</span>
+    
 <span class="c1"># display</span>
 <div class="viewcode-block" id="extent_from_x"><a class="viewcode-back" href="../emlddmm.html#emlddmm.extent_from_x">[docs]</a><span class="k">def</span> <span class="nf">extent_from_x</span><span class="p">(</span><span class="n">xJ</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39; Given a set of pixel locations, returns an extent 4-tuple for use with imshow.</span>
@@ -394,16 +398,20 @@
     <span class="n">nJ_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">3</span><span class="p">),</span><span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
     <span class="n">origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">3</span><span class="p">),</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">slice_status</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span><span class="mi">3</span><span class="p">]</span>
-    <span class="n">J_</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">J_</span> <span class="o">=</span> <span class="p">[]</span>    
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">slice_status</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;present&#39;</span><span class="p">:</span>            
+        <span class="c1">#if not (slice_status[i].lower() == &#39;present&#39; or slice_status[i].lower() == &#39;true&#39;):</span>
+        <span class="k">if</span> <span class="n">slice_status</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;missing&#39;</span><span class="p">,</span><span class="s1">&#39;absent&#39;</span><span class="p">,</span><span class="kc">False</span><span class="p">,</span><span class="s1">&#39;False&#39;</span><span class="p">,</span><span class="s1">&#39;false&#39;</span><span class="p">]:</span>
             <span class="c1"># if i == 0:</span>
             <span class="c1">#     raise Exception(&#39;First image is not present&#39;)</span>
             <span class="c1"># J_.append(np.array([[[0.0,0.0,0.0]]]))</span>
             <span class="k">continue</span>
         <span class="n">namekey</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1">#print(namekey)</span>
         <span class="n">searchstring</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">target_name</span><span class="p">,</span><span class="s1">&#39;*&#39;</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">namekey</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;*.json&#39;</span><span class="p">)</span>
+        <span class="c1">#print(searchstring)</span>
         <span class="n">jsonfile</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">searchstring</span><span class="p">)</span>
+        <span class="c1">#print(jsonfile)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">jsonfile</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">jsondata</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
         <span class="c1">#nJ_[i] = np.array(jsondata[&#39;Sizes&#39;])</span>
@@ -878,7 +886,7 @@
     <span class="c1"># what order do the other 3 need to be in?    </span>
     <span class="c1"># feb 2022</span>
     <span class="k">if</span> <span class="s1">&#39;padding_mode&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
-        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;padding_mode&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;border&#39;</span> <span class="c1"># note that default is zero</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;padding_mode&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;border&#39;</span> <span class="c1"># note that default is zero, but we switchthe default to border</span>
     <span class="k">if</span> <span class="n">interp2d</span><span class="o">==</span><span class="kc">True</span><span class="p">:</span>
         <span class="n">phii</span> <span class="o">=</span> <span class="n">phii</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">0</span><span class="p">))[</span><span class="kc">None</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
@@ -892,7 +900,7 @@
     
 <span class="c1"># now we need to create a flow</span>
 <span class="c1"># timesteps will be along the first axis</span>
-<div class="viewcode-block" id="v_to_phii"><a class="viewcode-back" href="../emlddmm.html#emlddmm.v_to_phii">[docs]</a><span class="k">def</span> <span class="nf">v_to_phii</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span><span class="n">v</span><span class="p">):</span>
+<div class="viewcode-block" id="v_to_phii"><a class="viewcode-back" href="../emlddmm.html#emlddmm.v_to_phii">[docs]</a><span class="k">def</span> <span class="nf">v_to_phii</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span><span class="n">v</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    Use Euler&#39;s method to construct a position field from a velocity field</span>
 <span class="sd">    by integrating over time.</span>
@@ -922,7 +930,7 @@
     <span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">/</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
         <span class="n">Xs</span> <span class="o">=</span> <span class="n">XV</span> <span class="o">-</span> <span class="n">v</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">*</span><span class="n">dt</span>
-        <span class="n">phii</span> <span class="o">=</span> <span class="n">interp</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span><span class="n">phii</span><span class="o">-</span><span class="n">XV</span><span class="p">,</span><span class="n">Xs</span><span class="p">)</span><span class="o">+</span><span class="n">Xs</span>
+        <span class="n">phii</span> <span class="o">=</span> <span class="n">interp</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span><span class="n">phii</span><span class="o">-</span><span class="n">XV</span><span class="p">,</span><span class="n">Xs</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span><span class="o">+</span><span class="n">Xs</span>
     <span class="k">return</span> <span class="n">phii</span></div>
         
     
@@ -976,6 +984,46 @@
 <span class="sd">    &#39;&#39;&#39;</span>
     <span class="k">pass</span></div>
     
+    
+<div class="viewcode-block" id="project_affine_to_rigid"><a class="viewcode-back" href="../emlddmm.html#emlddmm.project_affine_to_rigid">[docs]</a><span class="k">def</span> <span class="nf">project_affine_to_rigid</span><span class="p">(</span><span class="n">A</span><span class="p">,</span><span class="n">XJ</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39; This function finds the closest rigid transform to the given affine transform.</span>
+<span class="sd">    </span>
+<span class="sd">    Close is defined in terms of the action of A^{-1} on XJ</span>
+<span class="sd">    </span>
+<span class="sd">    That is, we find R to minimize || A^{-1}XJ - R^{-1}XJ||^2_F = || R (A^{-1}XJ) - XJ ||^2_F.</span>
+<span class="sd">    </span>
+<span class="sd">    We use a standard procurstes method.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    A : torch tensor</span>
+<span class="sd">        A 4x4 affine transformation matrix</span>
+<span class="sd">    XJ : torch tensor</span>
+<span class="sd">        A 3 x slice x row x col array of coordinates in the space of the target image</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    R : torch tensor</span>
+<span class="sd">        A 4x43 rigid affine transformation matrix.</span>
+<span class="sd">    </span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">Ai</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+    <span class="n">AiXJ</span> <span class="o">=</span> <span class="p">(</span> <span class="p">(</span><span class="n">Ai</span><span class="p">[:</span><span class="mi">3</span><span class="p">,:</span><span class="mi">3</span><span class="p">]</span><span class="nd">@XJ</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">0</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">])[</span><span class="o">...</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">Ai</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">YJ</span> <span class="o">=</span> <span class="n">AiXJ</span>
+    <span class="n">YJbar</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">YJ</span><span class="p">,(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">XJbar</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">XJ</span><span class="p">,(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">YJ0</span> <span class="o">=</span> <span class="n">YJ</span> <span class="o">-</span> <span class="n">YJbar</span>
+    <span class="n">XJ0</span> <span class="o">=</span> <span class="n">XJ</span> <span class="o">-</span> <span class="n">XJbar</span>
+    <span class="n">Sigma</span> <span class="o">=</span> <span class="n">YJ0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="nd">@XJ0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> 
+    <span class="n">u</span><span class="p">,</span><span class="n">s</span><span class="p">,</span><span class="n">vh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">Sigma</span><span class="p">)</span>    
+    <span class="n">R</span> <span class="o">=</span> <span class="p">(</span><span class="n">u</span><span class="nd">@vh</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">XJbar</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span> <span class="o">-</span> <span class="n">R</span><span class="nd">@YJbar</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="mi">3</span><span class="p">,:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">R</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">T</span>
+    <span class="k">return</span> <span class="n">A</span></div>
+
+
+
 <div class="viewcode-block" id="emlddmm"><a class="viewcode-back" href="../emlddmm.html#emlddmm.emlddmm">[docs]</a><span class="k">def</span> <span class="nf">emlddmm</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    Run the EMLDDMM algorithm for deformable registration between two</span>
@@ -1072,7 +1120,7 @@
 <span class="sd">    Exception</span>
 <span class="sd">        If order &gt; 1. Local contrast transform not implemented yet except for linear.</span>
 <span class="sd">    Exception</span>
-<span class="sd">        Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale).</span>
+<span class="sd">        Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale), or 3 (rigid using XJ for projection).</span>
 <span class="sd">    </span>
 <span class="sd">    </span>
 <span class="sd">    &#39;&#39;&#39;</span>
@@ -1084,8 +1132,8 @@
     <span class="c1"># other parameters are specified in a dictionary with defaults listed below</span>
     <span class="c1"># if you provide an input for PARAMETER it will be used as an initial guess, </span>
     <span class="c1"># unless you specify update_PARAMETER=False, in which case it will be fixed</span>
-    <span class="c1"># if you specify update_sigmaM=False it will use sum of square error, </span>
-    <span class="c1"># otherwise it will use log determinant of diagonal covariance matrix</span>
+    
+    
     
     <span class="c1"># I should move them to torch and put them on the right device</span>
     <span class="n">I</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;I&#39;</span><span class="p">]</span>
@@ -1123,14 +1171,11 @@
                 <span class="s1">&#39;update_muB&#39;</span><span class="p">:</span><span class="kc">True</span><span class="p">,</span>
                 <span class="s1">&#39;muA&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
                 <span class="s1">&#39;update_muA&#39;</span><span class="p">:</span><span class="kc">True</span><span class="p">,</span>
-                <span class="s1">&#39;sigmaA&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
-                <span class="s1">&#39;update_sigmaA&#39;</span><span class="p">:</span><span class="kc">False</span><span class="p">,</span>
-                <span class="s1">&#39;sigmaB&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
-                <span class="s1">&#39;update_sigmaB&#39;</span><span class="p">:</span><span class="kc">False</span><span class="p">,</span>
-                <span class="s1">&#39;sigmaM&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
-                <span class="s1">&#39;update_sigmaM&#39;</span><span class="p">:</span><span class="kc">False</span><span class="p">,</span>
+                <span class="s1">&#39;sigmaA&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>                
+                <span class="s1">&#39;sigmaB&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>                
+                <span class="s1">&#39;sigmaM&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>                
                 <span class="s1">&#39;A&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
-                <span class="s1">&#39;Amode&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="c1"># 0 for standard, 1 for rigid, 2 for rigid+scale</span>
+                <span class="s1">&#39;Amode&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="c1"># 0 for standard, 1 for rigid, 2 for rigid+scale, 3 for rigid using XJ for projection</span>
                 <span class="s1">&#39;v&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
                 <span class="s1">&#39;A2d&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>     
                 <span class="s1">&#39;eA2d&#39;</span><span class="p">:</span><span class="mf">1e-3</span><span class="p">,</span> <span class="c1"># removed eL and eT using metric, need to double check 2d case works well</span>
@@ -1143,9 +1188,12 @@
                 <span class="s1">&#39;auto_stepsize_v&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="c1"># 0 for no auto stepsize, or a number n for updating every n iterations</span>
                 <span class="s1">&#39;up_vector&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span> <span class="c1"># the up vector in the atlas, which should remain up (pointing in the -y direction) in the target</span>
                 <span class="s1">&#39;slice_deformation&#39;</span><span class="p">:</span><span class="kc">False</span><span class="p">,</span> <span class="c1"># if slice_matching is also true, we will add 2d deformation. mostly use same parameters</span>
-                <span class="s1">&#39;ev2d&#39;</span><span class="p">:</span><span class="mf">1e-6</span><span class="p">,</span>                                
-                <span class="s1">&#39;v2d&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
-                <span class="s1">&#39;slice_deformation_start&#39;</span><span class="p">:</span><span class="mi">250</span><span class="p">,</span>                
+                <span class="s1">&#39;ev2d&#39;</span><span class="p">:</span><span class="mf">1e-6</span><span class="p">,</span> <span class="c1">#TODO</span>
+                <span class="s1">&#39;v2d&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span> <span class="c1">#TODO</span>
+                <span class="s1">&#39;slice_deformation_start&#39;</span><span class="p">:</span><span class="mi">250</span><span class="p">,</span> <span class="c1">#TODO</span>
+                <span class="s1">&#39;slice_to_neighbor_sigma&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span> <span class="c1"># add a loss function for aligning slices to neighbors by simple least squres</span>
+                <span class="s1">&#39;slice_to_average_a&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;small&#39;</span><span class="p">:</span><span class="mf">1e-7</span><span class="p">,</span> <span class="c1"># for matrix inverse</span>
                <span class="p">}</span>
     <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="n">kwargs</span> <span class="o">=</span> <span class="n">defaults</span>
@@ -1192,6 +1240,7 @@
     <span class="n">n_draw</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_draw&#39;</span><span class="p">]</span>
     <span class="n">n_e_step</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_e_step&#39;</span><span class="p">]</span>
     <span class="n">n_reduce_step</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_reduce_step&#39;</span><span class="p">]</span>
+    <span class="n">small</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;small&#39;</span><span class="p">]</span>
     
     <span class="n">v_expand_factor</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;v_expand_factor&#39;</span><span class="p">]</span>
     <span class="n">v_res_factor</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;v_res_factor&#39;</span><span class="p">]</span>
@@ -1200,6 +1249,7 @@
     <span class="n">a</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">]</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;p&#39;</span><span class="p">]</span>
     <span class="n">aprefactor</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;aprefactor&#39;</span><span class="p">]</span>
+    
         
     
     <span class="n">downI</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;downI&#39;</span><span class="p">]</span>
@@ -1210,6 +1260,26 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="n">W0</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">W0</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
     <span class="n">N</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">W0</span><span class="p">)</span> 
+    <span class="c1"># missing slices</span>
+    <span class="c1"># slice to neighbor</span>
+    <span class="n">slice_to_neighbor_sigma</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;slice_to_neighbor_sigma&#39;</span><span class="p">]</span>
+    <span class="c1"># this will be either a float, or None for skip it</span>
+    <span class="k">if</span> <span class="n">slice_to_neighbor_sigma</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># we need to identify missing slices, and find the next slice</span>
+        <span class="c1"># if we did contrast matching we would also want to provide the previous slice</span>
+        <span class="c1"># we want to align by maching Jhat[:,this_slice] to Jhat[:,next_slice]        </span>
+        <span class="n">this_slice_</span> <span class="o">=</span> <span class="p">[]</span>        
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">W0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">W0</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">==</span><span class="mi">0</span><span class="p">):</span>
+                <span class="n">this_slice_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">this_slice</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">this_slice_</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">next_slice</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">this_slice_</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">slice_to_average_a</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;slice_to_average_a&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">slice_to_average_a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">slice_to_neighbor_sigma</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;You can specify slice to neighbor or slice to average approaches but not both&#39;</span><span class="p">)</span>
+        
+        
+            
     <span class="n">priors</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;priors&#39;</span><span class="p">]</span>
     <span class="n">update_priors</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;update_priors&#39;</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">priors</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">update_priors</span><span class="p">:</span>        
@@ -1219,12 +1289,9 @@
     <span class="n">update_muA</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;update_muA&#39;</span><span class="p">]</span>
     <span class="n">muB</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;muB&#39;</span><span class="p">]</span>
     <span class="n">update_muB</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;update_muB&#39;</span><span class="p">]</span>
-    <span class="n">sigmaA</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;sigmaA&#39;</span><span class="p">]</span>
-    <span class="n">update_sigmaA</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;update_sigmaA&#39;</span><span class="p">]</span>
-    <span class="n">sigmaB</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;sigmaB&#39;</span><span class="p">]</span>
-    <span class="n">update_sigmaB</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;update_sigmaB&#39;</span><span class="p">]</span>
-    <span class="n">sigmaM</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;sigmaM&#39;</span><span class="p">]</span>
-    <span class="n">update_sigmaM</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;update_sigmaM&#39;</span><span class="p">]</span>
+    <span class="n">sigmaA</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;sigmaA&#39;</span><span class="p">]</span>    
+    <span class="n">sigmaB</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;sigmaB&#39;</span><span class="p">]</span>    
+    <span class="n">sigmaM</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;sigmaM&#39;</span><span class="p">]</span>    
     
     
     <span class="n">A</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;A&#39;</span><span class="p">]</span>
@@ -1239,6 +1306,10 @@
         <span class="n">A2d</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;A2d&#39;</span><span class="p">]</span>
     <span class="n">slice_matching_start</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;slice_matching_start&#39;</span><span class="p">]</span>
     <span class="n">slice_matching_isotropic</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;slice_matching_isotropic&#39;</span><span class="p">]</span>
+    
+    
+    
+    
     
     <span class="c1"># slice deformation</span>
     <span class="n">slice_deformation</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;slice_deformation&#39;</span><span class="p">]</span>
@@ -1627,10 +1698,12 @@
                         <span class="n">B__</span> <span class="o">=</span> <span class="n">B_</span><span class="o">*</span><span class="p">(</span><span class="n">WM</span><span class="o">*</span><span class="n">W0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span>
                         <span class="c1"># feb 2, 2022 converted from inv to solve and used double</span>
                         <span class="c1"># august 2022 add id a small constnat times identity, but I&#39;ll set it to zero for now so no change</span>
-                        <span class="n">small</span> <span class="o">=</span> <span class="mf">1e-2</span><span class="o">*</span><span class="mi">0</span>
+                        <span class="c1">#small = 1e-2*0</span>
                         <span class="c1"># september 2023, set to 1e-4, because I was getting nan</span>
-                        <span class="n">small</span> <span class="o">=</span> <span class="mf">1e-4</span>
-                        <span class="n">coeffs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">((</span><span class="n">B__</span><span class="o">.</span><span class="n">T</span><span class="nd">@B_</span><span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">B__</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">*</span><span class="n">small</span><span class="p">,</span> 
+                        
+                        <span class="n">BB</span> <span class="o">=</span> <span class="p">(</span><span class="n">B__</span><span class="o">.</span><span class="n">T</span><span class="nd">@B_</span><span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span> 
+                        <span class="n">BB</span> <span class="o">=</span> <span class="n">BB</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">B__</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">BB</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">small</span>
+                        <span class="n">coeffs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">BB</span><span class="p">,</span> 
                                                     <span class="p">(</span><span class="n">B__</span><span class="o">.</span><span class="n">T</span><span class="o">@</span><span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">))</span><span class="o">.</span><span class="n">double</span><span class="p">()</span> <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
                     <span class="n">fAphiI</span> <span class="o">=</span> <span class="p">((</span><span class="n">B_</span><span class="nd">@coeffs</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="c1"># there are unnecessary transposes here, probably slowing down, to fix later</span>
             <span class="k">else</span><span class="p">:</span>
@@ -1638,9 +1711,9 @@
                 <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
                     <span class="n">BB</span> <span class="o">=</span> <span class="n">B_</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span><span class="o">@</span><span class="p">(</span><span class="n">B_</span><span class="o">*</span><span class="n">Wlocalpadv</span><span class="p">)</span>
                     <span class="n">BJ</span> <span class="o">=</span> <span class="n">B_</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span><span class="o">@</span><span class="p">(</span><span class="n">Jpadv</span><span class="o">*</span><span class="n">Wlocalpadv</span><span class="p">)</span>
-                    <span class="n">small</span> <span class="o">=</span> <span class="mf">1e-2</span>
+                    
                     <span class="c1"># convert to double here</span>
-                    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span> <span class="n">BB</span><span class="o">.</span><span class="n">double</span><span class="p">()</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">BB</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">device</span><span class="o">=</span><span class="n">BB</span><span class="o">.</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">*</span><span class="n">small</span><span class="p">,</span><span class="n">BJ</span><span class="o">.</span><span class="n">double</span><span class="p">())</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+                    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span> <span class="n">BB</span><span class="o">.</span><span class="n">double</span><span class="p">()</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">BB</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">device</span><span class="o">=</span><span class="n">BB</span><span class="o">.</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">BB</span><span class="p">,(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span><span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span><span class="o">*</span><span class="n">small</span><span class="p">,</span><span class="n">BJ</span><span class="o">.</span><span class="n">double</span><span class="p">())</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
                 <span class="n">fAphiIpadv</span> <span class="o">=</span> <span class="p">(</span><span class="n">B_</span><span class="nd">@coeffs</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">Jpadv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">Jpadv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">Jpadv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
                                                  <span class="n">local_contrast</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span><span class="n">local_contrast</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span><span class="n">local_contrast</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> 
                                                  <span class="n">Jpadv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
@@ -1654,10 +1727,7 @@
                 <span class="c1"># todo, symmetric cropping and padding</span>
 
 
-        <span class="k">else</span><span class="p">:</span> <span class="c1"># with slice matching I need to solve these equation for every slice</span>
-            <span class="c1"># so far it looks like it is exactly the same as the above</span>
-            <span class="c1"># I need to update</span>
-            <span class="c1"># TODO</span>
+        <span class="k">else</span><span class="p">:</span> <span class="c1"># with slice matching I need to solve these equation for every slice                        </span>
             <span class="c1"># recall B_ is size nvoxels by nchannels</span>
             <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">fAphiI</span> <span class="o">=</span> <span class="n">AphiI</span>
@@ -1672,16 +1742,20 @@
                     <span class="c1"># multiply by weight                </span>
                     <span class="n">B__</span> <span class="o">=</span> <span class="n">B_</span><span class="o">*</span><span class="p">(</span><span class="n">WM</span><span class="o">*</span><span class="n">W0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">WM</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span>     
                     <span class="c1"># B__ is shape nslices x npixels x nchannelsB</span>
-                    <span class="n">BB</span> <span class="o">=</span> <span class="n">B__</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span><span class="nd">@B_</span>
+                    <span class="n">BB</span> <span class="o">=</span> <span class="p">(</span><span class="n">B__</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span><span class="nd">@B_</span><span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
                     <span class="c1"># BB is shape nslices x nchannelsb x nchannels b</span>
+                    <span class="c1"># add a bit to the diagonal</span>
+                    
+                    <span class="n">BB</span> <span class="o">=</span> <span class="n">BB</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">BB</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">device</span><span class="o">=</span><span class="n">BB</span><span class="o">.</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">BB</span><span class="o">.</span><span class="n">dtype</span><span class="p">)[</span><span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">repeat</span><span class="p">((</span><span class="n">BB</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">double</span><span class="p">()</span><span class="o">*</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">BB</span><span class="p">,(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span><span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">small</span>
 
                     <span class="n">J_</span> <span class="o">=</span> <span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>        
                     <span class="c1"># J_ is shape nslices x npixels x nchannelsJ</span>
                     <span class="c1"># B__.T is shape nslices x nchannelsB x npixels</span>
                     <span class="n">BJ</span> <span class="o">=</span> <span class="p">(</span><span class="n">B__</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">))</span><span class="o">@</span> <span class="n">J_</span>
-                    <span class="c1"># BJ is shape nslices x nchannels B x nchannels J</span>
-                    <span class="c1"># TODO: add identity to BB</span>
-                    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">inverse</span><span class="p">(</span><span class="n">BB</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">BB</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">device</span><span class="o">=</span><span class="n">BB</span><span class="o">.</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">BB</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">((</span><span class="n">BB</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span><span class="o">*</span><span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">BB</span><span class="p">)</span><span class="o">*</span><span class="mf">1e-6</span><span class="p">)</span> <span class="o">@</span> <span class="n">BJ</span>
+                    <span class="c1"># BJ is shape nslices x nchannels B x nchannels J                    </span>
+                    
+                    <span class="c1">#coeffs = torch.inverse(BB) @ BJ</span>
+                    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">BB</span><span class="p">,</span><span class="n">BJ</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
                     <span class="c1"># coeffs is shape nslices x nchannelsB x nchannelsJ</span>
 
 
@@ -1693,11 +1767,8 @@
         <span class="n">err2</span> <span class="o">=</span> <span class="p">(</span><span class="n">err</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="n">WM</span><span class="o">*</span><span class="n">W0</span><span class="p">))</span>
         <span class="c1"># most of my updates are below (at the very end), but I&#39;ll update this here because it is in my cost function</span>
         <span class="c1"># note that in my derivation, the sigmaM should have this factor of DJ</span>
-        <span class="n">sseM</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span> <span class="n">err2</span><span class="p">,(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">3</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">update_sigmaM</span><span class="p">:</span>
-            <span class="n">sigmaM</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sseM</span><span class="o">/</span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">WM</span><span class="o">*</span><span class="n">W0</span><span class="p">))</span><span class="c1">#*DJ</span>
-        
-        <span class="n">sigmaMsave</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sigmaM</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>        
+        <span class="n">sseM</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span> <span class="n">err2</span><span class="p">,(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">3</span><span class="p">))</span>        
+                
         <span class="n">JmmuA2</span> <span class="o">=</span> <span class="p">(</span><span class="n">J</span> <span class="o">-</span> <span class="n">muA</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span>
         <span class="n">JmmuB2</span> <span class="o">=</span> <span class="p">(</span><span class="n">J</span> <span class="o">-</span> <span class="n">muB</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span>
                 
@@ -1721,17 +1792,89 @@
 
 
         <span class="c1"># matching cost        </span>
-        <span class="c1"># note the N here is the number of pixels (actually the sum of W0)</span>
-        <span class="k">if</span> <span class="n">update_sigmaM</span><span class="p">:</span>
-            <span class="c1"># log det sigma, when it is unknown</span>
-            <span class="n">EM</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">N</span><span class="o">*</span><span class="n">priors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">sigmaM</span><span class="p">))</span>
-            <span class="c1"># Note in my derivation sigmaM is defined with a factor of prod dJ at the end</span>
-            <span class="c1"># but everywhere it is used, except here, it gets divided by that factor</span>
-            <span class="c1"># here including the factor just becomes another term in the sum, so I don&#39;t think I actually need it anywhere</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># sum of squares when it is known (note sseM includes weights)</span>
-            <span class="n">EM</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sseM</span><span class="o">/</span><span class="n">sigmaM</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="n">DJ</span><span class="o">/</span><span class="mf">2.0</span>
-            <span class="c1"># here I have a DJ</span>
+
+        <span class="c1"># sum of squares when it is known (note sseM includes weights)</span>
+        <span class="n">EM</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sseM</span><span class="o">/</span><span class="n">sigmaM</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="n">DJ</span><span class="o">/</span><span class="mf">2.0</span>
+        <span class="c1"># here I have a DJ</span>
+        <span class="c1"># and for slice to neighbor</span>
+        <span class="k">if</span> <span class="n">slice_to_neighbor_sigma</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">A2di</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">A2d</span><span class="p">)</span>
+            <span class="n">meanshift</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">A2di</span><span class="p">[:,</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">xJshift</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xJ</span><span class="p">]</span>
+            <span class="n">xJshift</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">meanshift</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">xJshift</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">meanshift</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">XJshift</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xJshift</span><span class="p">,</span><span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">))</span>
+            <span class="n">XJ_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">XJshift</span><span class="p">)</span>
+            <span class="c1"># leave z component the same (x0) and transform others                   </span>
+            <span class="n">XJ_</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="p">((</span><span class="n">A2d</span><span class="p">[:,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,:</span><span class="mi">2</span><span class="p">,:</span><span class="mi">2</span><span class="p">]</span><span class="o">@</span> <span class="p">(</span><span class="n">XJshift</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">0</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">]))[</span><span class="o">...</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">A2d</span><span class="p">[:,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,:</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>      
+            <span class="n">RiJ</span> <span class="o">=</span> <span class="n">interp</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span><span class="n">J</span><span class="p">,</span><span class="n">XJ_</span><span class="p">)</span>
+            <span class="n">RiW</span> <span class="o">=</span> <span class="n">interp</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span><span class="n">W0</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span><span class="n">XJ_</span><span class="p">)</span>
+
+            <span class="c1"># there is an issue here with missing data</span>
+            <span class="c1"># i.e.the boundaries of the image</span>
+            <span class="c1"># we don&#39;t want to line up the boundaries, that would be bad</span>
+            <span class="c1"># so we should probably have some kind of weight</span>
+            <span class="c1"># the problem with these weights is that generally we can decrease the cost by just moving it off screen</span>
+            <span class="n">EN</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">RiJ</span><span class="p">[:,</span><span class="n">this_slice</span><span class="p">]</span> <span class="o">-</span> <span class="n">RiJ</span><span class="p">[:,</span><span class="n">next_slice</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="n">RiW</span><span class="p">[:,</span><span class="n">this_slice</span><span class="p">]</span><span class="o">*</span><span class="n">RiW</span><span class="p">[:,</span><span class="n">next_slice</span><span class="p">])</span><span class="o">/</span><span class="mf">2.0</span><span class="o">/</span><span class="n">slice_to_neighbor_sigma</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="n">DJ</span>
+
+        <span class="k">if</span> <span class="n">slice_to_average_a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># on the first iteration we&#39;ll do some setup</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+
+                <span class="n">meanshift</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">A2di</span><span class="p">[:,</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">xJshift</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xJ</span><span class="p">]</span>
+                <span class="n">xJshift</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">meanshift</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">xJshift</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">meanshift</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">XJshift</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xJshift</span><span class="p">,</span><span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">))</span>
+                <span class="n">XJ__</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">XJshift</span><span class="p">)</span>
+                <span class="c1"># leave z component the same (x0) and transform others                   </span>
+                <span class="n">XJ__</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="p">((</span><span class="n">A2d</span><span class="p">[:,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,:</span><span class="mi">2</span><span class="p">,:</span><span class="mi">2</span><span class="p">]</span><span class="o">@</span> <span class="p">(</span><span class="n">XJshift</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">0</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">]))[</span><span class="o">...</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">A2d</span><span class="p">[:,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,:</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>      
+                <span class="n">RiJ</span> <span class="o">=</span> <span class="n">interp</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span><span class="n">J</span><span class="p">,</span><span class="n">XJ__</span><span class="p">)</span>
+                <span class="n">RiW0</span> <span class="o">=</span> <span class="p">(</span><span class="n">interp</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span><span class="n">W0</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span><span class="n">XJ__</span><span class="p">)</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># I want this to be a hard weight</span>
+                
+                <span class="c1"># sigmaM is either a 1D tensor, or might be a 0D tensor</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">sigmaM</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span>  <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sigmaM</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">sigmaM_</span> <span class="o">=</span> <span class="n">sigmaM</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sigmaM_</span> <span class="o">=</span> <span class="n">sigmaM</span>
+                <span class="n">RiW</span> <span class="o">=</span> <span class="n">RiW0</span><span class="o">*</span><span class="n">interp</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span><span class="n">WM</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span><span class="n">XJ__</span><span class="p">)</span><span class="o">/</span><span class="n">sigmaM_</span><span class="o">**</span><span class="mi">2</span>
+
+                <span class="c1"># TODO: padding</span>
+                <span class="n">npadblur</span> <span class="o">=</span> <span class="mi">5</span>
+                <span class="n">fz</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nJ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">npadblur</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">/</span><span class="n">dJ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="n">nJ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">npadblur</span><span class="p">)</span>
+                <span class="c1"># discrete laplacian in the Fourier domain</span>
+                <span class="c1"># since it is laplacian it is negative definite</span>
+                <span class="n">Lblur</span> <span class="o">=</span> <span class="n">slice_to_average_a</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mf">2.0</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">fz</span><span class="o">*</span><span class="n">dJ</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span><span class="o">/</span><span class="n">dJ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span>                         
+
+
+                <span class="k">if</span> <span class="s1">&#39;Jblur&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">():</span>
+                    <span class="n">Jblur</span> <span class="o">=</span> <span class="n">RiJ</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="c1"># initialize (*0?)</span>
+                <span class="n">niter_Jblur</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">for</span> <span class="n">it_Jblur</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">niter_Jblur</span><span class="p">):</span>
+                    <span class="c1"># normalize the weights so max is 1</span>
+                    <span class="c1"># TODO add padding here</span>
+                    <span class="n">Wnorm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">RiW</span><span class="p">)</span>                        
+                    <span class="n">RiWnorm</span> <span class="o">=</span> <span class="n">RiW</span> <span class="o">/</span> <span class="n">Wnorm</span>
+                    <span class="n">Jblur</span> <span class="o">=</span> <span class="n">RiJ</span><span class="o">*</span><span class="n">RiWnorm</span> <span class="o">+</span> <span class="n">Jblur</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">RiWnorm</span><span class="p">)</span>
+                    <span class="c1"># pad it</span>
+                    <span class="n">Jblur</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">Jblur</span><span class="p">,(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">npadblur</span><span class="p">,</span><span class="n">npadblur</span><span class="p">),</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;reflect&#39;</span><span class="p">)</span>
+                    <span class="n">Jblurhat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftn</span><span class="p">(</span><span class="n">Jblur</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="p">(</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">Lblur</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="n">Wnorm</span><span class="p">)[</span><span class="kc">None</span><span class="p">,:,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span> <span class="p">)</span>
+                    <span class="n">Jblur</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftn</span><span class="p">(</span><span class="n">Jblurhat</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)[:,</span><span class="n">npadblur</span><span class="p">:</span><span class="o">-</span><span class="n">npadblur</span><span class="p">]</span><span class="o">.</span><span class="n">real</span>
+
+                <span class="c1"># calculate the energy of this J</span>
+                <span class="c1"># not sure this is right due to padding</span>
+                <span class="n">EN</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>    <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Jblurhat</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="n">Lblur</span><span class="p">[</span><span class="kc">None</span><span class="p">,:,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span>  <span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">npadblur</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">DJ</span>
+                
+            <span class="c1"># apply A2d to Jblur, and match to AphiI</span>
+            <span class="c1"># we need to sample at the points XJ_ above   , this is A2di@XJ                 </span>
+            <span class="n">RJblur</span> <span class="o">=</span> <span class="n">interp</span><span class="p">(</span><span class="n">xJshift</span><span class="p">,</span><span class="n">Jblur</span><span class="p">,</span><span class="n">XJ_</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">sigmaM</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span>  <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sigmaM</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">sigmaM_</span> <span class="o">=</span> <span class="n">sigmaM</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sigmaM_</span> <span class="o">=</span> <span class="n">sigmaM</span>
+            <span class="n">EN</span> <span class="o">=</span> <span class="n">EN</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">J</span> <span class="o">-</span> <span class="n">RJblur</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="n">sigmaM_</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="n">WM</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span><span class="o">*</span><span class="n">W0</span><span class="p">[</span><span class="kc">None</span><span class="p">])</span><span class="o">/</span><span class="mf">2.0</span><span class="o">*</span><span class="n">DJ</span>
+            
+
         
         
         <span class="c1"># reg cost (note that with no complex, there are two elements on the last axis)</span>
@@ -1751,6 +1894,8 @@
 
         <span class="c1"># total cost </span>
         <span class="n">E</span> <span class="o">=</span> <span class="n">EM</span> <span class="o">+</span> <span class="n">ER</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">slice_to_neighbor_sigma</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">slice_to_average_a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>            
+            <span class="n">E</span> <span class="o">=</span> <span class="n">E</span> <span class="o">+</span> <span class="n">EN</span>
         
 
         <span class="c1"># gradient</span>
@@ -1775,7 +1920,10 @@
             
 
         <span class="c1"># plotting</span>
-        <span class="n">Esave</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">E</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">EM</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">ER</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()])</span>        
+        <span class="k">if</span> <span class="p">(</span><span class="n">slice_to_neighbor_sigma</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">slice_to_average_a</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">Esave</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">E</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">EM</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">ER</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()])</span>        
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Esave</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">E</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">EM</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">ER</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">EN</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()])</span>
         <span class="n">Tsave</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
         <span class="n">Lsave</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">A</span><span class="p">[:</span><span class="mi">3</span><span class="p">,:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
         <span class="n">maxvsave</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">detach</span><span class="p">()))</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
@@ -1815,10 +1963,14 @@
             <span class="n">axE</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cla</span><span class="p">()</span>
             <span class="n">axE</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Esave</span><span class="p">)[:,</span><span class="mi">0</span><span class="p">])</span>
             <span class="n">axE</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Esave</span><span class="p">)[:,</span><span class="mi">1</span><span class="p">])</span>
-            <span class="c1">#axE[0].plot(np.array(Esave)[:,2])</span>
+            <span class="k">if</span> <span class="n">slice_to_neighbor_sigma</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">axE</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Esave</span><span class="p">)[:,</span><span class="mi">3</span><span class="p">])</span>
+                
             <span class="n">axE</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Energy&#39;</span><span class="p">)</span>
             <span class="n">axE</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">cla</span><span class="p">()</span>
             <span class="n">axE</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Esave</span><span class="p">)[:,</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">slice_to_neighbor_sigma</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">slice_to_average_a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+                <span class="n">axE</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Esave</span><span class="p">)[:,</span><span class="mi">3</span><span class="p">])</span>
             <span class="n">axE</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Matching&#39;</span><span class="p">)</span>
             <span class="n">axE</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">cla</span><span class="p">()</span>
             <span class="n">axE</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Esave</span><span class="p">)[:,</span><span class="mi">2</span><span class="p">])</span>
@@ -1826,7 +1978,7 @@
 
 
             
-            <span class="c1"># TODO</span>
+            
             <span class="c1"># if slice matching, it would be better to see the reconstructed version</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">slice_matching</span><span class="p">:</span>
                 <span class="n">_</span> <span class="o">=</span> <span class="n">draw</span><span class="p">(</span><span class="n">AphiI</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">xJ</span><span class="p">,</span><span class="n">fig</span><span class="o">=</span><span class="n">figI</span><span class="p">,</span><span class="n">vmin</span><span class="o">=</span><span class="n">vminI</span><span class="p">,</span><span class="n">vmax</span><span class="o">=</span><span class="n">vmaxI</span><span class="p">)</span>
@@ -1869,6 +2021,26 @@
                 <span class="n">figErr</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Err&#39;</span><span class="p">)</span>
                 <span class="n">_</span> <span class="o">=</span> <span class="n">draw</span><span class="p">(</span><span class="n">RiJ</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">xJ</span><span class="p">,</span><span class="n">fig</span><span class="o">=</span><span class="n">figJ</span><span class="p">,</span><span class="n">vmin</span><span class="o">=</span><span class="n">vminJ</span><span class="p">,</span><span class="n">vmax</span><span class="o">=</span><span class="n">vmaxJ</span><span class="p">)</span>
                 <span class="n">figJ</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;RiJ&#39;</span><span class="p">)</span>
+                
+                
+                <span class="k">if</span> <span class="n">slice_to_average_a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="s1">&#39;figN&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">():</span>
+                        <span class="n">figN</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+                    <span class="n">_</span> <span class="o">=</span> <span class="n">draw</span><span class="p">(</span><span class="n">Jblur</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span><span class="n">xJshift</span><span class="p">,</span><span class="n">fig</span><span class="o">=</span><span class="n">figN</span><span class="p">,</span><span class="n">vmin</span><span class="o">=</span><span class="n">vminJ</span><span class="p">,</span><span class="n">vmax</span><span class="o">=</span><span class="n">vmaxJ</span><span class="p">)</span>
+                    <span class="n">figN</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Jblur&#39;</span><span class="p">)</span>
+                    <span class="c1"># save them for debugging!</span>
+                    <span class="c1">#figN.savefig(f&#39;Jblurtmp/Jblur_{it:06d}.jpg&#39;)</span>
+                    
+                    <span class="c1"># TODO during debugging                </span>
+                    <span class="c1">#figJ.savefig(f&#39;Jblurtmp/Jrecon_{it:06d}.jpg&#39;)</span>
+                    
+                    <span class="c1">#if &#39;figN_&#39; not in locals():</span>
+                    <span class="c1">#    figN_ = plt.figure()</span>
+                    <span class="c1">#_ = draw(RJblur.cpu(),xJ,fig=figN_,vmin=vminJ,vmax=vmaxJ)</span>
+                    <span class="c1">#figN_.suptitle(&#39;RJblur&#39;)</span>
+                    <span class="c1">#figN_.canvas.draw()</span>
+                    
+                    
             
             
 
@@ -1882,12 +2054,7 @@
             <span class="n">axA</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">maxvsave</span><span class="p">))</span>
             <span class="n">axA</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;maxv&#39;</span><span class="p">)</span>
 
-            <span class="n">axA</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">cla</span><span class="p">()</span>
-            <span class="n">axA</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">sigmaMsave</span><span class="p">)</span>
-            <span class="n">axA</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">sigmaAsave</span><span class="p">)</span>
-            <span class="n">axA</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">sigmaBsave</span><span class="p">)</span>
-            <span class="n">axA</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;sigma&#39;</span><span class="p">)</span>
-
+                 
 
             <span class="k">if</span> <span class="n">slice_matching</span><span class="p">:</span>
                 <span class="n">axA2d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cla</span><span class="p">()</span>
@@ -1916,6 +2083,8 @@
             <span class="n">figJ</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">slice_matching</span><span class="p">:</span>
                 <span class="n">figA2d</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">slice_to_average_a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">figN</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
 
 
         <span class="c1"># update</span>
@@ -1954,8 +2123,22 @@
                 <span class="n">A</span><span class="p">[:</span><span class="mi">3</span><span class="p">,:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">U</span><span class="nd">@VH</span><span class="p">)</span><span class="o">*</span><span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">S</span><span class="p">)))</span>
             <span class="k">elif</span> <span class="n">Amode</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span> <span class="c1"># 0 means nothing</span>
                 <span class="k">pass</span>
+            <span class="k">elif</span> <span class="n">Amode</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="c1"># here we use the sample points to do the projection</span>
+                <span class="c1"># that is, we want to find the R which is closets to A</span>
+                <span class="c1"># in the sense that it maps voxels to similar locations</span>
+                <span class="c1"># so which voxels to use? We could either use the target voxels</span>
+                <span class="c1"># or the template voxels</span>
+                <span class="c1"># it makes more sense to me to use the target voxels</span>
+                <span class="c1"># argmin_R |R^{-1}XJ - A^{-1}XJ|^2_W</span>
+                <span class="c1"># where W are my weights from above</span>
+                <span class="c1"># for now I&#39;ll skip the weights</span>
+                <span class="c1"># here XJ is a 4xN vector where N is the number of voxels</span>
+                <span class="c1"># then we can use a procrustes method to find the solution for R^{-1}</span>
+                <span class="c1"># </span>
+                <span class="n">A</span> <span class="o">=</span> <span class="n">project_affine_to_rigid</span><span class="p">(</span><span class="n">A</span><span class="p">,</span><span class="n">XJ</span><span class="p">)</span>                
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale)&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale), or 3 (rigid using XJ for projection)&#39;</span><span class="p">)</span>
             <span class="n">A</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
             
             <span class="k">if</span> <span class="n">slice_matching</span><span class="p">:</span>
@@ -2088,18 +2271,15 @@
             <span class="n">WAW0s</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">WAW0</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">update_muA</span><span class="p">:</span>
                 <span class="n">muA</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">J</span><span class="o">*</span><span class="n">WAW0</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">3</span><span class="p">))</span><span class="o">/</span><span class="n">WAW0s</span>
-            <span class="k">if</span> <span class="n">update_sigmaA</span><span class="p">:</span>
-                <span class="n">sigmaA</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>  <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">JmmuA2</span><span class="o">*</span><span class="n">WAW0</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">3</span><span class="p">))</span><span class="o">/</span><span class="n">WAW0s</span>  <span class="p">)</span> 
-            <span class="n">sigmaAsave</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sigmaA</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+            
+            
 
             <span class="n">WBW0</span> <span class="o">=</span> <span class="p">(</span><span class="n">WB</span><span class="o">*</span><span class="n">W0</span><span class="p">)[</span><span class="kc">None</span><span class="p">]</span>
             <span class="n">WBW0s</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">WBW0</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">update_muB</span><span class="p">:</span>
                 <span class="n">muB</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">J</span><span class="o">*</span><span class="n">WBW0</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">3</span><span class="p">))</span><span class="o">/</span><span class="n">WBW0s</span>
-            <span class="k">if</span> <span class="n">update_sigmaB</span><span class="p">:</span>
-                <span class="n">sigmaB</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">JmmuB2</span><span class="o">*</span><span class="n">WBW0</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">3</span><span class="p">))</span><span class="o">/</span><span class="n">WBW0s</span><span class="p">)</span>
-            <span class="n">sigmaBsave</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sigmaB</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
-
+            
+            
         <span class="k">if</span> <span class="ow">not</span> <span class="n">it</span><span class="o">%</span><span class="mi">10</span><span class="p">:</span>
             <span class="c1"># todo print other info</span>
             <span class="c1">#print(f&#39;Finished iteration {it}&#39;)</span>
@@ -2605,7 +2785,7 @@
                             <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;dx&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dx</span>
                             <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;ox&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ox</span>                                            
             <span class="k">else</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;did not found geomtry info, using some defaults&#39;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;did not found geomtery info, using some defaults&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="s1">&#39;dx&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
             <span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Voxel size dx not in keywords, using (1,1,1)&#39;</span><span class="p">)</span>
             <span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span><span class="mf">1.0</span><span class="p">,</span><span class="mf">1.0</span><span class="p">])</span>
@@ -3558,7 +3738,7 @@
 <span class="sd">        When specifying a mapping, if the direction is &#39;b&#39; (backward).</span>
 
 <span class="sd">    &#39;&#39;&#39;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;f&#39;</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;f&#39;</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="nb">str</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Your data is a string, attempting to load files&#39;</span><span class="p">)</span>
             <span class="c1"># If the data is a string, we assume it is a filename and load it</span>
@@ -3620,10 +3800,10 @@
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Domain is required when inputting velocity field&#39;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="o">==</span> <span class="s1">&#39;b&#39;</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">v_to_phii</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">v_to_phii</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Integrated inverse from velocity field&#39;</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">v_to_phii</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,(</span><span class="mi">0</span><span class="p">,)))</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">v_to_phii</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,(</span><span class="mi">0</span><span class="p">,)),</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Integrated velocity field&#39;</span><span class="p">)</span>            
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span><span class="c1"># if it is a matrix check size</span>
             <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Found 2D dataset, this is an affine matrix.&#39;</span><span class="p">)</span>
@@ -3787,7 +3967,7 @@
         <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Transforms must be either output directory, </span><span class="se">\</span>
 <span class="s1">        or list of objects, or list of filenames, </span><span class="se">\</span>
 <span class="s1">        or list of tuples storing filename/direction&#39;</span><span class="p">)</span>
-    <span class="c1"># oct 2023, support input as a list</span>
+    <span class="c1"># oct 2023, support input as a list of zyx coords</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">Xin</span><span class="p">,</span><span class="nb">list</span><span class="p">):</span>
         <span class="n">Xin</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">device</span><span class="o">=</span><span class="n">transforms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">device</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">transforms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">Xin</span><span class="p">]</span>
         <span class="n">Xin</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="o">*</span><span class="n">Xin</span><span class="p">,</span><span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">))</span>
@@ -3912,6 +4092,8 @@
 <span class="sd">    Get determinant of jacobian. (done)</span>
 <span class="sd">    </span>
 <span class="sd">    Write velocity out and affine</span>
+<span class="sd">    </span>
+<span class="sd">    Get a list of files to name outputs.</span>
 <span class="sd">    </span>
 <span class="sd">    </span>
 <span class="sd">    </span>
@@ -4055,7 +4237,7 @@
 
 
         <span class="c1"># to atlas space from registered target space</span>
-        <span class="n">from_space_name</span> <span class="o">=</span> <span class="n">target_space_name</span> <span class="o">+</span> <span class="s1">&#39;_registered&#39;</span>
+        <span class="n">from_space_name</span> <span class="o">=</span> <span class="n">target_space_name</span> <span class="o">+</span> <span class="s1">&#39;-registered&#39;</span>
         <span class="n">from_space_dir</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">to_space_dir</span><span class="p">,</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">from_space_name</span><span class="si">}</span><span class="s1">_to_</span><span class="si">{</span><span class="n">to_space_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">from_space_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="n">exist_ok</span><span class="p">)</span>
         <span class="c1"># to atlas space from registered target space transforms    </span>
@@ -4120,7 +4302,7 @@
         <span class="c1"># </span>
         
         
-        <span class="n">to_space_name</span> <span class="o">=</span> <span class="n">target_space_name</span> <span class="o">+</span> <span class="s1">&#39;_registered&#39;</span>
+        <span class="n">to_space_name</span> <span class="o">=</span> <span class="n">target_space_name</span> <span class="o">+</span> <span class="s1">&#39;-registered&#39;</span>
         <span class="n">to_space_dir</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span><span class="n">to_space_name</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">to_space_dir</span><span class="p">,</span><span class="n">exist_ok</span><span class="o">=</span><span class="n">exist_ok</span><span class="p">)</span>
         <span class="c1"># from input</span>
@@ -4186,7 +4368,7 @@
         <span class="c1"># TODO: i can write the original images here</span>
         
         <span class="c1"># registered to input</span>
-        <span class="n">from_space_name</span> <span class="o">=</span> <span class="n">target_space_name</span> <span class="o">+</span> <span class="s1">&#39;_registered&#39;</span>
+        <span class="n">from_space_name</span> <span class="o">=</span> <span class="n">target_space_name</span> <span class="o">+</span> <span class="s1">&#39;-registered&#39;</span>
         <span class="n">from_space_dir</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">to_space_dir</span><span class="p">,</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">from_space_name</span><span class="si">}</span><span class="s1">_to_</span><span class="si">{</span><span class="n">to_space_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">from_space_dir</span><span class="p">,</span><span class="n">exist_ok</span><span class="o">=</span><span class="n">exist_ok</span><span class="p">)</span>
         <span class="c1"># images, NONE        </span>
@@ -5177,6 +5359,172 @@
     <span class="n">out</span><span class="p">[</span><span class="s1">&#39;Jr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Jr</span>
     
     <span class="k">return</span> <span class="n">out</span></div>
+    
+<div class="viewcode-block" id="weighted_intraclass_variance"><a class="viewcode-back" href="../emlddmm.html#emlddmm.weighted_intraclass_variance">[docs]</a><span class="k">def</span> <span class="nf">weighted_intraclass_variance</span><span class="p">(</span><span class="n">bbox</span><span class="p">,</span><span class="n">Ji</span><span class="p">,</span><span class="n">ellipse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Returns weighted intraclass variance (as in Otsu&#39;s method) for an image with a given bounding box.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bbox : list</span>
+<span class="sd">        A tuple of 4 ints. [row0, col0, row1, col1].</span>
+<span class="sd">    Ji : numpy array</span>
+<span class="sd">        Row x col x n_channels numpy array to find bounding box</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    E : float</span>
+<span class="sd">        The weighted intraclass variance between inside and outside the bounding box.</span>
+<span class="sd">    </span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">bbox</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">bbox</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ellipse</span><span class="p">:</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">Ji</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">mask</span><span class="p">[</span><span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span><span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span><span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># </span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">Ji</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">mask0</span> <span class="o">=</span> <span class="n">mask</span><span class="p">[</span><span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span><span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span><span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span><span class="mf">1.0</span><span class="p">,</span><span class="n">ni</span><span class="p">)</span> <span class="k">for</span> <span class="n">ni</span> <span class="ow">in</span> <span class="n">mask0</span><span class="o">.</span><span class="n">shape</span><span class="p">]</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="o">*</span><span class="n">x</span><span class="p">,</span><span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+        <span class="n">R2</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">X</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">mask0</span> <span class="o">=</span> <span class="n">R2</span> <span class="o">&lt;=</span> <span class="mi">1</span>
+        <span class="n">mask</span><span class="p">[</span><span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span><span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span><span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]]</span> <span class="o">=</span> <span class="n">mask0</span>
+    <span class="n">mask_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Ji</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask_</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Ji</span><span class="p">[</span><span class="n">mask_</span><span class="p">],</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">E</span>    </div>
+
+<div class="viewcode-block" id="find_bounding_box"><a class="viewcode-back" href="../emlddmm.html#emlddmm.find_bounding_box">[docs]</a><span class="k">def</span> <span class="nf">find_bounding_box</span><span class="p">(</span><span class="n">Ji</span><span class="p">,</span><span class="n">startoff</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span><span class="n">search</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span><span class="n">n_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span><span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">fixsize</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>    
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Computes a bounding box using an Otsu intraclass variance objective function.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Ji : numpy array</span>
+<span class="sd">        Row x col x n_channels numpy array to find bounding box</span>
+<span class="sd">    startoff : int</span>
+<span class="sd">        How far away from boundary to put initial guess.  Default 30.</span>
+<span class="sd">    search : int</span>
+<span class="sd">        How far to move bounding box edges at each iteration.  Default +/- 10.</span>
+<span class="sd">    n_iter : int</span>
+<span class="sd">        How many loops through top, left, bottom, right.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bbox : list</span>
+<span class="sd">        A tuple of 4 ints. [row0, col0, row1, col1].</span>
+<span class="sd">    </span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">Ji</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">])</span>  
+
+    
+    <span class="k">if</span> <span class="n">bbox</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bbox</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">startoff</span><span class="p">,</span><span class="n">startoff</span><span class="p">,</span><span class="n">Ji</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">startoff</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">Ji</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">startoff</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Using initial bounding box and ignoring the startoff option&#39;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">fixsize</span><span class="p">:</span>
+        <span class="n">size0</span> <span class="o">=</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">size1</span> <span class="o">=</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="n">weighted_intraclass_variance</span><span class="p">(</span><span class="n">bbox</span><span class="p">,</span><span class="n">Ji</span><span class="p">)</span>
+   
+
+    
+    <span class="k">for</span> <span class="n">sideloop</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_iter</span><span class="p">):</span>
+        <span class="n">Estart</span> <span class="o">=</span> <span class="n">E</span>
+        <span class="c1"># optimize bbox0</span>
+        
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">search</span><span class="p">,</span><span class="n">a_min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">a_max</span><span class="o">=</span><span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">search</span><span class="p">,</span><span class="n">a_min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">a_max</span><span class="o">=</span><span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">E_</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="n">end</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">bbox_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bbox</span><span class="p">)</span>
+            <span class="n">bbox_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="k">if</span> <span class="n">fixsize</span><span class="p">:</span>
+                <span class="n">bbox_</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">bbox_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">size0</span>
+            <span class="n">E_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">weighted_intraclass_variance</span><span class="p">(</span><span class="n">bbox_</span><span class="p">,</span><span class="n">Ji</span><span class="p">))</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">E_</span><span class="p">)</span>
+        <span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span><span class="o">+</span><span class="n">ind</span>
+        <span class="k">if</span> <span class="n">fixsize</span><span class="p">:</span>
+            <span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">size0</span>
+       
+    
+        <span class="n">E</span> <span class="o">=</span> <span class="n">E_</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+        
+    
+        <span class="c1"># optimize bbox 1</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">search</span><span class="p">,</span><span class="n">a_min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">a_max</span><span class="o">=</span><span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">search</span><span class="p">,</span><span class="n">a_min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">a_max</span><span class="o">=</span><span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">E_</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="n">end</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">bbox_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bbox</span><span class="p">)</span>
+            <span class="n">bbox_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="k">if</span> <span class="n">fixsize</span><span class="p">:</span>
+                <span class="n">bbox_</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">bbox_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">size1</span>
+            <span class="n">E_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">weighted_intraclass_variance</span><span class="p">(</span><span class="n">bbox_</span><span class="p">,</span><span class="n">Ji</span><span class="p">))</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">E_</span><span class="p">)</span>
+        <span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span><span class="o">+</span><span class="n">ind</span>
+        <span class="k">if</span> <span class="n">fixsize</span><span class="p">:</span>
+            <span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">size1</span>
+       
+    
+        <span class="n">E</span> <span class="o">=</span> <span class="n">E_</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">fixsize</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">E</span> <span class="o">==</span> <span class="n">Estart</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">continue</span>
+        
+        
+        <span class="c1"># optimize bbox 2     </span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">search</span><span class="p">,</span><span class="n">a_min</span><span class="o">=</span><span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">a_max</span><span class="o">=</span><span class="n">Ji</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">+</span><span class="n">search</span><span class="p">,</span><span class="n">a_min</span><span class="o">=</span><span class="n">bbox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">a_max</span><span class="o">=</span><span class="n">Ji</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">E_</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="n">end</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">bbox_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bbox</span><span class="p">)</span>
+            <span class="n">bbox_</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">E_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">weighted_intraclass_variance</span><span class="p">(</span><span class="n">bbox_</span><span class="p">,</span><span class="n">Ji</span><span class="p">))</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">E_</span><span class="p">)</span>
+        <span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span><span class="o">+</span><span class="n">ind</span>
+       
+    
+        <span class="n">E</span> <span class="o">=</span> <span class="n">E_</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+        
+        
+        <span class="c1"># optimize bbox 3   </span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">-</span><span class="n">search</span><span class="p">,</span><span class="n">a_min</span><span class="o">=</span><span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">a_max</span><span class="o">=</span><span class="n">Ji</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">+</span><span class="n">search</span><span class="p">,</span><span class="n">a_min</span><span class="o">=</span><span class="n">bbox</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">a_max</span><span class="o">=</span><span class="n">Ji</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">E_</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="n">end</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">bbox_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bbox</span><span class="p">)</span>
+            <span class="n">bbox_</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">E_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">weighted_intraclass_variance</span><span class="p">(</span><span class="n">bbox_</span><span class="p">,</span><span class="n">Ji</span><span class="p">))</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">E_</span><span class="p">)</span>
+        <span class="n">bbox</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span><span class="o">+</span><span class="n">ind</span>
+       
+    
+        <span class="n">E</span> <span class="o">=</span> <span class="n">E_</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="n">E</span> <span class="o">==</span> <span class="n">Estart</span><span class="p">:</span>
+            <span class="k">break</span>
+
+            
+        
+    <span class="k">return</span> <span class="n">bbox</span></div>
+
+<div class="viewcode-block" id="initialize_A2d_with_bbox"><a class="viewcode-back" href="../emlddmm.html#emlddmm.initialize_A2d_with_bbox">[docs]</a><span class="k">def</span> <span class="nf">initialize_A2d_with_bbox</span><span class="p">(</span><span class="n">J</span><span class="p">,</span><span class="n">xJ</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Use bounding boxes to find an initial guess of A2d.</span>
+<span class="sd">    </span>
+<span class="sd">    On each slice we will compute a bounding box.</span>
+<span class="sd">    </span>
+<span class="sd">    Then we will compute a translation vector which will move the slice to the center of the field of view.</span>
+<span class="sd">    </span>
+<span class="sd">    Then we will return the inverse.</span>
+<span class="sd">    </span>
+<span class="sd">    TODO</span>
+<span class="sd">    &#39;&#39;&#39;</span></div>
     
         
 <span class="c1"># now we&#39;ll start building an interface</span>

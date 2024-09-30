@@ -86,6 +86,8 @@
 <span class="kn">import</span> <span class="nn">pickle</span>
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 
+<span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
+
 <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
     <span class="n">device</span> <span class="o">=</span> <span class="s1">&#39;cuda:0&#39;</span>
 <span class="k">else</span><span class="p">:</span>
@@ -363,7 +365,7 @@
 
                     <span class="c1"># TODO (done)</span>
                     <span class="c1"># for each z coordinate, find the closest slice</span>
-                    <span class="c1"># then map the xy coordinates based on the matrix for there closest slice</span>
+                    <span class="c1"># then map the xy coordinates based on the matrix for their closest slice</span>
                     <span class="c1"># also, snap the z coordinate exactly to the slice, I think this will be necessary for interpolation      </span>
                     <span class="c1"># this will happen when mapping imaging data from a 2d space</span>
                     <span class="c1"># in this case we need slice_locations as an optional argument</span>
@@ -388,10 +390,14 @@
                         <span class="n">Xnew</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">X0</span>
                         <span class="n">Xnew</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">X12</span>
                         <span class="n">X</span> <span class="o">=</span> <span class="n">Xnew</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># simple case</span>
+                <span class="n">X</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
                                             
                     
 
-        
+        <span class="c1"># not doing this</span>
         <span class="c1">#X = emlddmm.compose_sequence(transforms, XI)</span>
         <span class="k">if</span> <span class="n">xy_shift</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">X</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+=</span> <span class="n">xy_shift</span><span class="p">[</span><span class="o">...</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span>
@@ -815,6 +821,12 @@
     <span class="c1"># backward transform, map the points in target space J back to the source space</span>
     <span class="n">path</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">shortest_path</span><span class="p">(</span><span class="n">target_space_idx</span><span class="p">,</span> <span class="n">src_space_idx</span><span class="p">)</span>
     <span class="n">transforms</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">transforms</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">DEBUG</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">transforms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">]):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>        
+
     <span class="n">XJ</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xJ</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">))</span>    
     <span class="k">if</span> <span class="n">from_series</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">to_series</span><span class="p">:</span>
         <span class="c1"># special case for mapping 2D data to 3D</span>
@@ -846,6 +858,13 @@
                 <span class="n">fI</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">fI</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span> 
         <span class="k">else</span><span class="p">:</span>
             <span class="n">fI</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">map_image</span><span class="p">(</span><span class="n">I</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">I</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">target_space</span><span class="p">,</span> <span class="n">fXJ</span><span class="p">)</span>
+        
+        <span class="c1"># write out a qc file        </span>
+        <span class="n">fig</span><span class="p">,</span><span class="n">ax</span> <span class="o">=</span> <span class="n">emlddmm</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">fI</span><span class="p">,</span><span class="n">xJ</span><span class="p">)</span>
+        <span class="n">qc_out</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">target_space</span><span class="si">}</span><span class="s1">/</span><span class="si">{</span><span class="n">I</span><span class="o">.</span><span class="n">space</span><span class="si">}</span><span class="s1">_to_</span><span class="si">{</span><span class="n">target_space</span><span class="si">}</span><span class="s1">/qc/&#39;</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">qc_out</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">qc_out</span><span class="p">,</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">I</span><span class="o">.</span><span class="n">space</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">I</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">_to_</span><span class="si">{</span><span class="n">target_space</span><span class="si">}</span><span class="s1">_full.jpg&#39;</span><span class="p">))</span>
+        
     <span class="k">else</span><span class="p">:</span>
         <span class="n">fI</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -1291,26 +1310,32 @@
             <span class="n">sip</span><span class="p">[</span><span class="n">space</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span> <span class="c1"># these will be the registered spaces</span>
     
 
-
+    
     <span class="k">if</span> <span class="s2">&quot;transform_all&quot;</span> <span class="ow">in</span> <span class="n">input_dict</span> <span class="ow">and</span> <span class="p">(</span><span class="n">input_dict</span><span class="p">[</span><span class="s2">&quot;transform_all&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">True</span> <span class="ow">or</span> <span class="n">input_dict</span><span class="p">[</span><span class="s1">&#39;transform_all&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;true&#39;</span><span class="p">):</span>
-
+        <span class="k">if</span> <span class="n">DEBUG</span><span class="p">:</span> 
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Starting transform_all&#39;</span><span class="p">)</span>
+            
         <span class="k">for</span> <span class="n">src_space</span> <span class="ow">in</span> <span class="n">sip</span><span class="p">:</span>
-            <span class="c1">#print(f&#39;starting to transform from source {src_space}&#39;)</span>
+            <span class="k">if</span> <span class="n">DEBUG</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;starting to transform from source </span><span class="si">{</span><span class="n">src_space</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
             <span class="c1"># now what if there are no images in this space, we still want to output transforms</span>
-            <span class="n">images_to_iterate</span> <span class="o">=</span> <span class="n">sip</span><span class="p">[</span><span class="n">src_space</span><span class="p">]</span>
+            <span class="n">images_to_iterate</span> <span class="o">=</span> <span class="n">sip</span><span class="p">[</span><span class="n">src_space</span><span class="p">]</span>            
             <span class="k">if</span> <span class="ow">not</span> <span class="n">images_to_iterate</span><span class="p">:</span>
-                <span class="c1">#print(&#39;*&#39;*80)</span>
-                <span class="c1">#print(&#39;No images to iterate over, adding a None&#39;)</span>
+                <span class="k">if</span> <span class="n">DEBUG</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="o">*</span><span class="mi">80</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;No images to iterate over, adding a None&#39;</span><span class="p">)</span>
                 <span class="n">images_to_iterate</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>                
             <span class="k">for</span> <span class="n">src_image</span> <span class="ow">in</span> <span class="n">images_to_iterate</span><span class="p">:</span>
-                <span class="c1">#print(f&#39;starting to transform from source {src_space} image {src_image}&#39;)</span>
+                <span class="k">if</span> <span class="n">DEBUG</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;starting to transform from source </span><span class="si">{</span><span class="n">src_space</span><span class="si">}</span><span class="s1"> image </span><span class="si">{</span><span class="n">src_image</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
                 
                 <span class="k">if</span> <span class="n">src_image</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">src_path</span> <span class="o">=</span> <span class="n">sip</span><span class="p">[</span><span class="n">src_space</span><span class="p">][</span><span class="n">src_image</span><span class="p">]</span>
                     <span class="n">I</span> <span class="o">=</span> <span class="n">emlddmm</span><span class="o">.</span><span class="n">Image</span><span class="p">(</span><span class="n">src_space</span><span class="p">,</span> <span class="n">src_image</span><span class="p">,</span> <span class="n">src_path</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">graph</span><span class="o">.</span><span class="n">spaces</span><span class="p">[</span><span class="n">src_space</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="c1"># we need to get a dummy image</span>
-                    <span class="c1">#print(&#39;No image here, getting a dummy image&#39;)</span>
+                    <span class="k">if</span> <span class="n">DEBUG</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;No image here, getting a dummy image&#39;</span><span class="p">)</span>
                     <span class="c1"># give it a None for path</span>
                     <span class="n">source_space_unregistered</span> <span class="o">=</span> <span class="n">src_space</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_registered&#39;</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">)</span>                        
                     <span class="n">source_image</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sip</span><span class="p">[</span><span class="n">source_space_unregistered</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># get the first image. This is just to get file names if it is a series.</span>
@@ -1330,15 +1355,17 @@
                         <span class="n">target_image</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sip</span><span class="p">[</span><span class="n">target_space</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># get the first image. This is just to get file names if it is a series.</span>
                         <span class="n">target_path</span> <span class="o">=</span> <span class="n">sip</span><span class="p">[</span><span class="n">target_space</span><span class="p">][</span><span class="n">target_image</span><span class="p">]</span>
                     <span class="k">else</span><span class="p">:</span>
-                        <span class="c1">#print(&#39;*&#39;*80)</span>
-                        <span class="c1">#print(f&#39;hi registered space {target_space}&#39;)</span>
+                        <span class="k">if</span> <span class="n">DEBUG</span><span class="p">:</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="o">*</span><span class="mi">80</span><span class="p">)</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;hi registered space </span><span class="si">{</span><span class="n">target_space</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
                         <span class="c1"># in this case we still need the fnames for naming the outputs</span>
                         <span class="n">target_space_unregistered</span> <span class="o">=</span> <span class="n">target_space</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_registered&#39;</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
                         <span class="c1">#print(f&#39;looking at this space {target_space_unregistered}&#39;)</span>
                         <span class="n">target_image</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sip</span><span class="p">[</span><span class="n">target_space_unregistered</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># get the first iasdfmage. This is just to get file names if it is a series.</span>
                         <span class="n">target_path</span> <span class="o">=</span> <span class="n">sip</span><span class="p">[</span><span class="n">target_space_unregistered</span><span class="p">][</span><span class="n">target_image</span><span class="p">]</span>
-
-                    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">target_path</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">DEBUG</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;about to start graph_reconstruct&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">target_path</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span> <span class="c1"># this means a slice dataset</span>
                         <span class="n">fnames</span> <span class="o">=</span> <span class="n">emlddmm</span><span class="o">.</span><span class="n">fnames</span><span class="p">(</span><span class="n">target_path</span><span class="p">)</span>
                         <span class="n">graph_reconstruct</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">target_space</span><span class="p">,</span> <span class="n">target_fnames</span><span class="o">=</span><span class="n">fnames</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>

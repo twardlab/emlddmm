@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>emlddmm module &mdash; GDM 0.0.1 documentation</title>
+  <title>emlddmm package &mdash; GDM 0.0.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
@@ -65,7 +65,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>emlddmm module</li>
+      <li>emlddmm package</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/emlddmm.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -75,8 +75,251 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="module-emlddmm">
-<span id="emlddmm-module"></span><h1>emlddmm module<a class="headerlink" href="#module-emlddmm" title="Permalink to this heading"></a></h1>
+  <div class="section" id="emlddmm-package">
+<h1>emlddmm package<a class="headerlink" href="#emlddmm-package" title="Permalink to this heading"></a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="emlddmm-curve-annotator-module">
+<h2>emlddmm.curve_annotator module<a class="headerlink" href="#emlddmm-curve-annotator-module" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="module-emlddmm.emlddmm">
+<span id="emlddmm-emlddmm-module"></span><h2>emlddmm.emlddmm module<a class="headerlink" href="#module-emlddmm.emlddmm" title="Permalink to this heading"></a></h2>
+<p>Run the EMLDDMM algorithm for deformable registration between two
+different imaging modalities with possible missing data in one of them</p>
+<p>Details of this algorithm can be found in</p>
+<ul class="simple">
+<li><p>[1] Tward, Daniel, et al. “Diffeomorphic registration with intensity transformation and missing data: Application to 3D digital pathology of Alzheimer’s disease.” Frontiers in neuroscience 14 (2020): 52.</p></li>
+<li><p>[2] Tward, Daniel, et al. “3d mapping of serial histology sections with anomalies using a novel robust deformable registration algorithm.” Multimodal Brain Image Analysis and Mathematical Foundations of Computational Anatomy. Springer, Cham, 2019. 162-173.</p></li>
+<li><p>[3] Tward, Daniel, et al. “Solving the where problem in neuroanatomy: a generative framework with learned mappings to register multimodal, incomplete data into a reference brain.” bioRxiv (2020).</p></li>
+<li><p>[4] Tward DJ. An optical flow based left-invariant metric for natural gradient descent in affine image registration. Frontiers in Applied Mathematics and Statistics. 2021 Aug 24;7:718607.</p></li>
+</ul>
+<p>Note all parameters are keyword arguments, but the first four are required.</p>
+<dl class="field-list simple">
+<dt class="field-odd">param xI</dt>
+<dd class="field-odd"><p>xI[i] stores the location of voxels on the i-th axis of the atlas image I (REQUIRED)</p>
+</dd>
+<dt class="field-even">type xI</dt>
+<dd class="field-even"><p>list of arrays</p>
+</dd>
+<dt class="field-odd">param I</dt>
+<dd class="field-odd"><p>4D array storing atlas imaging data.  Channels (e.g. RGB are stored on the
+first axis, and the last three are spatial dimensions. (REQUIRED)</p>
+</dd>
+<dt class="field-even">type I</dt>
+<dd class="field-even"><p>4D array (numpy or torch)</p>
+</dd>
+<dt class="field-odd">param xJ</dt>
+<dd class="field-odd"><p>xJ[i] stores the location of voxels on the i-th axis of the target image J (REQUIRED)</p>
+</dd>
+<dt class="field-even">type xJ</dt>
+<dd class="field-even"><p>list of arrays</p>
+</dd>
+<dt class="field-odd">param J</dt>
+<dd class="field-odd"><p>4D array storing target imaging data.  Channels (e.g. RGB are stored on the
+first axis, and the last three are spatial dimensions. (REQUIRED)</p>
+</dd>
+<dt class="field-even">type J</dt>
+<dd class="field-even"><p>4D array (numpy or torch)</p>
+</dd>
+<dt class="field-odd">param nt</dt>
+<dd class="field-odd"><p>Number of timesteps for integrating a velocity field to yeild a position field (default 5).</p>
+</dd>
+<dt class="field-even">type nt</dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param eA</dt>
+<dd class="field-odd"><p>Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
+that you test this value and not rely on defaults. Note linear and translation components
+are combined following [4] so only one stepsize is required.</p>
+</dd>
+<dt class="field-even">type eA</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param ev</dt>
+<dd class="field-odd"><p>Gradient descent step size for affine component (default 1e-5).  It is strongly suggested
+that you test this value and not rely on defaults.</p>
+</dd>
+<dt class="field-even">type ev</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param order</dt>
+<dd class="field-odd"><p>Order of the polynomial used for contrast mapping. If using local contranst,
+only order 1 is supported.</p>
+</dd>
+<dt class="field-even">type order</dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param n_draw</dt>
+<dd class="field-odd"><p>Draw a picture every n_draw iterations. 0 for do not draw.</p>
+</dd>
+<dt class="field-even">type n_draw</dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param sigmaR</dt>
+<dd class="field-odd"><p>Amount of regularization of the velocity field used for diffeomorphic transformation,
+of the form 1/sigmaR^2 * (integral over time of norm velocity squared ).</p>
+</dd>
+<dt class="field-even">type sigmaR</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param n_iter</dt>
+<dd class="field-odd"><p>How many iterations of optimization to run.</p>
+</dd>
+<dt class="field-even">type n_iter</dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param n_e_step</dt>
+<dd class="field-odd"><p>How many iterations of M step to run before another E step is ran in
+expectation maximization algorithm for detecting outliers.</p>
+</dd>
+<dt class="field-even">type n_e_step</dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param v_start</dt>
+<dd class="field-odd"><p>What iteration to start optimizing velocity field.  One may want to compute an affine
+transformation before beginning to compute a deformation (for example).</p>
+</dd>
+<dt class="field-even">type v_start</dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param n_reduce_step</dt>
+<dd class="field-odd"><p>Simple stepsize reducer for gradient descent optimization. Every this number of steps,
+we check if objective function is oscillating. If so we reduce the step size.</p>
+</dd>
+<dt class="field-even">type n_reduce_step</dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param v_expand_factor</dt>
+<dd class="field-odd"><p>How much bigger than the atlas image should the domain of the velocity field be? This
+is helpful to avoid wraparound effects caused by discrete Fourier domain calculations.
+0.2 means 20% larger.</p>
+</dd>
+<dt class="field-even">type v_expand_factor</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param v_res_factor</dt>
+<dd class="field-odd"><p>How much lower resolution should the velocity field be sampled at than the atlas image.
+This is overrided if you specify dv.</p>
+</dd>
+<dt class="field-even">type v_res_factor</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param dv</dt>
+<dd class="field-odd"><p>Explicitly state the resolution of the sampling grid for the velocity field.</p>
+</dd>
+<dt class="field-even">type dv</dt>
+<dd class="field-even"><p>None or float or list of 3 floats</p>
+</dd>
+<dt class="field-odd">param a</dt>
+<dd class="field-odd"><p>Constant with units of length.  In velocity regularization, its square is multiplied against the Laplacian.
+Regularization is of the form 1/2/sigmaR^2 int <a href="#id1"><span class="problematic" id="id2">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p>
+</dd>
+<dt class="field-even">type a</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param p</dt>
+<dd class="field-odd"><p>Power of the Laplacian operator in regularization of the velocity field.
+Regularization is of the form 1/2/sigmaR^2 int <a href="#id3"><span class="problematic" id="id4">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p>
+</dd>
+<dt class="field-even">type p</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">returns</dt>
+<dd class="field-odd"><p><strong>out</strong> (<em>dict</em>) – Returns a dictionary of outputs storing computing transforms. if full_outputs==True,
+then more data is output including figures.</p>
+</dd>
+<dt class="field-even">raises Exception</dt>
+<dd class="field-even"><p>If the initial velocity does not have three components.</p>
+</dd>
+<dt class="field-odd">raises Exception</dt>
+<dd class="field-odd"><p>Local contrast transform requires either order = 1, or order &gt; 1 and 1D atlas.</p>
+</dd>
+<dt class="field-even">raises Exception</dt>
+<dd class="field-even"><p>If order &gt; 1. Local contrast transform not implemented yet except for linear.</p>
+</dd>
+<dt class="field-odd">raises Exception</dt>
+<dd class="field-odd"><p>Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale), or 3 (rigid using XJ for projection).</p>
+</dd>
+</dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm.__dir__">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.emlddmm.</span></span><span class="sig-name descname"><span class="pre">__dir__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emlddmm.emlddmm.__dir__" title="Permalink to this definition"></a></dt>
+<dd><p>Default dir() implementation.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm.__format__">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.emlddmm.</span></span><span class="sig-name descname"><span class="pre">__format__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">format_spec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">/</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#emlddmm.emlddmm.__format__" title="Permalink to this definition"></a></dt>
+<dd><p>Default object formatter.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm.__init_subclass__">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.emlddmm.</span></span><span class="sig-name descname"><span class="pre">__init_subclass__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emlddmm.emlddmm.__init_subclass__" title="Permalink to this definition"></a></dt>
+<dd><p>This method is called when a class is subclassed.</p>
+<p>The default implementation does nothing. It may be
+overridden to extend subclasses.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm.__new__">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.emlddmm.</span></span><span class="sig-name descname"><span class="pre">__new__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#emlddmm.emlddmm.__new__" title="Permalink to this definition"></a></dt>
+<dd><p>Create and return a new object.  See help(type) for accurate signature.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm.__reduce__">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.emlddmm.</span></span><span class="sig-name descname"><span class="pre">__reduce__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emlddmm.emlddmm.__reduce__" title="Permalink to this definition"></a></dt>
+<dd><p>Helper for pickle.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm.__reduce_ex__">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.emlddmm.</span></span><span class="sig-name descname"><span class="pre">__reduce_ex__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">protocol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">/</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#emlddmm.emlddmm.__reduce_ex__" title="Permalink to this definition"></a></dt>
+<dd><p>Helper for pickle.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm.__sizeof__">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.emlddmm.</span></span><span class="sig-name descname"><span class="pre">__sizeof__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emlddmm.emlddmm.__sizeof__" title="Permalink to this definition"></a></dt>
+<dd><p>Size of object in memory, in bytes.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.emlddmm.__subclasshook__">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.emlddmm.</span></span><span class="sig-name descname"><span class="pre">__subclasshook__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emlddmm.emlddmm.__subclasshook__" title="Permalink to this definition"></a></dt>
+<dd><p>Abstract classes can override this to customize issubclass().</p>
+<p>This is invoked early on by abc.ABCMeta.__subclasscheck__().
+It should return True, False or NotImplemented.  If it returns
+NotImplemented, the normal algorithm is used.  Otherwise, it
+overrides the normal algorithm (and the outcome is cached).</p>
+</dd></dl>
+
+</div>
+<div class="section" id="emlddmm-histsetup-module">
+<h2>emlddmm.histsetup module<a class="headerlink" href="#emlddmm-histsetup-module" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="emlddmm-load-image-folder-module">
+<h2>emlddmm.load_image_folder module<a class="headerlink" href="#emlddmm-load-image-folder-module" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="emlddmm-manual-point-align-module">
+<h2>emlddmm.manual_point_align module<a class="headerlink" href="#emlddmm-manual-point-align-module" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="emlddmm-point-mapper-module">
+<h2>emlddmm.point_mapper module<a class="headerlink" href="#emlddmm-point-mapper-module" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="emlddmm-setup-module">
+<h2>emlddmm.setup module<a class="headerlink" href="#emlddmm-setup-module" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="emlddmm-transformation-graph-v01-module">
+<h2>emlddmm.transformation_graph_v01 module<a class="headerlink" href="#emlddmm-transformation-graph-v01-module" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="emlddmm-twodreg-module">
+<h2>emlddmm.twoDreg module<a class="headerlink" href="#emlddmm-twodreg-module" title="Permalink to this heading"></a></h2>
+</div>
+<div class="section" id="module-emlddmm">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-emlddmm" title="Permalink to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="emlddmm.Image">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">Image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fpath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#Image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.Image" title="Permalink to this definition"></a></dt>
@@ -208,8 +451,8 @@ locations in corresponding axis.</p></li>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="id1">
-<span class="sig-name descname"><span class="pre">fnames</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#Image.fnames"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="id5">
+<span class="sig-name descname"><span class="pre">fnames</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#Image.fnames"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id5" title="Permalink to this definition"></a></dt>
 <dd><p>Get a list of image file names for 2D series, or a single file name for volume image.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -222,7 +465,7 @@ locations in corresponding axis.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="emlddmm.Transform">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">Transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'f'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#Transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.Transform" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">Transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'f'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#Transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.Transform" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A simple class for storing and applying transforms</p>
 <p>Note that the types of transforms we can support are</p>
@@ -330,7 +573,7 @@ transform stored in Xout</p>
 <p>Uses an MM algorithm to align slices.  Minimizes a Sobolev norm over rigid transformations of each slice.</p>
 <p>All arguments are keword arguments</p>
 <div class="section" id="keword-arguments">
-<h2>Keword Arguments<a class="headerlink" href="#keword-arguments" title="Permalink to this heading"></a></h2>
+<h3>Keword Arguments<a class="headerlink" href="#keword-arguments" title="Permalink to this heading"></a></h3>
 <dl class="simple">
 <dt>xJ<span class="classifier">list of arrays</span></dt><dd><p>Lists of pixel locations in slice row col axes</p>
 </dd>
@@ -346,7 +589,7 @@ transform stored in Xout</p>
 </dd>
 <dt>n_steps<span class="classifier">int</span></dt><dd><p>Number of iterations of MM algorithm.</p>
 </dd>
-<dt><a href="#id2"><span class="problematic" id="id3">**</span></a>kwargs<span class="classifier">dict</span></dt><dd><p>All other keword arguments are passed along to slice matching in the emlddmm algorithm.</p>
+<dt><a href="#id6"><span class="problematic" id="id7">**</span></a>kwargs<span class="classifier">dict</span></dt><dd><p>All other keword arguments are passed along to slice matching in the emlddmm algorithm.</p>
 </dd>
 </dl>
 <dl class="field-list simple">
@@ -358,7 +601,7 @@ transform stored in Xout</p>
 </ul>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id4">
+<div class="admonition-todo admonition" id="id8">
 <p class="admonition-title">Todo</p>
 <p>Think about how to do this with some slices fixed.
 Think about normalizing slice to slice contrast.</p>
@@ -406,7 +649,7 @@ If the input is a tuple of length 2, we assume it is an output directory and a d
     or list of tuples storing filename/direction.</p>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id5">
+<div class="admonition-todo admonition" id="id9">
 <p class="admonition-title">Todo</p>
 <ol class="arabic simple">
 <li><p>use os path join</p></li>
@@ -439,7 +682,7 @@ one over operator for doing smoothing.</p></li>
 <p class="admonition-title">Note</p>
 <p>This code uses numpy, not torch, since it is not gradient based.</p>
 </div>
-<div class="admonition-todo admonition" id="id6">
+<div class="admonition-todo admonition" id="id10">
 <p class="admonition-title">Todo</p>
 <p>Better boundary conditions</p>
 </div>
@@ -474,7 +717,7 @@ but for 3D it will have to be input manually if we do not have a sidecar file.</
 <p class="rubric">Notes</p>
 <p>If we are applying 3D transforms, we need a z coordinate.  This can be determined either by specifying it
 or by using a sidecar file.  If we have neither, it ill be set to 0.</p>
-<div class="admonition-todo admonition" id="id7">
+<div class="admonition-todo admonition" id="id11">
 <p class="admonition-title">Todo</p>
 <p>Consider setting z to nan instead of zero.</p>
 </div>
@@ -653,7 +896,7 @@ include cmap=’gray’ for a gray colormap</p></li>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">example</span> <span class="n">test</span>
 </pre></div>
 </div>
-<div class="admonition-todo admonition" id="id8">
+<div class="admonition-todo admonition" id="id12">
 <p class="admonition-title">Todo</p>
 <p>Put interpolation=’none’ in keywords</p>
 </div>
@@ -706,9 +949,9 @@ is helpful to avoid wraparound effects caused by discrete Fourier domain calcula
 This is overrided if you specify dv.</p></li>
 <li><p><strong>dv</strong> (<em>None</em><em> or </em><em>float</em><em> or </em><em>list</em><em> of </em><em>3 floats</em>) – Explicitly state the resolution of the sampling grid for the velocity field.</p></li>
 <li><p><strong>a</strong> (<em>float</em>) – Constant with units of length.  In velocity regularization, its square is multiplied against the Laplacian.
-Regularization is of the form 1/2/sigmaR^2 int <a href="#id9"><span class="problematic" id="id10">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p></li>
+Regularization is of the form 1/2/sigmaR^2 int <a href="#id13"><span class="problematic" id="id14">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p></li>
 <li><p><strong>p</strong> (<em>float</em>) – Power of the Laplacian operator in regularization of the velocity field.
-Regularization is of the form 1/2/sigmaR^2 int <a href="#id11"><span class="problematic" id="id12">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p></li>
+Regularization is of the form 1/2/sigmaR^2 int <a href="#id15"><span class="problematic" id="id16">|</span></a>(id - a^2 Delta)^p v_t|^2_{L2} dt.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -720,7 +963,7 @@ then more data is output including figures.</p>
 <li><p><strong>Exception</strong> – If the initial velocity does not have three components.</p></li>
 <li><p><strong>Exception</strong> – Local contrast transform requires either order = 1, or order &gt; 1 and 1D atlas.</p></li>
 <li><p><strong>Exception</strong> – If order &gt; 1. Local contrast transform not implemented yet except for linear.</p></li>
-<li><p><strong>Exception</strong> – Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale).</p></li>
+<li><p><strong>Exception</strong> – Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale), or 3 (rigid using XJ for projection).</p></li>
 </ul>
 </dd>
 </dl>
@@ -774,6 +1017,25 @@ of columns stored in xJ[1].</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.find_bounding_box">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">find_bounding_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Ji</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">startoff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bbox</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#find_bounding_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.find_bounding_box" title="Permalink to this definition"></a></dt>
+<dd><p>Computes a bounding box using an Otsu intraclass variance objective function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Ji</strong> (<em>numpy array</em>) – Row x col x n_channels numpy array to find bounding box</p></li>
+<li><p><strong>startoff</strong> (<em>int</em>) – How far away from boundary to put initial guess.  Default 30.</p></li>
+<li><p><strong>search</strong> (<em>int</em>) – How far to move bounding box edges at each iteration.  Default +/- 10.</p></li>
+<li><p><strong>n_iter</strong> (<em>int</em>) – How many loops through top, left, bottom, right.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>bbox</strong> (<em>list</em>) – A tuple of 4 ints. [row0, col0, row1, col1].</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="emlddmm.fnames">
 <span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">fnames</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#fnames"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.fnames" title="Permalink to this definition"></a></dt>
 <dd><p>Get a list of image file names for 2D series, or a single file name for volume image.</p>
@@ -782,6 +1044,16 @@ of columns stored in xJ[1].</p>
 <dd class="field-odd"><p><strong>fnames</strong> (<em>list of strings</em>) – List of image file names</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.initialize_A2d_with_bbox">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">initialize_A2d_with_bbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">J</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xJ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#initialize_A2d_with_bbox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.initialize_A2d_with_bbox" title="Permalink to this definition"></a></dt>
+<dd><p>Use bounding boxes to find an initial guess of A2d.</p>
+<p>On each slice we will compute a bounding box.</p>
+<p>Then we will compute a translation vector which will move the slice to the center of the field of view.</p>
+<p>Then we will return the inverse.</p>
+<p>TODO</p>
 </dd></dl>
 
 <dl class="py function">
@@ -1016,6 +1288,26 @@ Each component should be one of R/L, A/P, S/I. There should be no duplicates</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.project_affine_to_rigid">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">project_affine_to_rigid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">XJ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#project_affine_to_rigid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.project_affine_to_rigid" title="Permalink to this definition"></a></dt>
+<dd><p>This function finds the closest rigid transform to the given affine transform.</p>
+<p>Close is defined in terms of the action of A^{-1} on XJ</p>
+<p>That is, we find R to minimize || A^{-1}XJ - R^{-1}XJ||^2_F = || R (A^{-1}XJ) - XJ ||^2_F.</p>
+<p>We use a standard procurstes method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>torch tensor</em>) – A 4x4 affine transformation matrix</p></li>
+<li><p><strong>XJ</strong> (<em>torch tensor</em>) – A 3 x slice x row x col array of coordinates in the space of the target image</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>R</strong> (<em>torch tensor</em>) – A 4x43 rigid affine transformation matrix.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="emlddmm.read_data">
 <span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">read_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#read_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.read_data" title="Permalink to this definition"></a></dt>
 <dd><p>Read array data from several file types.</p>
@@ -1104,7 +1396,7 @@ component of vector field.</p></li>
 <dd class="field-even"><p><strong>If data not written in big endian</strong> – Note (b) symbol not in data name {name}, you should check that it was written big endian. Specify endian=”l” if you want little</p>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id13">
+<div class="admonition-todo admonition" id="id17">
 <p class="admonition-title">Todo</p>
 <p>Torch does not support negative strides.  This has lead to an error where x has a negative stride.
 I should flip instead of negative stride, or copy afterward.</p>
@@ -1202,7 +1494,7 @@ Only intending it to be used for upsampling.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="emlddmm.v_to_phii">
-<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">v_to_phii</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#v_to_phii"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.v_to_phii" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">v_to_phii</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#v_to_phii"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.v_to_phii" title="Permalink to this definition"></a></dt>
 <dd><p>Use Euler’s method to construct a position field from a velocity field
 by integrating over time.</p>
 <p>This method uses interpolation and subtracts and adds identity for better
@@ -1220,6 +1512,23 @@ component, and 3rd to 5th correspond to spatial dimensions.</p></li>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><strong>phii</strong> (<em>4D tensor</em>) – Inverse transformation is output with component on the first dimension
 and space on the last 3. Note that the whole timeseries is not output.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="emlddmm.weighted_intraclass_variance">
+<span class="sig-prename descclassname"><span class="pre">emlddmm.</span></span><span class="sig-name descname"><span class="pre">weighted_intraclass_variance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bbox</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ji</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ellipse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/emlddmm.html#weighted_intraclass_variance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#emlddmm.weighted_intraclass_variance" title="Permalink to this definition"></a></dt>
+<dd><p>Returns weighted intraclass variance (as in Otsu’s method) for an image with a given bounding box.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bbox</strong> (<em>list</em>) – A tuple of 4 ints. [row0, col0, row1, col1].</p></li>
+<li><p><strong>Ji</strong> (<em>numpy array</em>) – Row x col x n_channels numpy array to find bounding box</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>E</strong> (<em>float</em>) – The weighted intraclass variance between inside and outside the bounding box.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1248,7 +1557,7 @@ and space on the last 3. Note that the whole timeseries is not output.</p>
 Note that in python we use zyx order,
 but we write outputs in xyz order</p>
 <div class="section" id="parameter">
-<h2>Parameter<a class="headerlink" href="#parameter" title="Permalink to this heading"></a></h2>
+<h3>Parameter<a class="headerlink" href="#parameter" title="Permalink to this heading"></a></h3>
 <dl class="simple">
 <dt>fname<span class="classifier">str</span></dt><dd><p>Filename to write</p>
 </dd>
@@ -1283,13 +1592,14 @@ but we write outputs in xyz order</p>
 </ul>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id14">
+<div class="admonition-todo admonition" id="id18">
 <p class="admonition-title">Todo</p>
 <p>Implement QC figures.</p>
 <p>Check device more carefully, probably better to put everything on cpu.</p>
 <p>Check dtype more carefully.</p>
 <p>Get determinant of jacobian. (done)</p>
 <p>Write velocity out and affine</p>
+<p>Get a list of files to name outputs.</p>
 </div>
 </dd></dl>
 
@@ -1332,7 +1642,7 @@ and 2D affine transforms for each slice if applicable.</p>
 <dd class="field-even"><p><em>None</em></p>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id15">
+<div class="admonition-todo admonition" id="id19">
 <p class="admonition-title">Todo</p>
 <p>Update parameter list.</p>
 </div>
@@ -1356,7 +1666,7 @@ and 2D affine transforms for each slice if applicable.</p>
 <dd class="field-even"><p><em>None</em></p>
 </dd>
 </dl>
-<div class="admonition-todo admonition" id="id16">
+<div class="admonition-todo admonition" id="id20">
 <p class="admonition-title">Todo</p>
 <p>Update parameter list.</p>
 </div>
@@ -1410,6 +1720,7 @@ size number of points by number of dimensions (expected to be 3)</p></li>
 </dl>
 </dd></dl>
 
+</div>
 </div>
 
 

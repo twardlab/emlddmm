@@ -16,5 +16,5 @@ Note that our command line interface has only been validated on Linux systems.
 
    human_mri_example.ipynb
    Mouse_Serial_Section_Example.ipynb 
-
+   example_rat_registration.ipynb
 
