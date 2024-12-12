@@ -1108,6 +1108,7 @@ def emlddmm(**kwargs):
                 'local_contrast':None, # simple local contrast estimation mode, should be a list of ints
                 'reduce_factor':0.9,
                 'auto_stepsize_v':0, # 0 for no auto stepsize, or a number n for updating every n iterations
+                'auto_stepsize_A':0, # 0 for no auto stepsize, or a number n for updating every n iterations
                 'up_vector':None, # the up vector in the atlas, which should remain up (pointing in the -y direction) in the target
                 'slice_deformation':False, # if slice_matching is also true, we will add 2d deformation. mostly use same parameters
                 'ev2d':1e-6, #TODO
@@ -1153,6 +1154,9 @@ def emlddmm(**kwargs):
     auto_stepsize_v = kwargs['auto_stepsize_v']
     if auto_stepsize_v is None:
         auto_stepsize_v = 0
+    auto_stepsize_A = kwargs['auto_stepsize_A']
+    if auto_stepsize_A is None:
+        auto_stepsize_A = 0
     
     order = kwargs['order'] 
     
@@ -2008,8 +2012,8 @@ def emlddmm(**kwargs):
             if slice_to_average_a is not None:
                 figN.canvas.draw()
 
-
-        # update
+        ################################################################################
+        # update parameters
         
         with torch.no_grad():
             # here we'll do an automatic step size estimation for e based on a quadratic/Gauss-newton approximation
@@ -2018,21 +2022,48 @@ def emlddmm(**kwargs):
             # e = e1/e2
             # what do I need to do to implement this?
             # the only tricky thing is to resample grad onto the same grid as J            
-            if auto_stepsize_v and not it%auto_stepsize_v:
+            if auto_stepsize_v and not it%auto_stepsize_v: # this will happen at the first time
                 # WORKING
                 # first we need to deal with the affine
-                # we will transform J and fAphiI and W back to the space of I
-                Xs = (A[:3,:3]@XI[...,None])[...,0] + A[:3,-1]
+                # we will transform J and fAphiI and W back to the space of I                
+                Xs = ((A[:3,:3]@XI.permute(1,2,3,0)[...,None])[...,0] + A[:3,-1]).permute(-1,0,1,2)
                 AiJ = interp(xJ,J,Xs)
                 fphiI = interp(xJ,fAphiI,Xs)
-                AiW = interp(xJ,WM*W0,Xs)
-                # now we need DI
-                DfphiI = torch.stack(torch.gradient(fphiI,dxI),-1)
+                AiW = interp(xJ,(WM*W0)[None],Xs)
                 
-            
+                
+                # for the data attachment term
+                # now we need DI
+                dxI = [(x[1] - x[0]).item() for x in xI]
+                DfphiI = torch.stack(torch.gradient(fphiI,spacing=dxI,dim=(1,2,3)),0)
+                # I will just use v0 (t=0)
+                # we need to compute DIg
+                # we need to resample vgrad
+                vgradI = interp(xv,vgrad[0],XI)
+                DfphiIg = torch.sum(DfphiI*vgradI,0) # row times column gives scalar
+                errDfphiIg = torch.sum( (fphiI - AiJ)*DfphiIg , 0)
+                DfphiIgDfphiiG = torch.sum( DfphiIg*DfphiIg , 0)
+                
+                
+                # for the regularization term we need these quantities
+                # we will sum over them and we don't need any resampling 
+                
+                LLvgrad = torch.fft.ifftn(torch.fft.fftn(vgrad[0],dim=(-1,-2,-3)),dim=(-1,-2,-3)).real
+                vLLvgrad = torch.sum(v[0]*LLvgrad,0)
+                vgradLLvgrad = torch.sum(vgrad[0]*LLvgrad,0)
+                
+                # now we have to compute the sums
+                e1 = - torch.sum( errDfphiIg*AiW )/sigmaM**2*np.prod(dxI)*torch.linalg.det(A) + torch.sum( vLLvgrad )/sigmaR**2*torch.prod(dv)
+                e2 = torch.sum(DfphiIgDfphiiG*AiW )/sigmaM**2*np.prod(dxI)*torch.linalg.det(A) + torch.sum( vgradLLvgrad )/sigmaR**2*torch.prod(dv)
+                
+                ev_auto = e1/e2
+                #print(e1,e2,ev_auto)
+                # when using auto step size we expect ev to be something of order 1
+            elif not auto_stepsize_v: 
+                ev_auto = 1.0
             
             if it >= v_start:
-                v -= vgrad*ev
+                v -= vgrad*ev*ev_auto
             v.grad.zero_()
             
             A[:3] -= Agrad*eA
@@ -2188,7 +2219,7 @@ def emlddmm(**kwargs):
                     
             
 
-            # other terms in m step, these don't actually matter until I update
+            # other terms in M step (M-maximization verus E-expectation ), these don't actually matter until I update
             WAW0 = (WA*W0)[None]
             WAW0s = torch.sum(WAW0)
             if update_muA:
