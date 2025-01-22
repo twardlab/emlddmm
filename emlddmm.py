@@ -27,6 +27,9 @@ except:
     from PIL import Image
     Image.MAX_IMAGE_PIXELS = None # prevent decompression bomb error for large files
     
+# for interactive display with widget
+from IPython.display import display
+    
 # display
 def extent_from_x(xJ):
     ''' Given a set of pixel locations, returns an extent 4-tuple for use with imshow.
@@ -1117,6 +1120,7 @@ def emlddmm(**kwargs):
                 'slice_to_neighbor_sigma':None, # add a loss function for aligning slices to neighbors by simple least squres
                 'slice_to_average_a': None,
                 'small':1e-7, # for matrix inverse
+                'out_of_plane':True, # if False, will project the velocity to be in plane only
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -1171,6 +1175,7 @@ def emlddmm(**kwargs):
     v_expand_factor = kwargs['v_expand_factor']
     v_res_factor = kwargs['v_res_factor']
     dv = kwargs['dv']
+    out_of_plane = kwargs['out_of_plane']
     
     a = kwargs['a']
     p = kwargs['p']
@@ -1516,19 +1521,30 @@ def emlddmm(**kwargs):
         sigmaB = torch.std(J,dim=(1,2,3))*2.0#*DJ
     else:
         sigmaB = torch.as_tensor(sigmaB,device=device,dtype=dtype)
+        
     if n_draw: # if n_draw is not 0, we create figures
         figE,axE = plt.subplots(1,3)
+        hfigE = display(figE,display_id=True)
         figA,axA = plt.subplots(2,2)
+        hfigA = display(figA,display_id=True)
         axA = axA.ravel()
         if slice_matching:
             figA2d,axA2d = plt.subplots(2,2)
+            hfigA2d = display(figA2d,display_id=True)
             axA2d = axA2d.ravel()
         figI = plt.figure()
+        hfigI = display(figI,display_id=True)
         figfI = plt.figure()
+        hfigfI = display(figfI,display_id=True)
         figErr = plt.figure()
+        hfigErr = display(figErr,display_id=True)
         figJ = plt.figure()
+        hfigJ = display(figJ,display_id=True)
         figV = plt.figure()
+        hfigV = display(figV,display_id=True)
         figW = plt.figure()
+        hfigW = display(figW,display_id=True)
+        
 
 
     Esave = []
@@ -1681,7 +1697,7 @@ def emlddmm(**kwargs):
                     # BJ is shape nslices x nchannels B x nchannels J                    
                     
                     #coeffs = torch.inverse(BB) @ BJ
-                    coeffs = torch.linalg.solve(BB,BJ).to(dtype)
+                    coeffs = torch.linalg.solve(BB,BJ.double()).to(dtype)
                     # coeffs is shape nslices x nchannelsB x nchannelsJ
 
 
@@ -1908,9 +1924,10 @@ def emlddmm(**kwargs):
             # if slice matching, it would be better to see the reconstructed version
             if not slice_matching:
                 _ = draw(AphiI.detach().cpu(),xJ,fig=figI,vmin=vminI,vmax=vmaxI)
-                figI.suptitle('AphiI')
+                figI.suptitle('AphiI')                
                 _ = draw(fAphiI.detach().cpu(),xJ,fig=figfI,vmin=vminJ,vmax=vmaxJ)
                 figfI.suptitle('fAphiI')     
+                
                 
                 _ = draw(fAphiI.detach().cpu() - J.cpu(),xJ,fig=figErr)
                 figErr.suptitle('Err')
@@ -1952,6 +1969,7 @@ def emlddmm(**kwargs):
                 if slice_to_average_a is not None:
                     if 'figN' not in locals():
                         figN = plt.figure()
+                        hfigN = display(figN,display_id=True)
                     _ = draw(Jblur.cpu(),xJshift,fig=figN,vmin=vminJ,vmax=vmaxJ)
                     figN.suptitle('Jblur')
                     # save them for debugging!
@@ -1999,18 +2017,29 @@ def emlddmm(**kwargs):
             draw(torch.stack((WM*W0,WA*W0,WB*W0)),xJ,fig=figW,vmin=0.0,vmax=1.0)
             figW.suptitle('Weights')
 
+            # todo, use disaply for widget backend
             figE.canvas.draw()
+            hfigE.update(figE)
             figI.canvas.draw()
+            hfigI.update(figI)
             figfI.canvas.draw()
+            hfigfI.update(figfI)
             figErr.canvas.draw()
+            hfigErr.update(figErr)
             figA.canvas.draw()
+            hfigA.update(figA)
             figV.canvas.draw()
+            hfigV.update(figV)
             figW.canvas.draw()
+            hfigW.update(figW)
             figJ.canvas.draw()
+            hfigJ.update(figJ)
             if slice_matching:
                 figA2d.canvas.draw()
+                hfigA2d.update(figA2d)
             if slice_to_average_a is not None:
                 figN.canvas.draw()
+                hfigN.update(figN)
 
         ################################################################################
         # update parameters
@@ -2063,7 +2092,7 @@ def emlddmm(**kwargs):
                 ev_auto = 1.0
             
             if it >= v_start:
-                v -= vgrad*ev*ev_auto
+                v -= vgrad*ev*ev_auto                
             v.grad.zero_()
             
             A[:3] -= Agrad*eA
@@ -2093,6 +2122,22 @@ def emlddmm(**kwargs):
             else:
                 raise Exception('Amode must be 0 (normal), 1 (rigid), or 2 (rigid+scale), or 3 (rigid using XJ for projection)')
             A.grad.zero_()
+            
+            if not out_of_plane:
+                # added dec 22, 2024
+                # need to project onto the plane
+                # how do we do that?
+                # get the out of plane vector
+                # we act on them with Ai
+                # we normalize them
+                Ai = torch.linalg.inv(A)
+                e0 = torch.tensor([1.0,0.0,0.0],dtype=A.dtype,device=A.device)                
+                e0 = Ai[:3,:3]@e0
+                e0 = e0/torch.sqrt(torch.sum(e0**2))
+                # make a projection matrix
+                projection = torch.eye(3) - e0[:,None]*e0[None,:]
+                # use the projection to zero out the v
+                v = (projection@v.permute(0,2,3,4,1)[...,None]).permute(0,-1,1,2,3)
             
             if slice_matching:
                 
