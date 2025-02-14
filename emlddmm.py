@@ -1121,6 +1121,7 @@ def emlddmm(**kwargs):
                 'slice_to_average_a': None,
                 'small':1e-7, # for matrix inverse
                 'out_of_plane':True, # if False, will project the velocity to be in plane only
+                'rigid_procrustes':False, # for 2D project onto rigid using procrustes, else use svd
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -1237,7 +1238,7 @@ def emlddmm(**kwargs):
         A2d = kwargs['A2d']
     slice_matching_start = kwargs['slice_matching_start']
     slice_matching_isotropic = kwargs['slice_matching_isotropic']
-    
+    rigid_procrustes = kwargs['rigid_procrustes']
     
     
     
@@ -1699,6 +1700,10 @@ def emlddmm(**kwargs):
                     #coeffs = torch.inverse(BB) @ BJ
                     coeffs = torch.linalg.solve(BB,BJ.double()).to(dtype)
                     # coeffs is shape nslices x nchannelsB x nchannelsJ
+                    if torch.any(torch.isnan(coeffs)) or torch.any(torch.isinf(coeffs)):
+                        print(coeffs)
+                        print(BB)
+                        asdf
 
 
                 fAphiI = (B_[...,None,:]@coeffs[:,None]).reshape(J.shape[1],J.shape[2],J.shape[3],J.shape[0]).permute(-1,0,1,2)
@@ -1734,7 +1739,6 @@ def emlddmm(**kwargs):
 
 
         # matching cost        
-
         # sum of squares when it is known (note sseM includes weights)
         EM = torch.sum(sseM/sigmaM**2)*DJ/2.0
         # here I have a DJ
@@ -1936,8 +1940,9 @@ def emlddmm(**kwargs):
 
             else:                                     
                 # find a sampling grid
-                A2di = torch.linalg.inv(A2d)
+                A2di = torch.linalg.inv(A2d.clone().detach())
                 meanshift = torch.mean(A2di[:,0:2,-1],dim=0)
+                #print(meanshift)
                 xJshift = [x.clone() for x in xJ]
                 xJshift[1] += meanshift[0]
                 xJshift[2] += meanshift[1]
@@ -1951,7 +1956,13 @@ def emlddmm(**kwargs):
                 phiiAi_ = interp(xv,phii-XV,Xs_) + Xs_
         
                 # transform image
-                AphiI_ = interp(xI,I,phiiAi_)                
+                AphiI_ = interp(xI,I,phiiAi_)
+                if np.any([np.any(np.isnan(x.numpy())) for x in xJshift]):
+                    print(A2d)
+                    print(A2di)
+                    print(meanshift)
+                    print(xJshift)
+                    asdf
                 _ = draw(AphiI_.detach().cpu(),xJshift,fig=figI,vmin=vminI,vmax=vmaxI)
                 figI.suptitle('AphiI')
                 
@@ -2017,7 +2028,7 @@ def emlddmm(**kwargs):
             draw(torch.stack((WM*W0,WA*W0,WB*W0)),xJ,fig=figW,vmin=0.0,vmax=1.0)
             figW.suptitle('Weights')
 
-            # todo, use disaply for widget backend
+            # TODO check if widget backend, and only then call update
             figE.canvas.draw()
             hfigE.update(figE)
             figI.canvas.draw()
@@ -2042,8 +2053,7 @@ def emlddmm(**kwargs):
                 hfigN.update(figN)
 
         ################################################################################
-        # update parameters
-        
+        # update parameters        
         with torch.no_grad():
             # here we'll do an automatic step size estimation for e based on a quadratic/Gauss-newton approximation
             # e1 = -int  err*DI*grad  dx/sigmaM**2  + int (Lv)*(Lgrad)dx/sigmaR**2
@@ -2144,9 +2154,9 @@ def emlddmm(**kwargs):
                 # project A to isotropic and normal up
                 # isotropic (done, really where is normal up?)
                 # TODO normal                
-                # what I really should do is parameterize this group and work out a metric                                
-                u,s,vh = torch.linalg.svd(A[:3,:3])
+                # what I really should do is parameterize this group and work out a metric                
                 if slice_matching_isotropic:
+                    u,s,vh = torch.linalg.svd(A[:3,:3])
                     s = torch.exp(torch.mean(torch.log(s)))*torch.eye(3,device=device,dtype=dtype)
                     A[:3,:3] = u@s@vh  # why transpose? torch svd does not return the transpose, but this will be deprecated (fixed)
                 
@@ -2158,65 +2168,66 @@ def emlddmm(**kwargs):
                 
                 
                 # project onto rigid
-                #u,s,v_ = torch.svd(A2d[:,:2,:2])
-                #A2d[:,:2,:2] = u@v_.transpose(1,2)
-                #A2d.grad.zero_()
+                if not rigid_procrustes:
+                    u,s,v_ = torch.svd(A2d[:,:2,:2])
+                    A2d[:,:2,:2] = u@v_.transpose(1,2)
+                    A2d.grad.zero_()
+                else:
                 
-                
-                # TODO, when not centered at origin, I may need a different projection (see procrustes)
-                # Let X be the voxel locations in the target image J
-                # then let A2dX = Y be the transformed voxel locations with a nonrigid transform
-                # then we want to find R to minimize |RX - Y|^2
-                # this is done in 2 steps, first we center
-                # then we svd
-                
-                # these are the untransformed points
-                X = torch.clone(XJ[1:])
-                
-                # these are the transformed points Y
-                # we will need to update this, otherwise I'm just projecting onto the same one as last time
-                A2di = torch.linalg.inv(A2d) 
-                Y = ((A2di[:,None,None,:2,:2]@ (X.permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)                            
-                # for linear algebra, vector components at end
-                X = X.permute(1,2,3,0)
-                Y = Y.permute(1,2,3,0)
-                # we want to find a rigid transform of X to match Y (sum over row and column)
-                Xbar = torch.mean(X,dim=(1,2),keepdims=True)
-                Ybar = torch.mean(Y,dim=(1,2),keepdims=True)
-                X = X - Xbar
-                Y = Y - Ybar
-                # now we want to find the best rotation that matches X to Y
-                # we want
-                # min |RX - Y|^2
-                # min tr[(RX-Y)(RX-Y)^T]
-                # min -tr[RXY^T]
-                # max tr[R(XY^T)]
-                # let XY^T = USV^T
-                # then
-                # max tr[R (USV^T)]
-                # max tr[(V^T R U) S]
-                # this is maximized when the bracketted term is identity
-                # so V^T R U = id
-                # R = V U^T
-                # note xyz is first dimension, I will want it to be last
-                # for tanslation
-                # now I need the translation part
-                # but this should just be
-                # R(X-Xbar) = (Y-Ybar)
-                # RX - RXbar = Y-Ybar
-                # RX + [-RXbar + Ybar] = Y
-                S = X.reshape(X.shape[0],-1,2).transpose(-1,-2) @ Y.reshape(X.shape[0],-1,2)
-                U,_,Vh = torch.linalg.svd(S)
-                #R = U.transpose(-1,-2)@Vh.transpose(-1,-2)
-                #R = R.transpose(-1,-2) # ? this seems to work
-                R = Vh.transpose(-1,-2)@U.transpose(-1,-2)
-                T = ((-R[:,None,None,]@Xbar[...,None])[...,0] + Ybar)[:,0,0,:]
-                # now we need to stack them together
-                A2di_ = torch.zeros(T.shape[0],3,3,dtype=dtype,device=device)
-                A2di_[:,:2,:2] = R
-                A2di_[:,:2,-1] = T
-                A2di_[:,-1,-1] = 1
-                A2d.data = torch.linalg.inv(A2di_)
+                    # TODO, when not centered at origin, I may need a different projection (see procrustes)
+                    # Let X be the voxel locations in the target image J
+                    # then let A2dX = Y be the transformed voxel locations with a nonrigid transform
+                    # then we want to find R to minimize |RX - Y|^2
+                    # this is done in 2 steps, first we center
+                    # then we svd
+
+                    # these are the untransformed points
+                    X = torch.clone(XJ[1:])
+
+                    # these are the transformed points Y
+                    # we will need to update this, otherwise I'm just projecting onto the same one as last time
+                    A2di = torch.linalg.inv(A2d) 
+                    Y = ((A2di[:,None,None,:2,:2]@ (X.permute(1,2,3,0)[...,None]))[...,0] + A2di[:,None,None,:2,-1]).permute(3,0,1,2)                            
+                    # for linear algebra, vector components at end
+                    X = X.permute(1,2,3,0)
+                    Y = Y.permute(1,2,3,0)
+                    # we want to find a rigid transform of X to match Y (sum over row and column)
+                    Xbar = torch.mean(X,dim=(1,2),keepdims=True)
+                    Ybar = torch.mean(Y,dim=(1,2),keepdims=True)
+                    X = X - Xbar
+                    Y = Y - Ybar
+                    # now we want to find the best rotation that matches X to Y
+                    # we want
+                    # min |RX - Y|^2
+                    # min tr[(RX-Y)(RX-Y)^T]
+                    # min -tr[RXY^T]
+                    # max tr[R(XY^T)]
+                    # let XY^T = USV^T
+                    # then
+                    # max tr[R (USV^T)]
+                    # max tr[(V^T R U) S]
+                    # this is maximized when the bracketted term is identity
+                    # so V^T R U = id
+                    # R = V U^T
+                    # note xyz is first dimension, I will want it to be last
+                    # for tanslation
+                    # now I need the translation part
+                    # but this should just be
+                    # R(X-Xbar) = (Y-Ybar)
+                    # RX - RXbar = Y-Ybar
+                    # RX + [-RXbar + Ybar] = Y
+                    S = X.reshape(X.shape[0],-1,2).transpose(-1,-2) @ Y.reshape(X.shape[0],-1,2)
+                    U,_,Vh = torch.linalg.svd(S)
+                    #R = U.transpose(-1,-2)@Vh.transpose(-1,-2)
+                    #R = R.transpose(-1,-2) # ? this seems to work
+                    R = Vh.transpose(-1,-2)@U.transpose(-1,-2)
+                    T = ((-R[:,None,None,]@Xbar[...,None])[...,0] + Ybar)[:,0,0,:]
+                    # now we need to stack them together
+                    A2di_ = torch.zeros(T.shape[0],3,3,dtype=dtype,device=device)
+                    A2di_[:,:2,:2] = R
+                    A2di_[:,:2,-1] = T
+                    A2di_[:,-1,-1] = 1
+                    A2d.data = torch.linalg.inv(A2di_)
                 
             
             
