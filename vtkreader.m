@@ -5,7 +5,7 @@
 fname = '/home/dtward/data/csh_data/Marmoset_CCF/outputs_female_v00/nissl_registered/nissl_to_nissl_registered/images/nissl_nissl_to_nissl_registered_rgb.vtk'
 fname = '/home/dtward/data/csh_data/Marmoset_CCF/outputs_female_v00/nissl_registered/myelin_to_nissl_registered/images/myelin_myelin_to_nissl_registered_rgb.vtk'
 fname = '/home/dtward/data/AllenInstitute/allen_vtk/annotation_50_bregma_LR.vtk'
-
+fname = '../Mouse_CCF/female_invivo_atlas_2025.vtk'
 
 
 verbose = 1;

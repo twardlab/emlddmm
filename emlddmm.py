@@ -29,7 +29,11 @@ except:
     
 # for interactive display with widget
 from IPython.display import display
+use_display = 'ipympl' in plt.get_backend()
     
+
+
+
 # display
 def extent_from_x(xJ):
     ''' Given a set of pixel locations, returns an extent 4-tuple for use with imshow.
@@ -1122,6 +1126,9 @@ def emlddmm(**kwargs):
                 'small':1e-7, # for matrix inverse
                 'out_of_plane':True, # if False, will project the velocity to be in plane only
                 'rigid_procrustes':False, # for 2D project onto rigid using procrustes, else use svd
+                'pointsI':None, # for point matching with SSE, goal will be to match in atlas space, that way we don't need to compute more transforms
+                'pointsJ':None, # points J will be mapped ot the nearest slice if use slice matching is true
+                'sigmaP':1.0, # sigma for sse matching with points
                }
     defaults.update(kwargs)
     kwargs = defaults
@@ -1147,6 +1154,14 @@ def emlddmm(**kwargs):
     J = torch.as_tensor(J,device=device,dtype=dtype)
     xI = [torch.as_tensor(x,device=device,dtype=dtype) for x in xI]
     xJ = [torch.as_tensor(x,device=device,dtype=dtype) for x in xJ]
+    # landmark points for sse matching
+    pointsI = kwargs['pointsI']
+    pointsJ = kwargs['pointsJ']
+    sigmaP = kwargs['sigmaP']
+    if pointsI is not None:
+        pointsI = torch.as_tensor(pointsI,device=device,dtype=dtype)
+        pointsJ = torch.as_tensor(pointsJ,device=device,dtype=dtype)
+        
     
     
     ##########################################################################################################
@@ -1236,6 +1251,10 @@ def emlddmm(**kwargs):
         slice_matching = False
     if slice_matching:
         A2d = kwargs['A2d']
+        # TODO get the index of the nearest slice for point matching
+        pointsJind = torch.argmin( (xJ[0][:,None]-pointsJ[:,0][None,:]) ,0)
+        asdf
+        
     slice_matching_start = kwargs['slice_matching_start']
     slice_matching_isotropic = kwargs['slice_matching_isotropic']
     rigid_procrustes = kwargs['rigid_procrustes']
@@ -1525,26 +1544,35 @@ def emlddmm(**kwargs):
         
     if n_draw: # if n_draw is not 0, we create figures
         figE,axE = plt.subplots(1,3)
-        hfigE = display(figE,display_id=True)
+        if use_display: 
+            hfigE = display(figE,display_id=True)
         figA,axA = plt.subplots(2,2)
-        hfigA = display(figA,display_id=True)
+        if use_display:
+            hfigA = display(figA,display_id=True)
         axA = axA.ravel()
         if slice_matching:
             figA2d,axA2d = plt.subplots(2,2)
-            hfigA2d = display(figA2d,display_id=True)
+            if use_display: 
+                hfigA2d = display(figA2d,display_id=True)
             axA2d = axA2d.ravel()
         figI = plt.figure()
-        hfigI = display(figI,display_id=True)
+        if use_display: 
+            hfigI = display(figI,display_id=True)
         figfI = plt.figure()
-        hfigfI = display(figfI,display_id=True)
+        if use_display: 
+            hfigfI = display(figfI,display_id=True)
         figErr = plt.figure()
-        hfigErr = display(figErr,display_id=True)
+        if use_display: 
+            hfigErr = display(figErr,display_id=True)
         figJ = plt.figure()
-        hfigJ = display(figJ,display_id=True)
+        if use_display: 
+            hfigJ = display(figJ,display_id=True)
         figV = plt.figure()
-        hfigV = display(figV,display_id=True)
+        if use_display: 
+            hfigV = display(figV,display_id=True)
         figW = plt.figure()
-        hfigW = display(figW,display_id=True)
+        if use_display: 
+            hfigW = display(figW,display_id=True)
         
 
 
@@ -1580,6 +1608,18 @@ def emlddmm(**kwargs):
         Xs = ((Ai[:3,:3]@XJ_.permute((1,2,3,0))[...,None])[...,0] + Ai[:3,-1]).permute((3,0,1,2))
         # for diffeomorphism
         phiiAi = interp(xv,phii-XV,Xs) + Xs
+        
+        # if points
+        if pointsI is not None:
+            #print([len(x) for x in xJ])
+            #print(phiiAi.shape)
+            #print(pointsJ[...,None,None,None].shape)
+            AiphiiPointsJ = interp(xJ,phiiAi,pointsJ.T[...,None,None])[...,0,0].T # add 2 extra dimensions because expecting 3d
+            #print(AiphiiPointsJ.shape)
+            EP = torch.sum( (AiphiiPointsJ - pointsI)**2 )/2.0/sigmaP**2
+            print(f'Points RMSE {(torch.mean(torch.sum((AiphiiPointsJ - pointsI)**2 ,-1))**0.5).item()}, EP {EP.item()}')
+            #print(EP)
+            #asdf
         
         # transform image
         AphiI = interp(xI,I,phiiAi)
@@ -1842,6 +1882,8 @@ def emlddmm(**kwargs):
         E = EM + ER
         if (slice_to_neighbor_sigma is not None) or (slice_to_average_a is not None):            
             E = E + EN
+        if pointsI is not None:
+            E = E + EP
         
 
         # gradient
@@ -1870,6 +1912,8 @@ def emlddmm(**kwargs):
             Esave.append([E.detach().cpu(),EM.detach().cpu(),ER.detach().cpu()])        
         else:
             Esave.append([E.detach().cpu(),EM.detach().cpu(),ER.detach().cpu(),EN.detach().cpu()])
+        if pointsI is not None:
+            Esave[-1].append(EP.detach().cpu())
         Tsave.append(A[:3,-1].detach().clone().squeeze().cpu().numpy())
         Lsave.append(A[:3,:3].detach().clone().squeeze().reshape(-1).cpu().numpy())
         maxvsave.append(torch.max(torch.abs(v.detach())).clone().cpu().numpy())
@@ -1911,12 +1955,17 @@ def emlddmm(**kwargs):
             axE[0].plot(np.array(Esave)[:,1])
             if slice_to_neighbor_sigma is not None:
                 axE[0].plot(np.array(Esave)[:,3])
+            if pointsI is not None:
+                axE[0].plot(np.array(Esave)[:,-1])
                 
             axE[0].set_title('Energy')
             axE[1].cla()
             axE[1].plot(np.array(Esave)[:,1])
             if (slice_to_neighbor_sigma is not None) or (slice_to_average_a is not None):
                 axE[1].plot(np.array(Esave)[:,3])
+            if pointsI is not None:
+                axE[1].plot(np.array(Esave)[:,-1])
+            
             axE[1].set_title('Matching')
             axE[2].cla()
             axE[2].plot(np.array(Esave)[:,2])
@@ -1980,7 +2029,8 @@ def emlddmm(**kwargs):
                 if slice_to_average_a is not None:
                     if 'figN' not in locals():
                         figN = plt.figure()
-                        hfigN = display(figN,display_id=True)
+                        if use_display: 
+                            hfigN = display(figN,display_id=True)
                     _ = draw(Jblur.cpu(),xJshift,fig=figN,vmin=vminJ,vmax=vmaxJ)
                     figN.suptitle('Jblur')
                     # save them for debugging!
@@ -2030,27 +2080,37 @@ def emlddmm(**kwargs):
 
             # TODO check if widget backend, and only then call update
             figE.canvas.draw()
-            hfigE.update(figE)
+            if use_display: 
+                hfigE.update(figE)
             figI.canvas.draw()
-            hfigI.update(figI)
+            if use_display: 
+                hfigI.update(figI)
             figfI.canvas.draw()
-            hfigfI.update(figfI)
+            if use_display: 
+                hfigfI.update(figfI)
             figErr.canvas.draw()
-            hfigErr.update(figErr)
+            if use_display: 
+                hfigErr.update(figErr)
             figA.canvas.draw()
-            hfigA.update(figA)
+            if use_display: 
+                hfigA.update(figA)
             figV.canvas.draw()
-            hfigV.update(figV)
+            if use_display: 
+                hfigV.update(figV)
             figW.canvas.draw()
-            hfigW.update(figW)
+            if use_display: 
+                hfigW.update(figW)
             figJ.canvas.draw()
-            hfigJ.update(figJ)
+            if use_display: 
+                hfigJ.update(figJ)
             if slice_matching:
                 figA2d.canvas.draw()
-                hfigA2d.update(figA2d)
+                if use_display: 
+                    hfigA2d.update(figA2d)
             if slice_to_average_a is not None:
                 figN.canvas.draw()
-                hfigN.update(figN)
+                if use_display: 
+                    hfigN.update(figN)
 
         ################################################################################
         # update parameters        
