@@ -1128,6 +1128,7 @@ def emlddmm(**kwargs):
                 'rigid_procrustes':False, # for 2D project onto rigid using procrustes, else use svd
                 'pointsI':None, # for point matching with SSE, goal will be to match in atlas space, that way we don't need to compute more transforms
                 'pointsJ':None, # points J will be mapped ot the nearest slice if use slice matching is true
+                'pointsW':None, # weights for the points, compatible dimension with points. could be Nx3, Nx1, 3, or 1, NOT N
                 'sigmaP':1.0, # sigma for sse matching with points
                }
     defaults.update(kwargs)
@@ -1161,6 +1162,14 @@ def emlddmm(**kwargs):
     if pointsI is not None:
         pointsI = torch.as_tensor(pointsI,device=device,dtype=dtype)
         pointsJ = torch.as_tensor(pointsJ,device=device,dtype=dtype)
+    pointsW = kwargs['pointsW']
+    if pointsW is not None:
+        pointsW = torch.as_tensor(pointsW,device=device,dtype=dtype)
+        # could be Nx3, Nx1, 3, or 1
+    else:
+        pointsW = 1.0
+                
+            
         
     
     
@@ -1252,8 +1261,8 @@ def emlddmm(**kwargs):
     if slice_matching:
         A2d = kwargs['A2d']
         # TODO get the index of the nearest slice for point matching
-        pointsJind = torch.argmin( (xJ[0][:,None]-pointsJ[:,0][None,:]) ,0)
-        asdf
+        #pointsJind = torch.argmin( (xJ[0][:,None]-pointsJ[:,0][None,:]) ,0)
+        #asdf
         
     slice_matching_start = kwargs['slice_matching_start']
     slice_matching_isotropic = kwargs['slice_matching_isotropic']
@@ -1614,10 +1623,12 @@ def emlddmm(**kwargs):
             #print([len(x) for x in xJ])
             #print(phiiAi.shape)
             #print(pointsJ[...,None,None,None].shape)
+            #print(pointsW)
             AiphiiPointsJ = interp(xJ,phiiAi,pointsJ.T[...,None,None])[...,0,0].T # add 2 extra dimensions because expecting 3d
             #print(AiphiiPointsJ.shape)
-            EP = torch.sum( (AiphiiPointsJ - pointsI)**2 )/2.0/sigmaP**2
-            print(f'Points RMSE {(torch.mean(torch.sum((AiphiiPointsJ - pointsI)**2 ,-1))**0.5).item()}, EP {EP.item()}')
+            EP = torch.sum( (AiphiiPointsJ - pointsI)**2*pointsW )/2.0/sigmaP**2
+            if not it%(n_iter//20) or it == (n_iter-1):
+                print(f'Points RMSE {(torch.mean(torch.sum((AiphiiPointsJ - pointsI)**2 ,-1))**0.5).item()}, EP {EP.item()}')
             #print(EP)
             #asdf
         
