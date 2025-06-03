@@ -1628,7 +1628,11 @@ def emlddmm(**kwargs):
             #print(AiphiiPointsJ.shape)
             EP = torch.sum( (AiphiiPointsJ - pointsI)**2*pointsW )/2.0/sigmaP**2
             if not it%(n_iter//20) or it == (n_iter-1):
-                print(f'Points RMSE {(torch.mean(torch.sum((AiphiiPointsJ - pointsI)**2 ,-1))**0.5).item()}, EP {EP.item()}')
+                
+                rmse0 = (torch.mean(((AiphiiPointsJ[0] - pointsI[0])**2 ))**0.5).item()
+                rmse1 = (torch.mean(((AiphiiPointsJ[1] - pointsI[1])**2 ))**0.5).item()
+                rmse2 = (torch.mean(((AiphiiPointsJ[2] - pointsI[2])**2 ))**0.5).item()
+                print(f'Points RMSE tot {(torch.mean(torch.sum((AiphiiPointsJ - pointsI)**2 ,-1))**0.5).item()} ({rmse0},{rmse1},{rmse2}), EP {EP.item()}')
             #print(EP)
             #asdf
         
