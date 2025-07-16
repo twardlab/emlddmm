@@ -29,7 +29,8 @@ except:
     
 # for interactive display with widget
 from IPython.display import display
-use_display = 'ipympl' in plt.get_backend()
+use_display = 'ipympl' in plt.get_backend() or 'widget' in plt.get_backend()
+print(f'use display {use_display}')
     
 
 
@@ -1467,7 +1468,7 @@ def emlddmm(**kwargs):
                 v2d.requires_grad = True
             else:
                 if v2d.shape[1] != v2dsize[1]:
-                    raise EXception('Initial 2d velocity must have 2 components')
+                    raise Exception('Initial 2d velocity must have 2 components')
                 # resample it
                 v2d = sinc_resample_numpy(v2d.cpu(),vsize)
                 v2d = torch.as_tensor(v2d,device=device,dtype=dtype)
@@ -1626,12 +1627,13 @@ def emlddmm(**kwargs):
             #print(pointsW)
             AiphiiPointsJ = interp(xJ,phiiAi,pointsJ.T[...,None,None])[...,0,0].T # add 2 extra dimensions because expecting 3d
             #print(AiphiiPointsJ.shape)
+            # size should be Nx3
             EP = torch.sum( (AiphiiPointsJ - pointsI)**2*pointsW )/2.0/sigmaP**2
             if not it%(n_iter//20) or it == (n_iter-1):
                 
-                rmse0 = (torch.mean(((AiphiiPointsJ[0] - pointsI[0])**2 ))**0.5).item()
-                rmse1 = (torch.mean(((AiphiiPointsJ[1] - pointsI[1])**2 ))**0.5).item()
-                rmse2 = (torch.mean(((AiphiiPointsJ[2] - pointsI[2])**2 ))**0.5).item()
+                rmse0 = (torch.mean(((AiphiiPointsJ[:,0] - pointsI[:,0])**2 ))**0.5).item()
+                rmse1 = (torch.mean(((AiphiiPointsJ[:,1] - pointsI[:,1])**2 ))**0.5).item()
+                rmse2 = (torch.mean(((AiphiiPointsJ[:,2] - pointsI[:,2])**2 ))**0.5).item()
                 print(f'Points RMSE tot {(torch.mean(torch.sum((AiphiiPointsJ - pointsI)**2 ,-1))**0.5).item()} ({rmse0},{rmse1},{rmse2}), EP {EP.item()}')
             #print(EP)
             #asdf
