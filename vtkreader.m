@@ -1,5 +1,9 @@
 % load a (legacyformat) vtk file into the current workspace
-% the name of the file should be placed into the variable "fname" below.
+% the name of the input file should be placed into the variable "fname" below.
+% data will be loaded into variables named x0,x1,x2, I
+% the xi's store the locations of pixels
+% the I stores the imaging data
+
 
 fname = 'the_name_of_the_vtk_file_you_want_to_load.vtk'
 
