@@ -1,11 +1,11 @@
-% load a vtk file
-% needs to support SCALARS or VECTORS
-% AND
-% needs to load more than one dataset if it's there
-fname = '/home/dtward/data/csh_data/Marmoset_CCF/outputs_female_v00/nissl_registered/nissl_to_nissl_registered/images/nissl_nissl_to_nissl_registered_rgb.vtk'
-fname = '/home/dtward/data/csh_data/Marmoset_CCF/outputs_female_v00/nissl_registered/myelin_to_nissl_registered/images/myelin_myelin_to_nissl_registered_rgb.vtk'
-fname = '/home/dtward/data/AllenInstitute/allen_vtk/annotation_50_bregma_LR.vtk'
-fname = '../Mouse_CCF/female_invivo_atlas_2025.vtk'
+% load a (legacyformat) vtk file into the current workspace
+% the name of the input file should be placed into the variable "fname" below.
+% data will be loaded into variables named x0,x1,x2, I
+% the xi's store the locations of pixels
+% the I stores the imaging data
+
+
+fname = 'the_name_of_the_vtk_file_you_want_to_load.vtk'
 
 
 verbose = 1;
