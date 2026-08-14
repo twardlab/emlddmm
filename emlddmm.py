@@ -1125,7 +1125,7 @@ def emlddmm(**kwargs):
                 'slice_to_neighbor_sigma':None, # add a loss function for aligning slices to neighbors by simple least squres
                 'slice_to_average_a': None,
                 'small':1e-7, # for matrix inverse
-                'out_of_plane':True, # if False, will project the velocity to be in plane only
+                'out_of_plane':True, # if False, will project the velocity to be in plane only TODO
                 'rigid_procrustes':False, # for 2D project onto rigid using procrustes, else use svd
                 'pointsI':None, # for point matching with SSE, goal will be to match in atlas space, that way we don't need to compute more transforms
                 'pointsJ':None, # points J will be mapped ot the nearest slice if use slice matching is true
@@ -1943,7 +1943,11 @@ def emlddmm(**kwargs):
             checksign0 = np.sign(maxvsave[-1] - maxvsave[-2])
             checksign1 = np.sign(maxvsave[-2] - maxvsave[-3])
             checksign2 = np.sign(maxvsave[-3] - maxvsave[-4])
-            if np.any((checksign0 != checksign1)*(checksign1 != checksign2) ):
+            if np.any((checksign0 != checksign1)*(checksign1 != checksign2) ): 
+                # "noise threshold of 0" need a better threshold
+                # we could take absolute value of difference over mean (coefficient of variation)
+                # window size of 3 is too small
+                # compute some measure of snr over some window
                 ev *= reduce_factor
                 print(f'Iteration {it} reducing ev to {ev}')
 
@@ -2399,7 +2403,7 @@ def emlddmm(**kwargs):
             out['figErr'] = figErr        
             out['figJ'] = figJ        
             out['figW'] = figW        
-            out['figV'] = figV        
+            out['figV'] = figV       
         # others ...
     return out
 
